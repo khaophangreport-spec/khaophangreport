@@ -1,0 +1,12 @@
+.admin-shell {
+  margin: 0 auto;
+  max-width: var(--content-max-width);
+  padding: var(--space-4);
+}
+
+@media (min-width: 1024px) {
+  .admin-shell {
+    padding: var(--space-8);
+  }
+}
+

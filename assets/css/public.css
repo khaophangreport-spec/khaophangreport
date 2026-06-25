@@ -1,0 +1,39 @@
+.site-header,
+.site-footer {
+  padding: var(--space-4);
+}
+
+.site-nav {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin: 0 auto;
+  max-width: var(--content-max-width);
+}
+
+.site-brand {
+  color: var(--color-primary-900);
+  font-weight: 800;
+  margin-right: auto;
+}
+
+.page-shell {
+  margin: 0 auto;
+  max-width: var(--content-max-width);
+  padding: var(--space-4);
+}
+
+.hero-section {
+  display: grid;
+  gap: var(--space-4);
+  min-height: 60vh;
+  padding: var(--space-8) 0;
+}
+
+@media (min-width: 768px) {
+  .page-shell {
+    padding: var(--space-8);
+  }
+}
+
