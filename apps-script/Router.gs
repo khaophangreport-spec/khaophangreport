@@ -6,37 +6,59 @@ const ROUTER_ACTIONS_ = Object.freeze({
 });
 
 function Router_handleGet_(e) {
-  const action = e && e.parameter && e.parameter.action ? e.parameter.action : "health.check";
-  const requestId = e && e.parameter && e.parameter.requestId ? e.parameter.requestId : Utils_createRequestId_();
+  const parameters = e && e.parameter ? e.parameter : {};
+  const action = parameters.action || "";
+  const requestId = parameters.requestId || Utils_createRequestId_();
+  const dataResult = Router_parseGetData_(parameters);
 
   return Router_dispatch_({
     action: action,
     requestId: requestId,
     sessionToken: "",
-    data: {}
+    data: dataResult
+  }, {
+    method: "GET",
+    contentType: ""
   });
 }
 
 function Router_handlePost_(e) {
   const rawBody = e && e.postData && e.postData.contents ? e.postData.contents : "";
+  const contentType = e && e.postData && e.postData.type ? e.postData.type : "";
   const parsed = Utils_safeJsonParse_(rawBody);
 
   if (!parsed.ok) {
+    Router_logRequest_("error", {
+      action: "",
+      requestId: "",
+      method: "POST",
+      contentType: contentType,
+      code: "VALIDATION_ERROR"
+    });
+
     return Response_error_("VALIDATION_ERROR", "รูปแบบ JSON ไม่ถูกต้อง", {
       request: "กรุณาส่ง JSON ตามรูปแบบ API"
     }, {
       requestId: "",
-      action: ""
+      action: "",
+      method: "POST",
+      contentType: contentType
     });
   }
 
-  return Router_dispatch_(parsed.data);
+  return Router_dispatch_(parsed.data, {
+    method: "POST",
+    contentType: contentType
+  });
 }
 
-function Router_dispatch_(payload) {
+function Router_dispatch_(payload, context) {
+  const safeContext = Utils_isPlainObject_(context) ? context : {};
   const meta = {
     requestId: payload && payload.requestId ? String(payload.requestId) : "",
-    action: payload && payload.action ? String(payload.action) : ""
+    action: payload && payload.action ? String(payload.action) : "",
+    method: safeContext.method || "",
+    contentType: safeContext.contentType || ""
   };
 
   try {
@@ -61,10 +83,59 @@ function Router_dispatch_(payload) {
       data: payload.data || {}
     });
 
+    Router_logRequest_("success", {
+      action: meta.action,
+      requestId: meta.requestId,
+      method: meta.method,
+      contentType: meta.contentType,
+      code: ""
+    });
+
     return Response_success_(result.data, result.message, meta);
   } catch (error) {
+    Router_logRequest_("error", {
+      action: meta.action,
+      requestId: meta.requestId,
+      method: meta.method,
+      contentType: meta.contentType,
+      code: error && error.code ? error.code : "INTERNAL_ERROR"
+    });
+
     return Response_fromException_(error, meta);
   }
+}
+
+function Router_parseGetData_(parameters) {
+  const data = {};
+
+  if (parameters && parameters.data) {
+    const parsed = Utils_safeJsonParse_(parameters.data);
+
+    if (parsed.ok && Utils_isPlainObject_(parsed.data)) {
+      return parsed.data;
+    }
+  }
+
+  Object.keys(parameters || {}).forEach(function (key) {
+    if (key === "action" || key === "requestId" || key === "sessionToken" || key === "data") {
+      return;
+    }
+
+    data[key] = parameters[key];
+  });
+
+  return data;
+}
+
+function Router_logRequest_(status, details) {
+  Security_safeLog_("API_REQUEST", {
+    action: details && details.action ? details.action : "",
+    requestId: details && details.requestId ? details.requestId : "",
+    method: details && details.method ? details.method : "",
+    contentType: details && details.contentType ? details.contentType : "",
+    status: status || "",
+    code: details && details.code ? details.code : ""
+  });
 }
 
 function Router_healthCheck_(request) {

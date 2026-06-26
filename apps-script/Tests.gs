@@ -186,3 +186,95 @@ function testPublicReadApiRouter() {
     actions: actions
   };
 }
+
+function testGetHealthCheckRouter() {
+  const response = Router_handleGet_({
+    parameter: {
+      action: "health.check",
+      requestId: "REQ-TEST-GET-HEALTH"
+    }
+  });
+  const payload = JSON.parse(response.getContent());
+
+  if (!payload.ok || !payload.data || payload.data.status !== "ok") {
+    throw new Error("GET health.check did not return ok status");
+  }
+
+  console.log(JSON.stringify(payload));
+  return payload;
+}
+
+function testGetCategoryListRouter() {
+  const response = Router_handleGet_({
+    parameter: {
+      action: "category.list",
+      requestId: "REQ-TEST-GET-CATEGORY"
+    }
+  });
+  const payload = JSON.parse(response.getContent());
+
+  if (!payload.ok || !payload.data || !Array.isArray(payload.data.items)) {
+    throw new Error("GET category.list did not return items");
+  }
+
+  console.log(JSON.stringify({
+    ok: payload.ok,
+    count: payload.data.items.length
+  }));
+  return payload;
+}
+
+function testPostTextPlainRouter() {
+  const response = Router_handlePost_({
+    postData: {
+      type: "text/plain;charset=utf-8",
+      contents: JSON.stringify({
+        action: "health.check",
+        requestId: "REQ-TEST-POST-TEXT",
+        sessionToken: "",
+        data: {}
+      })
+    }
+  });
+  const payload = JSON.parse(response.getContent());
+
+  if (!payload.ok || !payload.data || payload.data.status !== "ok") {
+    throw new Error("POST text/plain health.check did not return ok status");
+  }
+
+  console.log(JSON.stringify(payload));
+  return payload;
+}
+
+function testRouterJsonParseFailure() {
+  const response = Router_handlePost_({
+    postData: {
+      type: "text/plain;charset=utf-8",
+      contents: "{invalid-json"
+    }
+  });
+  const payload = JSON.parse(response.getContent());
+
+  if (payload.ok !== false || !payload.error || payload.error.code !== "VALIDATION_ERROR") {
+    throw new Error("Invalid JSON did not return VALIDATION_ERROR");
+  }
+
+  console.log(JSON.stringify(payload));
+  return payload;
+}
+
+function testRouterMissingAction() {
+  const response = Router_handleGet_({
+    parameter: {
+      requestId: "REQ-TEST-MISSING-ACTION"
+    }
+  });
+  const payload = JSON.parse(response.getContent());
+
+  if (payload.ok !== false || !payload.error || payload.error.code !== "VALIDATION_ERROR") {
+    throw new Error("Missing action did not return VALIDATION_ERROR");
+  }
+
+  console.log(JSON.stringify(payload));
+  return payload;
+}
