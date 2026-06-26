@@ -1,0 +1,19 @@
+.eyebrow {
+  color: var(--color-primary-700);
+  font-weight: 700;
+}
+
+.placeholder-text {
+  color: var(--color-text-muted);
+}
+
+.sr-only {
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  width: 1px;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}

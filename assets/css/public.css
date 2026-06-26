@@ -1,0 +1,9 @@
+.hero-section {
+  background: linear-gradient(180deg, var(--color-primary-50), var(--color-surface));
+}
+
+@media (min-width: 768px) {
+  .page-shell {
+    padding: var(--space-8);
+  }
+}

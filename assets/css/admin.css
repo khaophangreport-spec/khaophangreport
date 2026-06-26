@@ -1,0 +1,13 @@
+.admin-shell {
+  max-width: 960px;
+}
+
+.admin-panel {
+  min-height: 220px;
+}
+
+@media (min-width: 1024px) {
+  .admin-shell {
+    padding: var(--space-8);
+  }
+}
