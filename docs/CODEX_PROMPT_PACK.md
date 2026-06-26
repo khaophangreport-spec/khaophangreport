@@ -1,7 +1,7 @@
-# Khaophang Report — CODEX PROMPT PACK
+# Khaophang Report — CODEX PROMPT PACK (ฉบับเริ่มต้นใหม่)
 
 > ชุด Prompt สำหรับใช้สั่ง Codex ผ่าน VS Code  
-> ครอบคลุมตั้งแต่เริ่มต้นโปรเจ็กต์จนถึงเปิดใช้งานจริง
+> ครอบคลุมตั้งแต่เริ่มต้นโปรเจ็กต์ การสร้าง Google Sheets, Google Drive, Google Apps Script จนถึงเปิดใช้งานจริง
 
 ---
 
@@ -12,7 +12,7 @@
 | ชื่อเอกสาร | CODEX_PROMPT_PACK.md |
 | ชื่อระบบ | Khaophang Report |
 | ชื่อภาษาไทย | ระบบรับแจ้งและติดตามปัญหาชุมชนตำบลเขาพัง |
-| เวอร์ชัน | 1.0.0 |
+| เวอร์ชัน | 2.0.0 |
 | วันที่จัดทำ | 26 มิถุนายน 2026 |
 | Production URL | https://khaophangreport.pages.dev |
 | GitHub Repository | https://github.com/khaophangreport-spec/khaophangreport.git |
@@ -54,6 +54,17 @@ docs/DATA_SCHEMA.md
 docs/API_SPEC.md
 docs/DEVELOPMENT_RULES.md
 ```
+
+---
+
+## 2.1 กฎ Source of Truth
+
+```text
+ไฟล์ใน VS Code = Source of Truth
+Google Apps Script = Runtime Copy
+```
+
+ทุกครั้งที่ Codex แก้ Backend ต้องคัดลอกไฟล์ล่าสุดขึ้น Google Apps Script ก่อนรันหรือ Deploy
 
 ---
 
@@ -809,6 +820,166 @@ git commit -m "feat: add design tokens and css foundation"
 
 ---
 
+
+# PART C1 — MANUAL GOOGLE SETUP ก่อน Prompt 08
+
+> จุดนี้ต้องหยุดใช้ Codex ชั่วคราว แล้วสร้างทรัพยากร Google ด้วยตัวเองก่อน  
+> ห้ามรัน Prompt 08 จนกว่าจะทำ Manual Step ต่อไปนี้ครบ
+
+## MANUAL STEP G01 — สร้าง Google Spreadsheet
+
+ใช้บัญชีโครงการ:
+
+```text
+khaophangreport@gmail.com
+```
+
+ขั้นตอน:
+
+1. เข้า Google Drive
+2. กด **ใหม่**
+3. เลือก **Google ชีต**
+4. ตั้งชื่อ:
+
+```text
+Khaophang Report Database
+```
+
+5. ไม่ต้องสร้าง Sheet ย่อยเอง
+6. คัดลอก Spreadsheet ID จาก URL
+
+ตัวอย่าง:
+
+```text
+https://docs.google.com/spreadsheets/d/SPREADSHEET_ID/edit
+```
+
+เก็บเฉพาะส่วน `SPREADSHEET_ID` และห้ามใส่ลง GitHub
+
+---
+
+## MANUAL STEP G02 — สร้าง Google Drive Root Folder
+
+ใน Google Drive บัญชีเดียวกัน:
+
+1. กด **ใหม่**
+2. เลือก **โฟลเดอร์**
+3. ตั้งชื่อ:
+
+```text
+Khaophang_Report_Files
+```
+
+4. เปิดโฟลเดอร์
+5. คัดลอก Folder ID จาก URL
+
+ตัวอย่าง:
+
+```text
+https://drive.google.com/drive/folders/ROOT_FOLDER_ID
+```
+
+เก็บเฉพาะ `ROOT_FOLDER_ID`
+
+ฉบับนี้กำหนดให้สร้าง Root Folder เอง เพื่อป้องกันการสร้างซ้ำและตรวจสอบบัญชีได้ชัดเจน
+
+---
+
+## MANUAL STEP G03 — สร้าง Google Apps Script Project
+
+วิธีที่แนะนำ:
+
+1. เปิด Spreadsheet `Khaophang Report Database`
+2. ไปที่:
+
+```text
+ส่วนขยาย → Apps Script
+```
+
+3. ตั้งชื่อ Project:
+
+```text
+Khaophang Report Backend
+```
+
+4. ลบโค้ดตัวอย่างใน `Code.gs`
+5. ยังไม่ต้อง Deploy
+
+---
+
+## MANUAL STEP G04 — ตั้ง Script Properties
+
+ไปที่:
+
+```text
+Project Settings → Script Properties
+```
+
+เพิ่ม:
+
+| Property | Value |
+|---|---|
+| `SPREADSHEET_ID` | Spreadsheet ID จริง |
+| `ROOT_FOLDER_ID` | Folder ID จริง |
+| `APP_SECRET` | ค่าสุ่มชุดที่ 1 |
+| `SESSION_SECRET` | ค่าสุ่มชุดที่ 2 |
+| `ADMIN_SETUP_KEY` | ค่าสุ่มชุดที่ 3 |
+| `ALLOWED_ORIGIN` | `http://localhost:5500` หรือ Origin ของ Live Server ที่ใช้จริง |
+| `ENVIRONMENT` | `development` |
+
+สร้าง Secret ด้วย PowerShell:
+
+```powershell
+$b=New-Object byte[] 32;$r=[System.Security.Cryptography.RandomNumberGenerator]::Create();$r.GetBytes($b);$v=-join($b|ForEach-Object{$_.ToString("x2")});$r.Dispose();$v
+```
+
+รัน 3 ครั้ง และใช้คนละค่า
+
+ห้ามเก็บ Secret ใน:
+
+- GitHub
+- `assets/js/config.js`
+- README
+- docs/
+- Google Sheets
+- Prompt ที่ส่งให้ Codex
+
+---
+
+## MANUAL STEP G05 — นำ Apps Script Foundation จาก VS Code ขึ้น Google
+
+หลัง Prompt 07 ต้องมีไฟล์อย่างน้อย:
+
+```text
+apps-script/
+├── Code.gs
+├── Config.gs
+├── Router.gs
+├── Response.gs
+├── Validation.gs
+├── Utils.gs
+├── Security.gs
+├── Setup.gs
+├── SheetRepository.gs
+├── DriveRepository.gs
+└── Tests.gs
+```
+
+ให้ทำดังนี้:
+
+1. ใน Google Apps Script สร้างไฟล์ชื่อเดียวกัน
+2. คัดลอกโค้ดจาก VS Code ไปวาง
+3. กด Save
+4. ห้ามแก้เฉพาะบน Google Apps Script แล้วไม่อัปเดต VS Code
+
+กฎสำคัญ:
+
+```text
+ไฟล์ใน VS Code = Source of Truth
+Google Apps Script = Runtime Copy
+```
+
+
 ## Prompt 08 — สร้าง Setup.gs และ Google Sheets Schema
 
 ```text
@@ -907,10 +1078,86 @@ git commit -m "feat: add design tokens and css foundation"
 
 ---
 
+
+## MANUAL STEP G06 — อัปเดตโค้ด Prompt 08 ขึ้น Google Apps Script
+
+หลัง Codex ทำ Prompt 08 เสร็จ:
+
+1. ตรวจรายชื่อไฟล์ที่ Codex แก้
+2. คัดลอกไฟล์ล่าสุดจาก VS Code ไป Google Apps Script
+3. อย่างน้อยต้องตรวจ:
+   - `Setup.gs`
+   - `Config.gs`
+   - `SheetRepository.gs`
+   - `DriveRepository.gs`
+   - `Tests.gs`
+4. กด Save
+
+---
+
+## MANUAL STEP G07 — รัน Setup และตรวจผล
+
+รันตามลำดับ:
+
+```javascript
+debugSetupEnvironment()
+```
+
+ตรวจว่า Spreadsheet และ Root Folder ถูกต้อง
+
+จากนั้นรัน:
+
+```javascript
+setupSystem()
+```
+
+Google จะขอสิทธิ์ Google Sheets, Google Drive และ Script Properties ให้ยอมรับด้วยบัญชีโครงการ
+
+จากนั้นรัน:
+
+```javascript
+validateSetup()
+validateSeedData()
+```
+
+### CHECKPOINT G07 — ห้ามไป Prompt 09 หากยังไม่ผ่าน
+
+Google Sheets ต้องมี Sheets ครบ และ:
+
+- `categories` มี Seed Data 10 รายการ
+- `settings` มีค่าขั้นต่ำครบ
+
+Google Drive ภายใน `Khaophang_Report_Files` ต้องมี:
+
+```text
+reports/
+announcements/
+exports/
+backups/
+temp/
+```
+
+Apps Script Logs ต้องไม่มี Error
+
+Script Properties ต้องมี:
+
+```text
+SPREADSHEET_ID
+ROOT_FOLDER_ID
+APP_SECRET
+SESSION_SECRET
+ADMIN_SETUP_KEY
+ALLOWED_ORIGIN
+ENVIRONMENT
+```
+
+หาก Categories หรือ Settings ยังว่าง ให้หยุดและแก้ Prompt 08 ก่อน ห้ามเดินหน้าต่อ
+
+
 ## Prompt 09 — สร้าง SheetRepository และ DriveRepository
 
 ```text
-[ใส่ข้อความนำมาตรฐาน]อ่านเอกสารต่อไปนี้ทั้งหมดก่อนเริ่มงาน:
+อ่านเอกสารต่อไปนี้ทั้งหมดก่อนเริ่มงาน:
 
 - README.md
 - docs/APP_SPEC.md
@@ -1063,6 +1310,72 @@ Action:
 
 # PART E — PHASE 3: PUBLIC MVP
 
+
+## MANUAL STEP G08 — อัปเดตและทดสอบ Public API
+
+หลัง Prompt 10:
+
+1. คัดลอกไฟล์ล่าสุดขึ้น Google Apps Script
+2. กด Save
+3. รัน Test Functions ที่ Codex สร้าง
+4. ตรวจว่า:
+   - `health.check` สำเร็จ
+   - `public.config` คืน Settings
+   - `category.list` คืน 10 หมวด Active
+   - `announcement.list` คืน Array ว่างได้โดยไม่ Error
+   - ไม่มี Secret หรือข้อมูลภายในรั่ว
+
+---
+
+## MANUAL STEP G09 — Deploy Development Web App
+
+1. Google Apps Script → **Deploy**
+2. เลือก **New deployment**
+3. Type: **Web app**
+4. Execute as: **Me**
+5. กำหนดสิทธิ์ให้ Public API เรียกได้
+6. กด Deploy
+7. คัดลอก URL ที่ลงท้ายด้วย `/exec`
+
+ตั้ง `ALLOWED_ORIGIN` ให้ตรงกับ Live Server เช่น:
+
+```text
+http://127.0.0.1:5500
+```
+
+หรือ:
+
+```text
+http://localhost:5500
+```
+
+---
+
+## MANUAL STEP G10 — ใส่ API URL ใน Frontend
+
+นำ URL `/exec` ไปใส่เฉพาะใน:
+
+```text
+assets/js/config.js
+```
+
+เช่น:
+
+```javascript
+window.APP_CONFIG.API_URL = "https://script.google.com/macros/s/DEPLOYMENT_ID/exec";
+```
+
+API URL ไม่ใช่ Secret แต่ห้ามใส่ Spreadsheet ID, Folder ID หรือ Secret ใน Frontend
+
+### CHECKPOINT G10 — ห้ามไป Prompt 11 หาก
+
+- `category.list` ยังใช้ไม่ได้
+- `public.config` ยังใช้ไม่ได้
+- API ยังไม่ Deploy
+- Browser เรียก API ไม่ได้
+- Console มี Error ที่ยังไม่แก้
+
+
 ## Prompt 11 — สร้างหน้าแรก
 
 ```text
@@ -1214,6 +1527,23 @@ Action:
 ```
 
 ---
+
+
+## MANUAL CHECKPOINT G11 — ก่อนเริ่ม Prompt 13
+
+ตรวจให้ครบ:
+
+1. หน้าแรกโหลด Categories จาก Google Sheets จริง
+2. Public Config โหลดได้
+3. Announcement แสดงได้หรือแสดง Empty State ถูกต้อง
+4. Report Form เดินครบ 6 ขั้น
+5. Query Category Preselect ทำงาน
+6. Draft ทำงาน
+7. Console ไม่มี Error
+8. `git diff` ไม่มี Secret
+
+เมื่อผ่านครบแล้วจึงเริ่ม Prompt 13
+
 
 ## Prompt 13 — สร้าง Step 1 และ Step 2 ให้สมบูรณ์
 
@@ -1528,6 +1858,25 @@ Step 6:
 
 ---
 
+
+## กฎบังคับเมื่อ Prompt ใดแก้ไฟล์ `apps-script/`
+
+ทุกครั้งต้องทำตามลำดับ:
+
+```text
+Codex แก้ใน VS Code
+→ ตรวจ git diff
+→ คัดลอกไฟล์ที่แก้ขึ้น Google Apps Script
+→ Save
+→ Run Test
+→ Deploy New Version
+→ ทดสอบจริง
+→ Commit
+```
+
+ห้ามรันโค้ดเก่าใน Google Apps Script หลัง Codex แก้ไฟล์ใน VS Code
+
+
 ## Prompt 17 — สร้าง ReportService และ report.create
 
 ```text
@@ -1539,6 +1888,7 @@ Step 6:
 - docs/DATA_SCHEMA.md
 - docs/API_SPEC.md
 - docs/DEVELOPMENT_RULES.md
+
 กฎบังคับ:
 
 1. ใช้ HTML, CSS และ Vanilla JavaScript สำหรับ Frontend
@@ -2137,6 +2487,24 @@ Action:
 ```
 
 ---
+
+
+## MANUAL STEP G12 — สร้าง Super Admin คนแรกหลัง Prompt 24
+
+หลัง Prompt 24 และหลังอัปเดตโค้ดขึ้น Google Apps Script:
+
+1. รันฟังก์ชัน Initial Super Admin ตามชื่อที่ Codex สร้าง
+2. ใช้ `ADMIN_SETUP_KEY`
+3. ตั้ง Username และ Temporary Password
+4. ตรวจว่า Password ถูก Hash และไม่มี Plain Text ใน Sheet
+5. Login ครั้งแรกต้องบังคับเปลี่ยน Password
+6. หลังสร้างสำเร็จ:
+   - ลบ `ADMIN_SETUP_KEY` หรือเปลี่ยนเป็นค่าใหม่
+   - ปิด Initial Admin Setup
+7. ทดสอบ `auth.login`, `auth.me`, `auth.logout`
+
+ห้ามไป Prompt 25 หากยังสร้าง Super Admin หรือ Session ไม่สำเร็จ
+
 
 ## Prompt 25 — เชื่อม Admin Login
 
@@ -3154,7 +3522,6 @@ Action:
    - วิธีทดสอบ
    - ปัญหาหรือข้อจำกัดที่พบ
 17. อย่า Commit, Push หรือ Deploy จนกว่าจะได้รับคำสั่ง
-
 งาน:
 สร้าง Category Management ทั้ง Backend และ UI
 
@@ -4209,6 +4576,44 @@ Officer → งานของฉัน → Update
 ```
 
 ---
+
+
+# PART N1 — MANUAL PRODUCTION SETUP
+
+## MANUAL STEP G13 — ตั้ง Apps Script Production
+
+ก่อน Production:
+
+```text
+ENVIRONMENT = production
+ALLOWED_ORIGIN = https://khaophangreport.pages.dev
+```
+
+ตรวจ:
+
+- Production Spreadsheet ถูกต้อง
+- Production Root Folder ถูกต้อง
+- Secret ครบ
+- Super Admin ใช้งานได้
+- Backup พร้อม
+- Tests ผ่าน
+
+จากนั้น Deploy **New Version**
+
+---
+
+## MANUAL STEP G14 — ตั้ง Cloudflare Pages
+
+| รายการ | ค่า |
+|---|---|
+| Repository | `khaophangreport-spec/khaophangreport` |
+| Framework preset | None |
+| Build command | ว่าง หรือ `exit 0` |
+| Output directory | `/` |
+| Production branch | `main` |
+
+ตรวจว่า `assets/js/config.js` ใช้ Apps Script Production URL `/exec`
+
 
 ## Prompt 55 — เตรียม Cloudflare Pages
 
