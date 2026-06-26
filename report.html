@@ -33,13 +33,261 @@
         <a href="contact.html">ติดต่อเรา</a>
       </nav>
     </header>
-    <main class="page-shell">
-      <section class="content-section" aria-labelledby="page-title">
+
+    <main class="page-shell report-page">
+      <section class="content-section report-intro" aria-labelledby="page-title">
         <p class="eyebrow">แบบฟอร์ม 6 ขั้นตอน</p>
         <h1 id="page-title">แจ้งปัญหา</h1>
-        <p class="placeholder-text">โครงสร้างตั้งต้นสำหรับแบบฟอร์มแจ้งปัญหา ยังไม่สร้างฟังก์ชันเต็ม</p>
+        <p>กรอกข้อมูลทีละขั้น ระบบจะช่วยตรวจความครบถ้วนก่อนถึงหน้าตรวจสอบ</p>
+        <div class="alert alert-info" data-draft-restored hidden>
+          <p>พบข้อมูลร่างที่เคยกรอกไว้ ระบบกู้คืนข้อมูลที่ปลอดภัยให้แล้ว รูปภาพและข้อมูลติดต่อส่วนตัวต้องเลือกหรือกรอกใหม่</p>
+        </div>
+        <div class="alert alert-warning">
+          <p>กรณีเร่งด่วนที่เสี่ยงต่อชีวิตหรือความปลอดภัย โปรดติดต่อหน่วยงานฉุกเฉินโดยตรง ระบบนี้ไม่ใช่ช่องทางฉุกเฉิน</p>
+        </div>
+      </section>
+
+      <section class="content-section report-form-section" aria-labelledby="report-step-title">
+        <ol class="stepper report-stepper" aria-label="ขั้นตอนการแจ้งปัญหา">
+          <li class="stepper-item" data-stepper-item="1" aria-current="step">หมวด</li>
+          <li class="stepper-item" data-stepper-item="2">รายละเอียด</li>
+          <li class="stepper-item" data-stepper-item="3">สถานที่</li>
+          <li class="stepper-item" data-stepper-item="4">รูปภาพ</li>
+          <li class="stepper-item" data-stepper-item="5">ผู้แจ้ง</li>
+          <li class="stepper-item" data-stepper-item="6">ตรวจสอบ</li>
+        </ol>
+
+        <form class="report-form" data-report-form novalidate>
+          <section class="report-step-panel" data-step-panel="1" aria-labelledby="report-step-title">
+            <div class="section-heading">
+              <p class="eyebrow">Step 1</p>
+              <h2 id="report-step-title">เลือกหมวดปัญหา</h2>
+              <p>เลือกหมวดที่ใกล้เคียงที่สุด เพื่อให้เจ้าหน้าที่คัดกรองได้เร็วขึ้น</p>
+            </div>
+            <input type="hidden" id="category-id" name="categoryId" data-field="categoryId" />
+
+            <div class="home-state" data-category-loading aria-live="polite">
+              <div class="skeleton home-skeleton"></div>
+              <div class="skeleton home-skeleton home-skeleton--short"></div>
+            </div>
+
+            <div class="empty-state" data-category-empty hidden>
+              <h3>ยังไม่มีหมวดที่เปิดใช้งาน</h3>
+              <p>กรุณาลองใหม่ภายหลัง หรือกลับไปหน้าแรกเพื่อดูช่องทางติดต่อ</p>
+              <a class="button button-secondary" href="index.html">กลับหน้าแรก</a>
+            </div>
+
+            <div class="alert alert-danger home-state" data-category-error hidden>
+              <div>
+                <h3>โหลดหมวดไม่สำเร็จ</h3>
+                <p data-category-error-message>ไม่สามารถเชื่อมต่อระบบได้</p>
+              </div>
+              <button class="button button-small button-outline" type="button" data-retry-categories>ลองใหม่</button>
+            </div>
+
+            <div class="report-category-grid" data-category-list hidden></div>
+            <p class="form-error" id="category-id-error" data-error-for="categoryId" aria-live="polite"></p>
+          </section>
+
+          <section class="report-step-panel" data-step-panel="2" aria-labelledby="details-title" hidden>
+            <div class="section-heading">
+              <p class="eyebrow">Step 2</p>
+              <h2 id="details-title">รายละเอียดปัญหา</h2>
+              <p>เล่าให้ชัดเจนพอที่เจ้าหน้าที่เข้าใจพื้นที่และลักษณะปัญหา</p>
+            </div>
+            <div class="form-grid">
+              <div class="form-field">
+                <label class="form-label" for="report-title">หัวข้อเรื่อง <span aria-hidden="true">*</span></label>
+                <input class="form-control" id="report-title" name="title" data-field="title" type="text" maxlength="150" aria-describedby="report-title-help report-title-error" placeholder="เช่น ไฟส่องสว่างดับบริเวณทางเข้าหมู่บ้าน" />
+                <small class="form-help" id="report-title-help"><span data-count-for="title">0</span>/150 ตัวอักษร</small>
+                <p class="form-error" id="report-title-error" data-error-for="title" aria-live="polite"></p>
+              </div>
+              <div class="form-field">
+                <label class="form-label" for="report-description">รายละเอียด <span aria-hidden="true">*</span></label>
+                <textarea class="form-textarea" id="report-description" name="description" data-field="description" rows="6" maxlength="3000" aria-describedby="report-description-help report-description-error" placeholder="อธิบายสิ่งที่พบ ช่วงเวลา ผลกระทบ หรือข้อมูลที่ช่วยให้ตรวจสอบง่ายขึ้น"></textarea>
+                <small class="form-help" id="report-description-help"><span data-count-for="description">0</span>/3000 ตัวอักษร</small>
+                <p class="form-error" id="report-description-error" data-error-for="description" aria-live="polite"></p>
+              </div>
+              <div class="form-grid report-two-column">
+                <div class="form-field">
+                  <label class="form-label" for="incident-date">วันที่พบปัญหา <span aria-hidden="true">*</span></label>
+                  <input class="form-control" id="incident-date" name="incidentDate" data-field="incidentDate" type="date" aria-describedby="incident-date-error" />
+                  <p class="form-error" id="incident-date-error" data-error-for="incidentDate" aria-live="polite"></p>
+                </div>
+                <div class="form-field">
+                  <label class="form-label" for="priority-reported">ความเร่งด่วน <span aria-hidden="true">*</span></label>
+                  <select class="form-select" id="priority-reported" name="priorityReported" data-field="priorityReported" aria-describedby="priority-reported-help priority-reported-error">
+                    <option value="low">ไม่เร่งด่วน</option>
+                    <option value="normal">ปกติ</option>
+                    <option value="high">ควรรีบดำเนินการ</option>
+                    <option value="critical">วิกฤตหรือเสี่ยงอันตราย</option>
+                  </select>
+                  <small class="form-help" id="priority-reported-help">กรณีวิกฤตควรติดต่อหน่วยงานฉุกเฉินโดยตรงก่อน</small>
+                  <p class="form-error" id="priority-reported-error" data-error-for="priorityReported" aria-live="polite"></p>
+                </div>
+              </div>
+              <div class="alert alert-warning" data-critical-warning hidden>
+                <p>หากเป็นเหตุฉุกเฉิน กรุณาติดต่อหมายเลขฉุกเฉินหรือเจ้าหน้าที่ในพื้นที่ทันที แล้วจึงบันทึกเรื่องในระบบภายหลัง</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="report-step-panel" data-step-panel="3" aria-labelledby="location-title" hidden>
+            <div class="section-heading">
+              <p class="eyebrow">Step 3</p>
+              <h2 id="location-title">สถานที่เกิดปัญหา</h2>
+              <p>ระบุชื่อสถานที่หรือจุดสังเกตอย่างน้อยหนึ่งรายการ พิกัดเป็นข้อมูลเสริม ไม่บังคับ</p>
+            </div>
+            <div class="form-grid">
+              <div class="form-field">
+                <label class="form-label" for="location-name">ชื่อสถานที่</label>
+                <input class="form-control" id="location-name" name="locationName" data-field="locationName" type="text" maxlength="200" aria-describedby="location-name-error" placeholder="เช่น หน้าศาลาหมู่บ้าน" />
+                <p class="form-error" id="location-name-error" data-error-for="locationName" aria-live="polite"></p>
+              </div>
+              <div class="form-grid report-two-column">
+                <div class="form-field">
+                  <label class="form-label" for="village-no">หมู่ที่</label>
+                  <input class="form-control" id="village-no" name="villageNo" data-field="villageNo" type="text" maxlength="20" placeholder="เช่น 3" />
+                </div>
+                <div class="form-field">
+                  <label class="form-label" for="map-url">ลิงก์แผนที่</label>
+                  <input class="form-control" id="map-url" name="mapUrl" data-field="mapUrl" type="url" maxlength="500" placeholder="https://maps.google.com/..." />
+                </div>
+              </div>
+              <div class="form-field">
+                <label class="form-label" for="landmark">จุดสังเกต</label>
+                <textarea class="form-textarea" id="landmark" name="landmark" data-field="landmark" rows="3" maxlength="500" aria-describedby="landmark-error" placeholder="เช่น ใกล้ร้านค้า หลังโรงเรียน หรือบริเวณโค้งถนน"></textarea>
+                <p class="form-error" id="landmark-error" data-error-for="landmark" aria-live="polite"></p>
+              </div>
+              <div class="form-grid report-two-column">
+                <div class="form-field">
+                  <label class="form-label" for="latitude">Latitude</label>
+                  <input class="form-control" id="latitude" name="latitude" data-field="latitude" type="number" inputmode="decimal" step="any" aria-describedby="latitude-error" />
+                </div>
+                <div class="form-field">
+                  <label class="form-label" for="longitude">Longitude</label>
+                  <input class="form-control" id="longitude" name="longitude" data-field="longitude" type="number" inputmode="decimal" step="any" aria-describedby="latitude-error" />
+                </div>
+              </div>
+              <p class="form-error" id="latitude-error" data-error-for="coordinates" aria-live="polite"></p>
+              <div class="action-row">
+                <button class="button button-secondary" type="button" data-use-location>ใช้ตำแหน่งปัจจุบัน</button>
+                <a class="button button-outline" href="https://maps.google.com/" target="_blank" rel="noopener">เปิด Google Maps</a>
+              </div>
+              <div class="alert alert-info" data-location-message hidden></div>
+            </div>
+          </section>
+
+          <section class="report-step-panel" data-step-panel="4" aria-labelledby="images-title" hidden>
+            <div class="section-heading">
+              <p class="eyebrow">Step 4</p>
+              <h2 id="images-title">เพิ่มรูปภาพ</h2>
+              <p>เพิ่มรูปได้สูงสุด 3 รูป รองรับ JPG, PNG และ WebP ขั้นตอนนี้ยังไม่บีบอัดหรือส่งไฟล์จริง</p>
+            </div>
+            <div class="form-grid">
+              <div class="report-upload-box">
+                <label class="button button-secondary" for="report-images">เลือกรูปภาพ</label>
+                <input class="sr-only" id="report-images" name="images" type="file" accept="image/jpeg,image/png,image/webp" multiple data-image-input />
+                <p>รูปภาพจะไม่ถูกเก็บใน Local Storage และต้องเลือกใหม่หาก refresh หน้า</p>
+              </div>
+              <p class="form-error" data-error-for="images" aria-live="polite"></p>
+              <div class="empty-state report-image-empty" data-image-empty>
+                <h3>ยังไม่ได้เพิ่มรูปภาพ</h3>
+                <p>ข้ามขั้นตอนนี้ได้ หากยังไม่มีรูปประกอบ</p>
+              </div>
+              <div class="report-image-list" data-image-list hidden></div>
+            </div>
+          </section>
+
+          <section class="report-step-panel" data-step-panel="5" aria-labelledby="reporter-title" hidden>
+            <div class="section-heading">
+              <p class="eyebrow">Step 5</p>
+              <h2 id="reporter-title">ข้อมูลผู้แจ้ง</h2>
+              <p>เลือกแจ้งแบบระบุตัวตนหรือไม่ระบุตัวตน ข้อมูลส่วนตัวจะไม่ถูกเก็บใน draft</p>
+            </div>
+            <div class="form-grid">
+              <fieldset class="report-choice-group">
+                <legend class="form-label">รูปแบบการแจ้ง</legend>
+                <label class="report-choice">
+                  <input type="radio" name="reporterMode" value="identified" data-field="reporterMode" checked />
+                  <span>
+                    <strong>ระบุตัวตน</strong>
+                    <small>เจ้าหน้าที่สามารถติดต่อขอข้อมูลเพิ่มเติมได้</small>
+                  </span>
+                </label>
+                <label class="report-choice">
+                  <input type="radio" name="reporterMode" value="anonymous" data-field="reporterMode" />
+                  <span>
+                    <strong>ไม่ระบุตัวตน</strong>
+                    <small>ต้องเก็บรหัสติดตามไว้เอง และอาจติดต่อกลับไม่ได้</small>
+                  </span>
+                </label>
+              </fieldset>
+              <div class="alert alert-info" data-anonymous-note hidden>
+                <p>เมื่อเลือกไม่ระบุตัวตน ระบบจะไม่ใช้ข้อมูลชื่อ เบอร์โทร หรืออีเมลในการส่งเรื่องจริง</p>
+              </div>
+              <div class="form-grid" data-reporter-fields>
+                <div class="form-field">
+                  <label class="form-label" for="reporter-name">ชื่อผู้แจ้ง <span aria-hidden="true">*</span></label>
+                  <input class="form-control" id="reporter-name" name="reporterName" data-field="reporterName" type="text" maxlength="120" aria-describedby="reporter-name-error" />
+                  <p class="form-error" id="reporter-name-error" data-error-for="reporterName" aria-live="polite"></p>
+                </div>
+                <div class="form-grid report-two-column">
+                  <div class="form-field">
+                    <label class="form-label" for="reporter-phone">เบอร์โทร <span aria-hidden="true">*</span></label>
+                    <input class="form-control" id="reporter-phone" name="reporterPhone" data-field="reporterPhone" type="tel" inputmode="tel" maxlength="20" aria-describedby="reporter-phone-error" />
+                    <p class="form-error" id="reporter-phone-error" data-error-for="reporterPhone" aria-live="polite"></p>
+                  </div>
+                  <div class="form-field">
+                    <label class="form-label" for="reporter-email">อีเมล</label>
+                    <input class="form-control" id="reporter-email" name="reporterEmail" data-field="reporterEmail" type="email" maxlength="120" aria-describedby="reporter-email-error" />
+                    <p class="form-error" id="reporter-email-error" data-error-for="reporterEmail" aria-live="polite"></p>
+                  </div>
+                </div>
+                <div class="form-field">
+                  <label class="form-label" for="contact-method">ช่องทางติดต่อที่สะดวก</label>
+                  <select class="form-select" id="contact-method" name="contactMethod" data-field="contactMethod">
+                    <option value="phone">โทรศัพท์</option>
+                    <option value="email">อีเมล</option>
+                    <option value="none">ไม่ต้องการให้ติดต่อกลับ</option>
+                  </select>
+                </div>
+              </div>
+              <label class="report-check">
+                <input type="checkbox" name="truthConfirmed" data-field="truthConfirmed" />
+                <span>ขอยืนยันว่าข้อมูลที่แจ้งเป็นความจริงตามที่ทราบ</span>
+              </label>
+              <p class="form-error" data-error-for="truthConfirmed" aria-live="polite"></p>
+              <label class="report-check">
+                <input type="checkbox" name="privacyAccepted" data-field="privacyAccepted" />
+                <span>ยอมรับการใช้ข้อมูลตาม <a href="privacy.html" target="_blank" rel="noopener">นโยบายความเป็นส่วนตัว</a> และ <a href="terms.html" target="_blank" rel="noopener">เงื่อนไขการใช้งาน</a></span>
+              </label>
+              <p class="form-error" data-error-for="privacyAccepted" aria-live="polite"></p>
+            </div>
+          </section>
+
+          <section class="report-step-panel" data-step-panel="6" aria-labelledby="review-title" hidden>
+            <div class="section-heading">
+              <p class="eyebrow">Step 6</p>
+              <h2 id="review-title">ตรวจสอบข้อมูล</h2>
+              <p>ตรวจความถูกต้องก่อนส่งจริง ขั้นตอนนี้ยังไม่เรียก API ส่งเรื่อง</p>
+            </div>
+            <div class="alert alert-success" data-review-success hidden>
+              <p>ข้อมูลครบถ้วนสำหรับโครงสร้างฟอร์มแล้ว การส่งเรื่องจริงจะเชื่อมต่อในขั้นถัดไป</p>
+            </div>
+            <div class="report-review-list" data-review-list></div>
+          </section>
+
+          <div class="report-form-actions">
+            <button class="button button-outline" type="button" data-back-step>ย้อนกลับ</button>
+            <button class="button button-secondary" type="button" data-save-draft>บันทึกแบบร่าง</button>
+            <button class="button button-primary" type="button" data-next-step>ถัดไป</button>
+          </div>
+          <p class="form-help" data-form-status aria-live="polite"></p>
+        </form>
       </section>
     </main>
+
     <footer class="site-footer">
       <p><strong>Khaophang Report</strong></p>
       <p>อีเมล <a href="mailto:khaophangreport@gmail.com">khaophangreport@gmail.com</a></p>
@@ -49,21 +297,22 @@
       </nav>
       <p>กรณีฉุกเฉิน กรุณาติดต่อหน่วยงานที่เกี่ยวข้องโดยตรง</p>
     </footer>
+
     <nav class="mobile-bottom-nav" aria-label="เมนูหลักบนมือถือ">
       <a class="mobile-bottom-nav__item" href="index.html">
-        <span aria-hidden="true">⌂</span>
+        <span aria-hidden="true">H</span>
         <span>หน้าแรก</span>
       </a>
       <a class="mobile-bottom-nav__item" href="report.html" aria-current="page">
-        <span aria-hidden="true">＋</span>
+        <span aria-hidden="true">+</span>
         <span>แจ้งปัญหา</span>
       </a>
       <a class="mobile-bottom-nav__item" href="track.html">
-        <span aria-hidden="true">⌕</span>
+        <span aria-hidden="true">T</span>
         <span>ติดตาม</span>
       </a>
       <a class="mobile-bottom-nav__item" href="contact.html">
-        <span aria-hidden="true">☎</span>
+        <span aria-hidden="true">@</span>
         <span>ติดต่อ</span>
       </a>
     </nav>
