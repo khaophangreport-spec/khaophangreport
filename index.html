@@ -30,45 +30,184 @@
         <a href="contact.html">ติดต่อเรา</a>
       </nav>
     </header>
-    <main class="page-shell">
-      <section class="hero-section" aria-labelledby="page-title">
-        <p class="eyebrow">ตำบลเขาพัง</p>
-        <h1 id="page-title">ร่วมกันสร้างชุมชนเขาพังให้น่าอยู่ยิ่งขึ้น</h1>
-        <p>ช่องทางรับแจ้งและติดตามปัญหาชุมชน ใช้งานง่ายจากโทรศัพท์มือถือ</p>
-        <div class="action-row">
-          <a class="button button-primary" href="report.html">แจ้งปัญหา</a>
-          <a class="button button-secondary" href="track.html">ติดตามสถานะ</a>
+
+    <main class="page-shell home-page">
+      <section class="home-hero" aria-labelledby="page-title">
+        <div class="home-hero__content">
+          <p class="eyebrow">ตำบลเขาพัง</p>
+          <h1 id="page-title">ร่วมกันสร้างชุมชนเขาพังให้น่าอยู่ยิ่งขึ้น</h1>
+          <p class="home-hero__lead">
+            แจ้งปัญหาในพื้นที่ ติดตามความคืบหน้า และร่วมดูแลชุมชนด้วยข้อมูลที่ปลอดภัยและใช้งานง่าย
+          </p>
+          <div class="action-row home-hero__actions">
+            <a class="button button-primary" href="report.html">แจ้งปัญหา</a>
+            <a class="button button-secondary" href="track.html">ติดตามสถานะ</a>
+          </div>
+          <div class="alert alert-danger home-config-error" data-config-error hidden>
+            <p>โหลดค่าระบบไม่สำเร็จ บางข้อมูลอาจยังไม่เป็นปัจจุบัน</p>
+            <button class="button button-small button-outline" type="button" data-retry="config">ลองใหม่</button>
+          </div>
+        </div>
+        <div class="home-hero__visual" aria-hidden="true">
+          <div class="home-hero__sun"></div>
+          <div class="home-hero__hill home-hero__hill--back"></div>
+          <div class="home-hero__hill home-hero__hill--front"></div>
+          <div class="home-hero__path"></div>
+          <div class="home-hero__marker"></div>
         </div>
       </section>
-      <section class="content-section" aria-labelledby="home-status-title">
-        <h2 id="home-status-title">สถานะหน้า</h2>
-        <p class="placeholder-text">หน้าเริ่มต้นสำหรับโครงสร้างโปรเจ็กต์ ยังไม่เชื่อมต่อ API จริง</p>
+
+      <section class="alert alert-warning home-emergency" aria-labelledby="emergency-title">
+        <div>
+          <h2 id="emergency-title">กรณีฉุกเฉิน</h2>
+          <p>
+            ระบบนี้ไม่ใช่ช่องทางรับแจ้งเหตุฉุกเฉิน หากมีเหตุเร่งด่วนที่กระทบชีวิตหรือความปลอดภัย
+            โปรดติดต่อหน่วยงานฉุกเฉินหรือเจ้าหน้าที่ในพื้นที่ทันที
+          </p>
+        </div>
+      </section>
+
+      <section class="content-section home-features" aria-labelledby="features-title">
+        <div class="section-heading">
+          <p class="eyebrow">จุดเด่น</p>
+          <h2 id="features-title">ทำให้การแจ้งปัญหาเป็นเรื่องง่าย</h2>
+        </div>
+        <div class="home-feature-grid">
+          <article class="home-feature-item">
+            <span class="home-feature-item__icon" aria-hidden="true">1</span>
+            <h3>แจ้งง่าย</h3>
+            <p>กรอกข้อมูลเท่าที่จำเป็น เลือกหมวด และส่งเรื่องได้จากมือถือ</p>
+          </article>
+          <article class="home-feature-item">
+            <span class="home-feature-item__icon" aria-hidden="true">2</span>
+            <h3>ติดตามได้</h3>
+            <p>ใช้รหัสติดตามเพื่อตรวจสอบสถานะและความคืบหน้าของเรื่อง</p>
+          </article>
+          <article class="home-feature-item">
+            <span class="home-feature-item__icon" aria-hidden="true">3</span>
+            <h3>ปลอดภัย</h3>
+            <p>ข้อมูลส่วนตัวใช้เพื่อประสานงานตามความจำเป็นของการแก้ไขปัญหา</p>
+          </article>
+          <article class="home-feature-item">
+            <span class="home-feature-item__icon" aria-hidden="true">4</span>
+            <h3>ร่วมพัฒนาชุมชน</h3>
+            <p>ช่วยให้ชุมชนเห็นปัญหาร่วมกันและจัดการได้เป็นระบบมากขึ้น</p>
+          </article>
+        </div>
+      </section>
+
+      <section class="content-section home-categories" aria-labelledby="categories-title">
+        <div class="section-heading">
+          <p class="eyebrow">หมวดปัญหา</p>
+          <h2 id="categories-title">เลือกหมวดที่ต้องการแจ้ง</h2>
+          <p>หมวดด้านล่างโหลดจากระบบกลาง เมื่อเลือกแล้วจะไปยังหน้าแจ้งปัญหาพร้อมหมวดที่เลือก</p>
+        </div>
+
+        <div class="home-state" data-category-loading aria-live="polite">
+          <div class="skeleton home-skeleton"></div>
+          <div class="skeleton home-skeleton home-skeleton--short"></div>
+        </div>
+
+        <div class="empty-state" data-category-empty hidden>
+          <h3>ยังไม่มีหมวดที่เปิดใช้งาน</h3>
+          <p>คุณยังสามารถแจ้งปัญหาทั่วไปได้จากปุ่มแจ้งปัญหา</p>
+          <a class="button button-secondary" href="report.html">แจ้งปัญหา</a>
+        </div>
+
+        <div class="alert alert-danger home-state" data-category-error hidden>
+          <div>
+            <h3>โหลดหมวดไม่สำเร็จ</h3>
+            <p data-category-error-message>ไม่สามารถเชื่อมต่อระบบได้</p>
+          </div>
+          <button class="button button-small button-outline" type="button" data-retry="categories">ลองใหม่</button>
+        </div>
+
+        <div class="home-category-grid" data-category-list hidden></div>
+      </section>
+
+      <section class="content-section home-steps" aria-labelledby="steps-title">
+        <div class="section-heading">
+          <p class="eyebrow">ขั้นตอน</p>
+          <h2 id="steps-title">แจ้งแล้วติดตามได้ในไม่กี่ขั้นตอน</h2>
+        </div>
+        <ol class="home-step-list">
+          <li>
+            <span aria-hidden="true">1</span>
+            <div>
+              <h3>เลือกหมวดและเล่าปัญหา</h3>
+              <p>ระบุรายละเอียด สถานที่ และรูปภาพประกอบตามความเหมาะสม</p>
+            </div>
+          </li>
+          <li>
+            <span aria-hidden="true">2</span>
+            <div>
+              <h3>รับรหัสติดตาม</h3>
+              <p>เก็บรหัสไว้สำหรับตรวจสอบสถานะหรือส่งข้อมูลเพิ่มเติม</p>
+            </div>
+          </li>
+          <li>
+            <span aria-hidden="true">3</span>
+            <div>
+              <h3>ติดตามความคืบหน้า</h3>
+              <p>ดูสถานะล่าสุดและผลการดำเนินงานจากหน้าติดตามสถานะ</p>
+            </div>
+          </li>
+        </ol>
+      </section>
+
+      <section class="content-section home-announcements" aria-labelledby="announcements-title">
+        <div class="section-heading">
+          <p class="eyebrow">ประกาศ</p>
+          <h2 id="announcements-title">ข่าวสารจากระบบ</h2>
+        </div>
+
+        <div class="home-state" data-announcement-loading aria-live="polite">
+          <div class="skeleton home-skeleton"></div>
+          <div class="skeleton home-skeleton home-skeleton--short"></div>
+        </div>
+
+        <div class="empty-state" data-announcement-empty hidden>
+          <h3>ยังไม่มีประกาศในขณะนี้</h3>
+          <p>เมื่อมีประกาศที่เกี่ยวข้องกับการใช้งาน ระบบจะแสดงที่นี่</p>
+        </div>
+
+        <div class="alert alert-danger home-state" data-announcement-error hidden>
+          <div>
+            <h3>โหลดประกาศไม่สำเร็จ</h3>
+            <p data-announcement-error-message>ไม่สามารถเชื่อมต่อระบบได้</p>
+          </div>
+          <button class="button button-small button-outline" type="button" data-retry="announcements">ลองใหม่</button>
+        </div>
+
+        <div class="home-announcement-list" data-announcement-list hidden></div>
       </section>
     </main>
+
     <footer class="site-footer">
       <p><strong>Khaophang Report</strong></p>
-      <p>อีเมล <a href="mailto:khaophangreport@gmail.com">khaophangreport@gmail.com</a></p>
+      <p>อีเมล <a href="mailto:khaophangreport@gmail.com" data-contact-email>khaophangreport@gmail.com</a></p>
       <nav class="footer-nav" aria-label="ลิงก์ข้อมูลระบบ">
         <a href="privacy.html">Privacy</a>
         <a href="terms.html">Terms</a>
       </nav>
       <p>ระบบนี้ไม่ใช่ช่องทางบริการฉุกเฉิน</p>
     </footer>
+
     <nav class="mobile-bottom-nav" aria-label="เมนูหลักบนมือถือ">
       <a class="mobile-bottom-nav__item" href="index.html" aria-current="page">
-        <span aria-hidden="true">⌂</span>
+        <span aria-hidden="true">H</span>
         <span>หน้าแรก</span>
       </a>
       <a class="mobile-bottom-nav__item" href="report.html">
-        <span aria-hidden="true">＋</span>
+        <span aria-hidden="true">+</span>
         <span>แจ้งปัญหา</span>
       </a>
       <a class="mobile-bottom-nav__item" href="track.html">
-        <span aria-hidden="true">⌕</span>
+        <span aria-hidden="true">T</span>
         <span>ติดตาม</span>
       </a>
       <a class="mobile-bottom-nav__item" href="contact.html">
-        <span aria-hidden="true">☎</span>
+        <span aria-hidden="true">@</span>
         <span>ติดต่อ</span>
       </a>
     </nav>

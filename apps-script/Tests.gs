@@ -94,3 +94,95 @@ function testUtilsToBoolean() {
     cases: cases.length
   };
 }
+
+function testPublicConfigApi() {
+  const result = SettingsService_getPublicConfig({
+    action: "public.config",
+    requestId: Utils_createRequestId_(),
+    data: {}
+  });
+
+  if (!result || !result.data || !result.data.appName || !result.data.appNameTh) {
+    throw new Error("public.config did not return expected public fields");
+  }
+
+  if (result.data.spreadsheetId || result.data.rootFolderId || result.data.sessionSecret || result.data.appSecret) {
+    throw new Error("public.config returned sensitive data");
+  }
+
+  console.log(JSON.stringify(result));
+  return result;
+}
+
+function testCategoryListApi() {
+  const result = CategoryService_listPublic({
+    action: "category.list",
+    requestId: Utils_createRequestId_(),
+    data: {}
+  });
+
+  if (!result || !result.data || !Array.isArray(result.data.items)) {
+    throw new Error("category.list did not return items");
+  }
+
+  result.data.items.forEach(function (item) {
+    if (item.default_assignee !== undefined || item.defaultAssignee !== undefined) {
+      throw new Error("category.list returned default assignee");
+    }
+  });
+
+  console.log(JSON.stringify(result));
+  return result;
+}
+
+function testAnnouncementListApi() {
+  const result = AnnouncementService_listPublic({
+    action: "announcement.list",
+    requestId: Utils_createRequestId_(),
+    data: {
+      limit: 5
+    }
+  });
+
+  if (!result || !result.data || !Array.isArray(result.data.items)) {
+    throw new Error("announcement.list did not return items");
+  }
+
+  if (result.data.items.length > 5) {
+    throw new Error("announcement.list returned more than requested limit");
+  }
+
+  console.log(JSON.stringify(result));
+  return result;
+}
+
+function testPublicReadApiRouter() {
+  const actions = [
+    "public.config",
+    "category.list",
+    "announcement.list"
+  ];
+  const results = {};
+
+  actions.forEach(function (action) {
+    const response = Router_dispatch_({
+      action: action,
+      requestId: Utils_createRequestId_(),
+      sessionToken: "",
+      data: action === "announcement.list" ? { limit: 3 } : {}
+    });
+    const payload = JSON.parse(response.getContent());
+
+    if (!payload.ok || !payload.data) {
+      throw new Error(action + " did not return ok response");
+    }
+
+    results[action] = payload.data;
+  });
+
+  console.log(JSON.stringify(results));
+  return {
+    ok: true,
+    actions: actions
+  };
+}

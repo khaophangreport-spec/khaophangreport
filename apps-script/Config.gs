@@ -16,6 +16,18 @@ const APP_PUBLIC_CONFIG_ = Object.freeze({
   contactEmail: "khaophangreport@gmail.com"
 });
 
+const CACHE_KEYS_ = Object.freeze({
+  PUBLIC_CONFIG: "public.config.v1",
+  CATEGORY_LIST: "category.list.v1",
+  ANNOUNCEMENT_LIST: "announcement.list.v1"
+});
+
+const CACHE_TTL_SECONDS_ = Object.freeze({
+  PUBLIC_CONFIG: 300,
+  CATEGORY_LIST: 300,
+  ANNOUNCEMENT_LIST: 120
+});
+
 function Config_getScriptProperties_() {
   return PropertiesService.getScriptProperties();
 }

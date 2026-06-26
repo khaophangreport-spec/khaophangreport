@@ -4,7 +4,7 @@
   window.APP_CONFIG = Object.freeze({
     APP_NAME: "Khaophang Report",
     APP_NAME_TH: "ระบบรับแจ้งและติดตามปัญหาชุมชนตำบลเขาพัง",
-    API_URL: "YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL",
+    API_URL: "https://script.google.com/macros/s/AKfycbwwrrsCGkdKp5DdJRiGvDPTzpBcHFJSfrZDo5RYt_F-a5JGdnWzaHc26wuQc53_n2voiA/exec",
     SITE_URL: "https://khaophangreport.pages.dev",
     CONTACT_EMAIL: "khaophangreport@gmail.com",
     DEFAULT_LANGUAGE: "th",

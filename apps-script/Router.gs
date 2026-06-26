@@ -1,5 +1,8 @@
 const ROUTER_ACTIONS_ = Object.freeze({
-  "health.check": Router_healthCheck_
+  "health.check": Router_healthCheck_,
+  "public.config": SettingsService_getPublicConfig,
+  "category.list": CategoryService_listPublic,
+  "announcement.list": AnnouncementService_listPublic
 });
 
 function Router_handleGet_(e) {
