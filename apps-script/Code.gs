@@ -1,1 +1,7 @@
-// Entry point file for Google Apps Script. Full doGet/doPost logic will be added in a later step.
+function doGet(e) {
+  return Router_handleGet_(e);
+}
+
+function doPost(e) {
+  return Router_handlePost_(e);
+}

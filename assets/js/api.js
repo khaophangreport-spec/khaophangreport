@@ -1,47 +1,271 @@
 (function () {
   "use strict";
 
+  const DEFAULT_TIMEOUT_MS = 15000;
+  const DEFAULT_RETRY_COUNT = 1;
+  const READ_ACTION_PATTERNS = [
+    /\.check$/,
+    /\.config$/,
+    /\.list$/,
+    /\.detail$/,
+    /\.get$/,
+    /\.summary$/,
+    /\.track$/,
+    /\.me$/
+  ];
+  const ERROR_MESSAGES = {
+    VALIDATION_ERROR: "กรุณาตรวจสอบข้อมูล",
+    RATE_LIMITED: "มีการใช้งานถี่เกินไป กรุณาลองใหม่ภายหลัง",
+    SESSION_EXPIRED: "เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่",
+    FORBIDDEN: "คุณไม่มีสิทธิ์ดำเนินการนี้",
+    NETWORK_ERROR: "ไม่สามารถเชื่อมต่อระบบได้"
+  };
+
   class ApiError extends Error {
-    constructor(error, meta) {
-      super(error && error.message ? error.message : "ไม่สามารถเชื่อมต่อระบบได้");
+    constructor(error, meta, status) {
+      const code = error && error.code ? error.code : "NETWORK_ERROR";
+
+      super(error && error.message ? error.message : ERROR_MESSAGES[code] || ERROR_MESSAGES.NETWORK_ERROR);
       this.name = "ApiError";
-      this.code = error && error.code ? error.code : "NETWORK_ERROR";
+      this.code = code;
       this.fields = error && error.fields ? error.fields : {};
+      this.retryAfterSeconds = error && Number.isFinite(error.retryAfterSeconds) ? error.retryAfterSeconds : 0;
       this.meta = meta || {};
+      this.status = status || 0;
+    }
+  }
+
+  function isObject(value) {
+    return value !== null && typeof value === "object" && !Array.isArray(value);
+  }
+
+  function isReadAction(action) {
+    return READ_ACTION_PATTERNS.some(function (pattern) {
+      return pattern.test(action);
+    });
+  }
+
+  function getRequestId() {
+    if (window.KPR_UTILS && typeof window.KPR_UTILS.generateRequestId === "function") {
+      return window.KPR_UTILS.generateRequestId();
+    }
+
+    if (window.crypto && typeof window.crypto.randomUUID === "function") {
+      return "REQ-" + window.crypto.randomUUID().toUpperCase();
+    }
+
+    return "REQ-" + Date.now().toString(36).toUpperCase() + "-" + Math.random().toString(36).slice(2, 10).toUpperCase();
+  }
+
+  function shouldIncludeSession(action, options) {
+    if (options && typeof options.sessionToken === "string") {
+      return true;
+    }
+
+    if (options && options.withSession === true) {
+      return true;
+    }
+
+    if (options && options.withSession === false) {
+      return false;
+    }
+
+    return action.indexOf("admin.") === 0
+      || action.indexOf("dashboard.") === 0
+      || action === "auth.me"
+      || action === "auth.logout";
+  }
+
+  function getSessionToken(action, options) {
+    if (options && typeof options.sessionToken === "string") {
+      return options.sessionToken;
+    }
+
+    if (!shouldIncludeSession(action, options)) {
+      return "";
+    }
+
+    if (window.KPR_AUTH && typeof window.KPR_AUTH.getSessionToken === "function") {
+      return window.KPR_AUTH.getSessionToken() || "";
+    }
+
+    return "";
+  }
+
+  function getApiUrl() {
+    const config = window.APP_CONFIG || {};
+    const apiUrl = config.API_URL || "";
+
+    if (!apiUrl || apiUrl === "YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL") {
+      throw new ApiError({ code: "API_NOT_CONFIGURED", message: "ยังไม่ได้ตั้งค่า API" }, {});
+    }
+
+    return apiUrl;
+  }
+
+  function createPayload(action, data, options) {
+    if (typeof action !== "string" || !action.trim()) {
+      throw new ApiError({ code: "VALIDATION_ERROR", message: "กรุณาระบุ API Action" }, {});
+    }
+
+    const payload = {
+      action: action.trim(),
+      requestId: options && options.requestId ? String(options.requestId) : getRequestId(),
+      sessionToken: getSessionToken(action.trim(), options),
+      data: isObject(data) ? data : {}
+    };
+
+    return payload;
+  }
+
+  async function parseJsonSafely(response) {
+    const text = await response.text();
+
+    if (!text) {
+      throw new ApiError({ code: "NETWORK_ERROR", message: "ระบบไม่ส่งข้อมูลกลับมา" }, {}, response.status);
+    }
+
+    try {
+      return JSON.parse(text);
+    } catch (error) {
+      throw new ApiError({ code: "NETWORK_ERROR", message: "รูปแบบข้อมูลจากระบบไม่ถูกต้อง" }, {}, response.status);
+    }
+  }
+
+  function normalizeResult(result, status) {
+    if (!isObject(result) || typeof result.ok !== "boolean") {
+      throw new ApiError({ code: "NETWORK_ERROR", message: "รูปแบบคำตอบจากระบบไม่ถูกต้อง" }, {}, status);
+    }
+
+    if (!result.ok) {
+      throw new ApiError(result.error || {}, result.meta || {}, status);
+    }
+
+    return {
+      ok: true,
+      data: isObject(result.data) ? result.data : {},
+      message: result.message || "ดำเนินการสำเร็จ",
+      meta: isObject(result.meta) ? result.meta : {}
+    };
+  }
+
+  function handleSessionExpired(error) {
+    if (error.code !== "SESSION_EXPIRED" && error.code !== "UNAUTHORIZED") {
+      return;
+    }
+
+    if (window.KPR_AUTH && typeof window.KPR_AUTH.handleSessionExpired === "function") {
+      window.KPR_AUTH.handleSessionExpired(error);
+    }
+  }
+
+  function shouldRetry(error, action, attempt, maxRetries) {
+    if (attempt >= maxRetries || !isReadAction(action)) {
+      return false;
+    }
+
+    return error.code === "NETWORK_ERROR" || error.code === "RATE_LIMITED";
+  }
+
+  function wait(ms) {
+    return new Promise(function (resolve) {
+      window.setTimeout(resolve, ms);
+    });
+  }
+
+  async function sendRequest(apiUrl, payload, timeoutMs, externalSignal) {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(function () {
+      controller.abort();
+    }, timeoutMs);
+
+    if (externalSignal) {
+      if (externalSignal.aborted) {
+        controller.abort();
+      } else {
+        externalSignal.addEventListener("abort", function () {
+          controller.abort();
+        }, { once: true });
+      }
+    }
+
+    try {
+      const response = await fetch(apiUrl, {
+      method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+      const result = await parseJsonSafely(response);
+
+      if (!response.ok && result.ok) {
+        throw new ApiError({ code: "NETWORK_ERROR", message: "ระบบตอบกลับไม่สมบูรณ์" }, result.meta || {}, response.status);
+      }
+
+      return normalizeResult(result, response.status);
+    } catch (error) {
+      if (error instanceof ApiError) {
+        throw error;
+      }
+
+      throw new ApiError({ code: "NETWORK_ERROR", message: ERROR_MESSAGES.NETWORK_ERROR }, {});
+    } finally {
+      window.clearTimeout(timeoutId);
     }
   }
 
   async function apiRequest(action, data, options) {
-    const config = window.APP_CONFIG || {};
-    const apiUrl = config.API_URL || "";
+    const settings = options || {};
+    const apiUrl = getApiUrl();
+    const payload = createPayload(action, data || {}, settings);
+    const timeoutMs = Number.isFinite(settings.timeoutMs) ? settings.timeoutMs : DEFAULT_TIMEOUT_MS;
+    const maxRetries = isReadAction(payload.action)
+      ? Number.isFinite(settings.retries) ? settings.retries : DEFAULT_RETRY_COUNT
+      : 0;
 
-    if (!apiUrl) {
-      throw new ApiError({ code: "API_NOT_CONFIGURED", message: "ยังไม่ได้ตั้งค่า API" }, {});
+    let attempt = 0;
+
+    while (true) {
+      try {
+        return await sendRequest(apiUrl, payload, timeoutMs, settings.signal);
+      } catch (error) {
+        handleSessionExpired(error);
+
+        if (!shouldRetry(error, payload.action, attempt, maxRetries)) {
+          throw error;
+        }
+
+        attempt += 1;
+        await wait(error.retryAfterSeconds > 0 ? error.retryAfterSeconds * 1000 : 300 * attempt);
+      }
     }
-
-    const payload = {
-      action: action,
-      requestId: options && options.requestId ? options.requestId : crypto.randomUUID(),
-      sessionToken: options && options.sessionToken ? options.sessionToken : "",
-      data: data || {}
-    };
-
-    const response = await fetch(apiUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    });
-    const result = await response.json();
-
-    if (!result.ok) {
-      throw new ApiError(result.error, result.meta);
-    }
-
-    return result;
   }
 
-  window.KPR_API = {
+  function getErrorMessage(error) {
+    if (error instanceof ApiError) {
+      return ERROR_MESSAGES[error.code] || error.message || ERROR_MESSAGES.NETWORK_ERROR;
+    }
+
+    return ERROR_MESSAGES.NETWORK_ERROR;
+  }
+
+  window.KPR_API = Object.freeze({
     ApiError: ApiError,
-    request: apiRequest
-  };
+    request: apiRequest,
+    getErrorMessage: getErrorMessage,
+    isReadAction: isReadAction,
+    read: function (action, data, options) {
+      return apiRequest(action, data || {}, options || {});
+    },
+    write: function (action, data, options) {
+      const settings = options || {};
+      settings.retries = 0;
+      return apiRequest(action, data || {}, settings);
+    }
+  });
+
+  // Example: window.KPR_API.request("category.list", {});
+  // Example: window.KPR_API.request("admin.report.list", { page: 1, pageSize: 20 });
 })();
