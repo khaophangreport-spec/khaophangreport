@@ -21,10 +21,15 @@
   </head>
   <body>
     <header class="site-header">
-      <a class="site-brand" href="index.html">Khaophang Report</a>
-      <nav class="site-nav" aria-label="เมนูหลัก">
+      <a class="site-brand" href="index.html" aria-label="กลับหน้าแรก Khaophang Report">
+        <span class="site-logo" aria-hidden="true">KR</span>
+        <span>Khaophang Report</span>
+      </a>
+      <nav class="site-nav site-nav-desktop" aria-label="เมนูหลัก">
         <a href="index.html">หน้าแรก</a>
+        <a href="report.html" aria-current="page">แจ้งปัญหา</a>
         <a href="track.html">ติดตามสถานะ</a>
+        <a href="faq.html">คำถามที่พบบ่อย</a>
         <a href="contact.html">ติดต่อเรา</a>
       </nav>
     </header>
@@ -36,7 +41,31 @@
       </section>
     </main>
     <footer class="site-footer">
+      <p><strong>Khaophang Report</strong></p>
+      <p>อีเมล <a href="mailto:khaophangreport@gmail.com">khaophangreport@gmail.com</a></p>
+      <nav class="footer-nav" aria-label="ลิงก์ข้อมูลระบบ">
+        <a href="privacy.html">Privacy</a>
+        <a href="terms.html">Terms</a>
+      </nav>
       <p>กรณีฉุกเฉิน กรุณาติดต่อหน่วยงานที่เกี่ยวข้องโดยตรง</p>
     </footer>
+    <nav class="mobile-bottom-nav" aria-label="เมนูหลักบนมือถือ">
+      <a class="mobile-bottom-nav__item" href="index.html">
+        <span aria-hidden="true">⌂</span>
+        <span>หน้าแรก</span>
+      </a>
+      <a class="mobile-bottom-nav__item" href="report.html" aria-current="page">
+        <span aria-hidden="true">＋</span>
+        <span>แจ้งปัญหา</span>
+      </a>
+      <a class="mobile-bottom-nav__item" href="track.html">
+        <span aria-hidden="true">⌕</span>
+        <span>ติดตาม</span>
+      </a>
+      <a class="mobile-bottom-nav__item" href="contact.html">
+        <span aria-hidden="true">☎</span>
+        <span>ติดต่อ</span>
+      </a>
+    </nav>
   </body>
 </html>
