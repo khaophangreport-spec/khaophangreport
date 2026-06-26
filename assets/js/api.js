@@ -13,6 +13,12 @@
     /\.track$/,
     /\.me$/
   ];
+  const GET_READ_ACTIONS = [
+    "health.check",
+    "public.config",
+    "category.list",
+    "announcement.list"
+  ];
   const ERROR_MESSAGES = {
     VALIDATION_ERROR: "กรุณาตรวจสอบข้อมูล",
     RATE_LIMITED: "มีการใช้งานถี่เกินไป กรุณาลองใหม่ภายหลัง",
@@ -173,6 +179,29 @@
     });
   }
 
+  function shouldUseGet(payload) {
+    return GET_READ_ACTIONS.indexOf(payload.action) !== -1 && !payload.sessionToken;
+  }
+
+  function createGetUrl(apiUrl, payload) {
+    const url = new URL(apiUrl);
+
+    url.searchParams.set("action", payload.action);
+    url.searchParams.set("requestId", payload.requestId);
+
+    Object.keys(payload.data || {}).forEach(function (key) {
+      const value = payload.data[key];
+
+      if (value === null || value === undefined || isObject(value) || Array.isArray(value)) {
+        return;
+      }
+
+      url.searchParams.set(key, String(value));
+    });
+
+    return url.toString();
+  }
+
   async function sendRequest(apiUrl, payload, timeoutMs, externalSignal) {
     const controller = new AbortController();
     const timeoutId = window.setTimeout(function () {
@@ -190,14 +219,20 @@
     }
 
     try {
-      const response = await fetch(apiUrl, {
-      method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(payload),
-        signal: controller.signal
-      });
+      const requestOptions = shouldUseGet(payload)
+        ? {
+          method: "GET",
+          signal: controller.signal
+        }
+        : {
+          method: "POST",
+          headers: {
+            "Content-Type": "text/plain;charset=utf-8"
+          },
+          body: JSON.stringify(payload),
+          signal: controller.signal
+        };
+      const response = await fetch(shouldUseGet(payload) ? createGetUrl(apiUrl, payload) : apiUrl, requestOptions);
       const result = await parseJsonSafely(response);
 
       if (!response.ok && result.ok) {
