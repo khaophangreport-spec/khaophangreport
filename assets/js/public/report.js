@@ -2,6 +2,7 @@
   "use strict";
 
   const DRAFT_KEY = "KPR_REPORT_DRAFT_V1";
+  const RESULT_KEY = "KPR_REPORT_RESULT_V1";
   const MAX_DRAFT_AGE_MS = 7 * 24 * 60 * 60 * 1000;
   const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
   const PRIORITY_VALUES = ["low", "normal", "high", "critical"];
@@ -15,6 +16,7 @@
     images: [],
     objectUrls: [],
     previewPayload: null,
+    isSubmitting: false,
     isDirty: false,
     hasSubmitted: false,
     queryCategoryId: ""
@@ -209,7 +211,7 @@
     }
 
     if (state.currentStep === state.maxStep) {
-      prepareSubmitPayload();
+      submitReport();
       return;
     }
 
@@ -262,7 +264,7 @@
     });
 
     elements.backButton.textContent = state.currentStep === 1 ? "กลับหน้าแรก" : "ย้อนกลับ";
-    elements.nextButton.textContent = state.currentStep === state.maxStep ? "ส่งเรื่อง" : "ถัดไป";
+    elements.nextButton.textContent = state.isSubmitting ? "กำลังส่ง..." : state.currentStep === state.maxStep ? "ส่งเรื่อง" : "ถัดไป";
     updateNextButtonState();
 
     if (state.currentStep === state.maxStep) {
@@ -272,6 +274,11 @@
 
   function updateNextButtonState() {
     if (!elements.nextButton) {
+      return;
+    }
+
+    if (state.isSubmitting) {
+      elements.nextButton.disabled = true;
       return;
     }
 
@@ -478,7 +485,11 @@
     return true;
   }
 
-  function prepareSubmitPayload() {
+  async function submitReport() {
+    if (state.isSubmitting) {
+      return;
+    }
+
     if (!validateAllSteps()) {
       return;
     }
@@ -489,9 +500,32 @@
       return;
     }
 
-    state.previewPayload = buildReportPayload();
+    if (!window.KPR_API || typeof window.KPR_API.write !== "function") {
+      setStatus("ไม่พบ API Client กรุณาโหลดหน้าใหม่แล้วลองอีกครั้ง");
+      return;
+    }
+
+    const requestId = createRequestId();
+    setSubmittingState(true);
     setHidden(elements.reviewSuccess, false);
-    setStatus("เตรียมข้อมูลสำหรับส่งเรื่องเรียบร้อยแล้ว ขั้นตอนนี้ยังไม่เรียก API จริง");
+    setStatus("กำลังส่งเรื่อง กรุณารอสักครู่...");
+
+    try {
+      const payload = await buildReportSubmitPayload();
+      state.previewPayload = payload;
+
+      const response = await window.KPR_API.write("report.create", payload, {
+        requestId: requestId
+      });
+
+      handleSubmitSuccess(response, requestId, payload);
+    } catch (error) {
+      handleSubmitError(error);
+    } finally {
+      if (!state.hasSubmitted) {
+        setSubmittingState(false);
+      }
+    }
   }
 
   function validateRequired(fieldName, value, message) {
@@ -559,6 +593,25 @@
     }
 
     clearError(field.dataset.field);
+  }
+
+  function setSubmittingState(isSubmitting) {
+    state.isSubmitting = isSubmitting;
+
+    if (elements.backButton) {
+      elements.backButton.disabled = isSubmitting;
+    }
+
+    if (elements.saveDraftButton) {
+      elements.saveDraftButton.disabled = isSubmitting;
+    }
+
+    if (elements.nextButton) {
+      elements.nextButton.setAttribute("aria-busy", isSubmitting ? "true" : "false");
+      elements.nextButton.textContent = isSubmitting ? "กำลังส่ง..." : state.currentStep === state.maxStep ? "ส่งเรื่อง" : "ถัดไป";
+    }
+
+    updateNextButtonState();
   }
 
   function focusFirstError() {
@@ -1013,6 +1066,46 @@
     });
   }
 
+  async function getAttachmentPayloadList() {
+    const images = getUploadableImages();
+    const attachments = [];
+
+    for (let index = 0; index < images.length; index += 1) {
+      const imageItem = images[index];
+      const metadata = buildImageMetadata(imageItem);
+      const base64 = await readFileAsBase64(imageItem.file);
+
+      attachments.push(Object.assign({}, metadata, {
+        base64: base64
+      }));
+    }
+
+    return attachments;
+  }
+
+  function readFileAsBase64(file) {
+    return new Promise(function (resolve, reject) {
+      if (!file) {
+        reject(new Error("ไม่พบไฟล์รูปภาพสำหรับส่ง"));
+        return;
+      }
+
+      const reader = new FileReader();
+
+      reader.onload = function () {
+        const result = toText(reader.result);
+        const commaIndex = result.indexOf(",");
+        resolve(commaIndex === -1 ? result : result.slice(commaIndex + 1));
+      };
+
+      reader.onerror = function () {
+        reject(new Error("ไม่สามารถอ่านไฟล์รูปภาพเพื่อส่งได้"));
+      };
+
+      reader.readAsDataURL(file);
+    });
+  }
+
   function renderReview() {
     clearChildren(elements.reviewList);
     setHidden(elements.reviewSuccess, true);
@@ -1164,6 +1257,12 @@
     return payload;
   }
 
+  async function buildReportSubmitPayload() {
+    const payload = buildReportPayload();
+    payload.attachments = await getAttachmentPayloadList();
+    return payload;
+  }
+
   function buildLocationPayload() {
     const latitude = getFieldValue("latitude");
     const longitude = getFieldValue("longitude");
@@ -1195,6 +1294,147 @@
     };
   }
 
+  function handleSubmitSuccess(response, requestId, payload) {
+    const data = response && response.data ? response.data : {};
+
+    state.hasSubmitted = true;
+    state.isDirty = false;
+    removeDraft();
+    storeSubmitResult(data, requestId, payload);
+    clearObjectUrls();
+    window.location.href = "report-success.html";
+  }
+
+  function handleSubmitError(error) {
+    if (error && error.code === "RATE_LIMITED") {
+      setStatus(getRateLimitMessage(error));
+      return;
+    }
+
+    applyApiFieldErrors(error && error.fields ? error.fields : {});
+
+    if (hasFieldErrors(error)) {
+      goToFirstApiErrorStep(error.fields);
+      setStatus("กรุณาตรวจสอบข้อมูลที่ระบบแจ้งไว้ แล้วลองส่งอีกครั้ง");
+      focusFirstError();
+      return;
+    }
+
+    if (error && error.code === "NETWORK_ERROR") {
+      setStatus("ไม่สามารถเชื่อมต่อระบบได้ ข้อมูลยังอยู่ในหน้านี้ กรุณาลองใหม่อีกครั้ง");
+      return;
+    }
+
+    setStatus(error && error.message ? error.message : getErrorMessage(error));
+  }
+
+  function applyApiFieldErrors(fields) {
+    Object.keys(fields || {}).forEach(function (apiFieldName) {
+      setError(mapApiFieldToFormField(apiFieldName), fields[apiFieldName]);
+    });
+  }
+
+  function hasFieldErrors(error) {
+    return !!(error && error.fields && Object.keys(error.fields).length > 0);
+  }
+
+  function mapApiFieldToFormField(apiFieldName) {
+    const fieldMap = {
+      "location": "locationName",
+      "location.name": "locationName",
+      "location.landmark": "landmark",
+      "location.latitude": "coordinates",
+      "location.longitude": "coordinates",
+      "reporter": "reporterName",
+      "reporter.name": "reporterName",
+      "reporter.phone": "reporterPhone",
+      "reporter.email": "reporterEmail",
+      "reporter.contactMethod": "contactMethod",
+      "consent.truthConfirmed": "truthConfirmed",
+      "consent.privacyAccepted": "privacyAccepted",
+      "consent.privacyVersion": "privacyAccepted",
+      "attachments": "images"
+    };
+
+    if (/^attachments\[\d+\]/.test(apiFieldName)) {
+      return "images";
+    }
+
+    return fieldMap[apiFieldName] || apiFieldName;
+  }
+
+  function goToFirstApiErrorStep(fields) {
+    const firstField = Object.keys(fields || {}).map(function (apiFieldName) {
+      return mapApiFieldToFormField(apiFieldName);
+    }).find(function (fieldName) {
+      return getStepForField(fieldName) > 0;
+    });
+
+    const step = getStepForField(firstField);
+
+    if (step > 0 && step !== state.currentStep) {
+      state.currentStep = step;
+      updateStep();
+    }
+  }
+
+  function getStepForField(fieldName) {
+    const stepMap = {
+      categoryId: 1,
+      title: 2,
+      description: 2,
+      incidentDate: 2,
+      priorityReported: 2,
+      locationName: 3,
+      villageNo: 3,
+      landmark: 3,
+      latitude: 3,
+      longitude: 3,
+      coordinates: 3,
+      mapUrl: 3,
+      images: 4,
+      reporterName: 5,
+      reporterPhone: 5,
+      reporterEmail: 5,
+      contactMethod: 5,
+      truthConfirmed: 6,
+      privacyAccepted: 6
+    };
+
+    return stepMap[fieldName] || 0;
+  }
+
+  function getRateLimitMessage(error) {
+    const fieldRetrySeconds = error && error.fields ? Number(error.fields.retryAfterSeconds || 0) : 0;
+    const seconds = Number(error.retryAfterSeconds || fieldRetrySeconds || 0);
+
+    if (Number.isFinite(seconds) && seconds > 0) {
+      return "มีการส่งเรื่องถี่เกินไป กรุณาลองใหม่อีกครั้งในประมาณ " + Math.ceil(seconds / 60) + " นาที";
+    }
+
+    return "มีการส่งเรื่องถี่เกินไป กรุณาลองใหม่ภายหลัง";
+  }
+
+  function storeSubmitResult(data, requestId, payload) {
+    const category = getSelectedCategory();
+    const result = {
+      savedAt: Date.now(),
+      requestId: requestId,
+      trackingCode: toText(data.trackingCode),
+      createdAt: toText(data.createdAt),
+      status: toText(data.status || "new"),
+      title: toText(payload.title),
+      categoryName: category ? toText(category.name) : "",
+      incidentDate: toText(payload.incidentDate)
+    };
+
+    try {
+      window.sessionStorage.setItem(RESULT_KEY, JSON.stringify(result));
+    } catch (error) {
+      window.sessionStorage.removeItem(RESULT_KEY);
+    }
+  }
+
   function normalizePhone(value) {
     return toText(value).replace(/[\s-]/g, "");
   }
@@ -1215,6 +1455,14 @@
       if (showMessage) {
         setStatus("ไม่สามารถบันทึกแบบร่างในเบราว์เซอร์นี้ได้");
       }
+    }
+  }
+
+  function removeDraft() {
+    try {
+      window.localStorage.removeItem(DRAFT_KEY);
+    } catch (error) {
+      return;
     }
   }
 
@@ -1515,6 +1763,18 @@
     }
 
     return "IMG-" + Date.now() + "-" + Math.random().toString(36).slice(2);
+  }
+
+  function createRequestId() {
+    if (window.KPR_UTILS && typeof window.KPR_UTILS.generateRequestId === "function") {
+      return window.KPR_UTILS.generateRequestId();
+    }
+
+    if (window.crypto && typeof window.crypto.randomUUID === "function") {
+      return "REQ-" + window.crypto.randomUUID().toUpperCase();
+    }
+
+    return "REQ-" + Date.now().toString(36).toUpperCase() + "-" + Math.random().toString(36).slice(2, 10).toUpperCase();
   }
 
   function getMaxImages() {

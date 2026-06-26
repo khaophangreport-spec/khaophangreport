@@ -29,11 +29,41 @@
       </nav>
     </header>
     <main class="page-shell">
-      <section class="content-section" aria-labelledby="page-title">
+      <section class="content-section success-panel" aria-labelledby="page-title" data-success-panel>
         <p class="eyebrow">ผลการส่งเรื่อง</p>
         <h1 id="page-title">ส่งเรื่องสำเร็จ</h1>
-        <p class="placeholder-text">พื้นที่สำหรับแสดงรหัสติดตามหลังเชื่อมต่อ API ในขั้นถัดไป</p>
-        <a class="button button-primary" href="track.html">ไปหน้าติดตามสถานะ</a>
+        <p>ระบบรับเรื่องของคุณเรียบร้อยแล้ว กรุณาเก็บรหัสติดตามไว้เพื่อตรวจสอบความคืบหน้า</p>
+        <div class="tracking-summary" data-success-content hidden>
+          <div class="tracking-code-card">
+            <span>รหัสติดตาม</span>
+            <strong data-tracking-code></strong>
+          </div>
+          <dl class="report-success-list">
+            <div>
+              <dt>หัวข้อ</dt>
+              <dd data-report-title>-</dd>
+            </div>
+            <div>
+              <dt>หมวด</dt>
+              <dd data-category-name>-</dd>
+            </div>
+            <div>
+              <dt>วันที่แจ้ง</dt>
+              <dd data-created-at>-</dd>
+            </div>
+            <div>
+              <dt>สถานะเริ่มต้น</dt>
+              <dd data-report-status>-</dd>
+            </div>
+          </dl>
+        </div>
+        <div class="alert alert-warning" data-success-empty hidden>
+          <p>ไม่พบผลการส่งเรื่องในเบราว์เซอร์นี้ หากคุณมีรหัสติดตามแล้ว สามารถตรวจสอบสถานะได้จากหน้าติดตาม</p>
+        </div>
+        <div class="action-row">
+          <a class="button button-primary" href="track.html">ไปหน้าติดตามสถานะ</a>
+          <a class="button button-outline" href="report.html">แจ้งเรื่องใหม่</a>
+        </div>
       </section>
     </main>
     <footer class="site-footer">
@@ -63,5 +93,79 @@
         <span>ติดต่อ</span>
       </a>
     </nav>
+    <script>
+      (function () {
+        "use strict";
+
+        const RESULT_KEY = "KPR_REPORT_RESULT_V1";
+        document.addEventListener("DOMContentLoaded", init);
+
+        function init() {
+          const result = readResult();
+          const content = document.querySelector("[data-success-content]");
+          const empty = document.querySelector("[data-success-empty]");
+
+          if (!result || !result.trackingCode) {
+            setHidden(content, true);
+            setHidden(empty, false);
+            return;
+          }
+
+          setHidden(content, false);
+          setHidden(empty, true);
+          setText("[data-tracking-code]", result.trackingCode);
+          setText("[data-report-title]", result.title || "-");
+          setText("[data-category-name]", result.categoryName || "-");
+          setText("[data-created-at]", formatDateTime(result.createdAt));
+          setText("[data-report-status]", getStatusLabel(result.status));
+        }
+
+        function readResult() {
+          try {
+            return JSON.parse(window.sessionStorage.getItem(RESULT_KEY) || "null");
+          } catch (error) {
+            return null;
+          }
+        }
+
+        function setText(selector, value) {
+          const element = document.querySelector(selector);
+
+          if (element) {
+            element.textContent = value === null || value === undefined ? "" : String(value);
+          }
+        }
+
+        function setHidden(element, hidden) {
+          if (element) {
+            element.hidden = hidden;
+          }
+        }
+
+        function formatDateTime(value) {
+          if (window.KPR_UTILS && typeof window.KPR_UTILS.formatThaiDateTime === "function") {
+            return window.KPR_UTILS.formatThaiDateTime(value) || "-";
+          }
+
+          return value || "-";
+        }
+
+        function getStatusLabel(value) {
+          const labels = {
+            new: "รับเรื่องแล้ว",
+            reviewing: "กำลังตรวจสอบ",
+            assigned: "มอบหมายเจ้าหน้าที่แล้ว",
+            in_progress: "กำลังดำเนินการ",
+            waiting: "รอข้อมูลเพิ่มเติม",
+            resolved: "ดำเนินการแล้ว",
+            closed: "ปิดเรื่องแล้ว",
+            rejected: "ไม่รับเรื่อง",
+            duplicate: "เรื่องซ้ำ"
+          };
+
+          return labels[value] || value || "-";
+        }
+      })();
+    </script>
   </body>
 </html>

@@ -640,6 +640,52 @@
   gap: var(--space-3);
 }
 
+.tracking-code-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-primary-200);
+  border-radius: var(--radius-md);
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-4);
+}
+
+.tracking-code-card span {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.tracking-code-card strong {
+  color: var(--color-primary-900);
+  font-size: 1.45rem;
+  overflow-wrap: anywhere;
+}
+
+.report-success-list {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.report-success-list div {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3);
+}
+
+.report-success-list dt {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.report-success-list dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
 .privacy-content,
 .terms-content {
   display: grid;
