@@ -14,16 +14,36 @@
     <script src="../assets/js/config.js" defer></script>
     <script src="../assets/js/api.js" defer></script>
     <script src="../assets/js/auth.js" defer></script>
+    <script src="../assets/js/admin/layout.js" defer></script>
   </head>
-  <body>
-    <header class="admin-header">
-      <a class="site-brand" href="dashboard.html">Khaophang Admin</a>
+  <body class="admin-app-page" data-admin-page="announcements">
+    <header class="admin-mobile-topbar">
+      <a class="admin-brand" href="dashboard.html" aria-label="ไปหน้า Dashboard"><span class="admin-logo" aria-hidden="true">KR</span><span>Khaophang Admin</span></a>
+      <button class="admin-icon-button" type="button" data-admin-drawer-open aria-controls="admin-drawer" aria-expanded="false"><span aria-hidden="true">☰</span><span class="sr-only">เปิดเมนูผู้ดูแลระบบ</span></button>
     </header>
-    <main class="admin-shell">
-      <section class="admin-panel" aria-labelledby="page-title">
-        <h1 id="page-title">ประกาศ</h1>
-        <p class="placeholder-text">พื้นที่ตั้งต้นสำหรับจัดการประกาศ</p>
-      </section>
-    </main>
+    <button class="admin-drawer-overlay" type="button" data-admin-drawer-close aria-label="ปิดเมนู" hidden></button>
+    <aside class="admin-drawer" id="admin-drawer" aria-labelledby="admin-drawer-title" hidden>
+      <div class="admin-drawer__header"><p id="admin-drawer-title" class="admin-drawer__title">เมนูผู้ดูแลระบบ</p><button class="admin-icon-button" type="button" data-admin-drawer-close><span aria-hidden="true">×</span><span class="sr-only">ปิดเมนูผู้ดูแลระบบ</span></button></div>
+      <p class="admin-user-summary">ผู้ใช้งาน: ยังไม่เชื่อม Session จริง</p>
+      <nav class="admin-menu" aria-label="เมนูผู้ดูแลระบบบนมือถือ">
+        <a href="dashboard.html" data-menu-key="dashboard">Dashboard</a><a href="reports.html" data-menu-key="reports">เรื่องแจ้ง</a><a href="reports.html?scope=assigned" data-menu-key="assigned">งานของฉัน</a><a href="export.html" data-menu-key="export">รายงาน</a><a href="users.html" data-menu-key="users">ผู้ใช้งาน</a><a href="categories.html" data-menu-key="categories">หมวดหมู่</a><a href="announcements.html" data-menu-key="announcements" aria-current="page">ประกาศ</a><a href="activity-logs.html" data-menu-key="activity">Activity Logs</a><a href="settings.html" data-menu-key="settings">ตั้งค่า</a><button type="button" class="admin-menu__button" data-admin-logout>ออกจากระบบ</button>
+      </nav>
+    </aside>
+    <div class="admin-app">
+      <aside class="admin-sidebar" aria-label="เมนูผู้ดูแลระบบ">
+        <a class="admin-brand" href="dashboard.html" aria-label="ไปหน้า Dashboard"><span class="admin-logo" aria-hidden="true">KR</span><span>Khaophang Admin</span></a>
+        <p class="admin-user-summary">ผู้ใช้งาน: ยังไม่เชื่อม Session จริง</p>
+        <nav class="admin-menu">
+          <a href="dashboard.html" data-menu-key="dashboard">Dashboard</a><a href="reports.html" data-menu-key="reports">เรื่องแจ้ง</a><a href="reports.html?scope=assigned" data-menu-key="assigned">งานของฉัน</a><a href="export.html" data-menu-key="export">รายงาน</a><a href="users.html" data-menu-key="users">ผู้ใช้งาน</a><a href="categories.html" data-menu-key="categories">หมวดหมู่</a><a href="announcements.html" data-menu-key="announcements" aria-current="page">ประกาศ</a><a href="activity-logs.html" data-menu-key="activity">Activity Logs</a><a href="settings.html" data-menu-key="settings">ตั้งค่า</a><button type="button" class="admin-menu__button" data-admin-logout>ออกจากระบบ</button>
+        </nav>
+      </aside>
+      <main class="admin-shell">
+        <section class="admin-panel" aria-labelledby="page-title">
+          <p class="eyebrow">จัดการระบบ</p>
+          <h1 id="page-title">ประกาศ</h1>
+          <p class="placeholder-text">พื้นที่ตั้งต้นสำหรับจัดการประกาศ</p>
+        </section>
+      </main>
+    </div>
   </body>
 </html>
