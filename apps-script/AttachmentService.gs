@@ -202,3 +202,33 @@ function AttachmentService_compensateUploads_(fileIds) {
     }
   });
 }
+
+function AttachmentService_listPublicByReport_(reportId) {
+  const attachments = SheetRepository_list_("attachments", {
+    keyColumnName: "attachment_id",
+    page: 1,
+    pageSize: 100
+  }).items.filter(function (attachment) {
+    return String(attachment.report_id || "") === String(reportId || "") &&
+      Utils_toBoolean_(attachment.is_public) &&
+      !Utils_toBoolean_(attachment.is_deleted);
+  }).sort(function (left, right) {
+    return String(left.created_at || "").localeCompare(String(right.created_at || ""));
+  });
+
+  return attachments.map(AttachmentService_projectPublic_);
+}
+
+function AttachmentService_projectPublic_(attachment) {
+  return {
+    attachmentId: String(attachment.attachment_id || ""),
+    updateId: String(attachment.update_id || ""),
+    fileName: Security_sanitizeText_(attachment.file_name || attachment.original_file_name || ""),
+    mimeType: Security_sanitizeText_(attachment.mime_type || ""),
+    fileSize: Number(attachment.file_size || 0),
+    width: Number(attachment.width || 0),
+    height: Number(attachment.height || 0),
+    fileRole: Security_sanitizeText_(attachment.file_role || ""),
+    createdAt: String(attachment.created_at || "")
+  };
+}

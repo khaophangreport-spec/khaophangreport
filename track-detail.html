@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="รายละเอียดและ Timeline ของเรื่องแจ้ง" />
-    <title>รายละเอียดเรื่อง | Khaophang Report</title>
+    <meta name="description" content="รายละเอียดสถานะและ Timeline ของเรื่องแจ้ง" />
+    <title>รายละเอียดเรื่องแจ้ง | Khaophang Report</title>
     <link rel="stylesheet" href="assets/css/variables.css" />
     <link rel="stylesheet" href="assets/css/reset.css" />
     <link rel="stylesheet" href="assets/css/base.css" />
@@ -16,7 +16,7 @@
     <script src="assets/js/utils.js" defer></script>
     <script src="assets/js/public/track.js" defer></script>
   </head>
-  <body>
+  <body data-track-page="detail">
     <header class="site-header">
       <a class="site-brand" href="index.html" aria-label="กลับหน้าแรก Khaophang Report">
         <span class="site-logo" aria-hidden="true">KR</span>
@@ -30,12 +30,114 @@
         <a href="contact.html">ติดต่อเรา</a>
       </nav>
     </header>
-    <main class="page-shell">
-      <section class="content-section" aria-labelledby="page-title">
-        <h1 id="page-title">รายละเอียดเรื่องแจ้ง</h1>
-        <p class="placeholder-text">พื้นที่ตั้งต้นสำหรับสถานะและ Timeline</p>
+
+    <main class="page-shell track-page">
+      <section class="content-section track-detail-header" aria-labelledby="page-title">
+        <p class="eyebrow">รายละเอียดเรื่องแจ้ง</p>
+        <h1 id="page-title">สถานะเรื่องแจ้ง</h1>
+        <p>หน้านี้แสดงเฉพาะข้อมูลสาธารณะ ไม่แสดงชื่อ เบอร์โทร อีเมล หรือบันทึกภายใน</p>
       </section>
+
+      <section class="content-section track-state track-state--loading" data-track-detail-loading aria-live="polite">
+        <div class="skeleton track-skeleton"></div>
+        <div class="skeleton track-skeleton"></div>
+        <div class="skeleton track-skeleton track-skeleton--short"></div>
+        <p>กำลังโหลดรายละเอียดเรื่องแจ้ง...</p>
+      </section>
+
+      <section class="content-section" data-track-detail-missing hidden aria-labelledby="missing-code-title">
+        <div class="empty-state">
+          <h2 id="missing-code-title">ยังไม่มีรหัสติดตาม</h2>
+          <p>กรุณากรอกรหัสติดตามก่อน ระบบจะไม่สร้างหรือเดารหัสให้เอง</p>
+          <a class="button button-primary" href="track.html">ไปหน้าติดตามสถานะ</a>
+        </div>
+      </section>
+
+      <section class="content-section" data-track-detail-error hidden aria-labelledby="track-error-title">
+        <div class="alert alert-danger" role="alert">
+          <h2 id="track-error-title">โหลดข้อมูลไม่สำเร็จ</h2>
+          <p data-track-detail-error-message>กรุณาลองใหม่อีกครั้ง</p>
+          <div class="action-row">
+            <button class="button button-secondary" type="button" data-track-detail-retry>ลองใหม่</button>
+            <a class="button button-outline" href="track.html">ค้นหารหัสอื่น</a>
+          </div>
+        </div>
+      </section>
+
+      <article class="track-detail" data-track-detail-content hidden aria-labelledby="track-title">
+        <section class="content-section track-summary-card">
+          <div class="track-summary-card__header">
+            <div>
+              <span class="track-code-label">รหัสติดตาม</span>
+              <strong class="track-code-value" data-detail-tracking-code></strong>
+            </div>
+            <span class="status-chip" data-detail-status-chip></span>
+          </div>
+          <div class="track-category-line">
+            <span class="track-category-icon" data-detail-category-icon aria-hidden="true"></span>
+            <span data-detail-category-name></span>
+          </div>
+          <h2 id="track-title" data-detail-title></h2>
+          <dl class="track-meta-grid">
+            <div>
+              <dt>วันที่แจ้ง</dt>
+              <dd data-detail-created-at></dd>
+            </div>
+            <div>
+              <dt>วันที่พบปัญหา</dt>
+              <dd data-detail-incident-date></dd>
+            </div>
+            <div>
+              <dt>ระดับความสำคัญ</dt>
+              <dd data-detail-priority></dd>
+            </div>
+            <div>
+              <dt>สถานะปัจจุบัน</dt>
+              <dd data-detail-status-text></dd>
+            </div>
+          </dl>
+        </section>
+
+        <section class="content-section" aria-labelledby="timeline-title">
+          <div class="section-heading">
+            <h2 id="timeline-title">Timeline ความคืบหน้า</h2>
+            <p>ลำดับการอัปเดตที่เปิดเผยต่อประชาชน</p>
+          </div>
+          <ol class="track-timeline" data-detail-timeline></ol>
+          <div class="empty-state" data-detail-timeline-empty hidden>
+            <p>ยังไม่มี Timeline สาธารณะเพิ่มเติม</p>
+          </div>
+        </section>
+
+        <section class="content-section" aria-labelledby="public-result-title">
+          <div class="section-heading">
+            <h2 id="public-result-title">ผลการดำเนินงาน</h2>
+          </div>
+          <div class="track-result-box" data-detail-public-result></div>
+        </section>
+
+        <section class="content-section" aria-labelledby="attachments-title">
+          <div class="section-heading">
+            <h2 id="attachments-title">ไฟล์แนบสาธารณะ</h2>
+            <p>แสดงเฉพาะ metadata ของไฟล์ที่เปิดเผยต่อประชาชน</p>
+          </div>
+          <div class="track-attachment-list" data-detail-attachments></div>
+          <div class="empty-state" data-detail-attachments-empty hidden>
+            <p>ยังไม่มีไฟล์แนบสาธารณะ</p>
+          </div>
+        </section>
+
+        <section class="content-section track-next-action" aria-labelledby="additional-info-title">
+          <h2 id="additional-info-title">ต้องการส่งข้อมูลเพิ่ม?</h2>
+          <p>ระบบรับข้อมูลเพิ่มเติมจะเชื่อมต่อในขั้นถัดไป ตอนนี้สามารถติดต่อโครงการพร้อมแจ้งรหัสติดตามนี้ได้</p>
+          <div class="action-row">
+            <a class="button button-primary" href="contact.html">ส่งข้อมูลเพิ่ม</a>
+            <a class="button button-outline" href="track.html">ค้นหารหัสอื่น</a>
+          </div>
+        </section>
+      </article>
     </main>
+
     <footer class="site-footer">
       <p><strong>Khaophang Report</strong></p>
       <p>อีเมล <a href="mailto:khaophangreport@gmail.com">khaophangreport@gmail.com</a></p>
@@ -43,8 +145,9 @@
         <a href="privacy.html">Privacy</a>
         <a href="terms.html">Terms</a>
       </nav>
-      <p>ข้อมูลสาธารณะจะแสดงเท่าที่จำเป็นต่อการติดตามสถานะ</p>
+      <p>ข้อมูลสาธารณะจะไม่แสดงข้อมูลส่วนบุคคลของผู้แจ้ง</p>
     </footer>
+
     <nav class="mobile-bottom-nav" aria-label="เมนูหลักบนมือถือ">
       <a class="mobile-bottom-nav__item" href="index.html">
         <span aria-hidden="true">⌂</span>

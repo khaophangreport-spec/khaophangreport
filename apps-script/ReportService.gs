@@ -4,6 +4,10 @@ const REPORT_CREATE_RATE_LIMIT_ = Object.freeze({
   limit: 5,
   windowSeconds: 10 * 60
 });
+const REPORT_TRACK_RATE_LIMIT_ = Object.freeze({
+  limit: 30,
+  windowSeconds: 10 * 60
+});
 
 function ReportService_create(request) {
   const lock = LockService.getScriptLock();
@@ -68,6 +72,37 @@ function ReportService_create(request) {
   } finally {
     lock.releaseLock();
   }
+}
+
+function ReportService_track(request) {
+  const trackingCode = ReportService_normalizeTrackingCode_(
+    request && request.data ? request.data.trackingCode : ""
+  );
+
+  if (!ReportService_isTrackingCodeFormatValid_(trackingCode)) {
+    ReportService_throwTrackNotFound_();
+  }
+
+  ReportService_checkTrackRateLimit_(trackingCode);
+
+  const report = SheetRepository_findOne_("reports", {
+    tracking_code: trackingCode
+  }, {
+    keyColumnName: "report_id"
+  });
+
+  if (!report || Utils_toBoolean_(report.is_deleted)) {
+    ReportService_throwTrackNotFound_();
+  }
+
+  const category = CategoryService_getPublicById_(report.category_id);
+  const attachments = AttachmentService_listPublicByReport_(report.report_id);
+  const timeline = ReportService_listPublicTimeline_(report.report_id, attachments);
+
+  return {
+    data: ReportService_projectPublicTrack_(report, category, timeline, attachments),
+    message: "พบข้อมูลเรื่องแจ้ง"
+  };
 }
 
 function ReportService_validateCreateRequest_(request) {
@@ -352,6 +387,127 @@ function ReportService_assertNotDuplicateRequest_(requestId) {
   }
 }
 
+function ReportService_normalizeTrackingCode_(value) {
+  return Utils_normalizeString_(value)
+    .replace(/[\u2010-\u2015]/g, "-")
+    .replace(/\s+/g, "")
+    .toUpperCase();
+}
+
+function ReportService_isTrackingCodeFormatValid_(trackingCode) {
+  return /^KPR-\d{6}-[A-Z0-9]{4}$/.test(String(trackingCode || ""));
+}
+
+function ReportService_throwTrackNotFound_() {
+  throw ApiError_("NOT_FOUND", "ไม่พบรหัสติดตามนี้");
+}
+
+function ReportService_listPublicTimeline_(reportId, attachments) {
+  const attachmentsByUpdateId = {};
+
+  (attachments || []).forEach(function (attachment) {
+    const updateId = String(attachment.updateId || "");
+    if (!updateId) {
+      return;
+    }
+
+    if (!attachmentsByUpdateId[updateId]) {
+      attachmentsByUpdateId[updateId] = [];
+    }
+
+    attachmentsByUpdateId[updateId].push(attachment);
+  });
+
+  return SheetRepository_list_("report_updates", {
+    keyColumnName: "update_id",
+    page: 1,
+    pageSize: 100
+  }).items.filter(function (update) {
+    return String(update.report_id || "") === String(reportId || "") &&
+      Utils_toBoolean_(update.is_public) &&
+      !Utils_toBoolean_(update.is_deleted);
+  }).sort(function (left, right) {
+    return String(left.created_at || "").localeCompare(String(right.created_at || ""));
+  }).map(function (update) {
+    const updateId = String(update.update_id || "");
+
+    return {
+      updateId: updateId,
+      type: Security_sanitizeText_(update.update_type || ""),
+      status: Security_sanitizeText_(update.new_status || update.old_status || ""),
+      message: Security_sanitizeText_(update.public_message || ""),
+      createdAt: String(update.created_at || ""),
+      attachments: attachmentsByUpdateId[updateId] || []
+    };
+  });
+}
+
+function ReportService_projectPublicTrack_(report, category, timeline, attachments) {
+  const publicAttachments = (attachments || []).map(ReportService_projectTrackAttachment_);
+  const attachmentsByUpdateId = {};
+
+  publicAttachments.forEach(function (attachment) {
+    if (!attachment.updateId) {
+      return;
+    }
+
+    if (!attachmentsByUpdateId[attachment.updateId]) {
+      attachmentsByUpdateId[attachment.updateId] = [];
+    }
+
+    attachmentsByUpdateId[attachment.updateId].push(attachment);
+  });
+
+  const publicTimeline = (timeline || []).map(function (update) {
+    const updateId = String(update.updateId || update.update_id || "");
+    const updateAttachments = update.attachments && update.attachments.length > 0 ?
+      update.attachments.map(ReportService_projectTrackAttachment_) :
+      attachmentsByUpdateId[updateId] || [];
+
+    return {
+      updateId: updateId,
+      type: Security_sanitizeText_(update.type || update.update_type || ""),
+      status: Security_sanitizeText_(update.status || update.new_status || update.old_status || ""),
+      message: Security_sanitizeText_(update.message || update.public_message || ""),
+      createdAt: String(update.createdAt || update.created_at || ""),
+      attachments: updateAttachments
+    };
+  });
+
+  return {
+    trackingCode: String(report.tracking_code || ""),
+    category: {
+      categoryId: String(category && category.categoryId ? category.categoryId : ""),
+      name: Security_sanitizeText_(category && category.name ? category.name : ""),
+      icon: Security_sanitizeText_(category && category.icon ? category.icon : "circle"),
+      color: CategoryService_normalizeColor_(category && category.color ? category.color : "#287444")
+    },
+    title: Security_sanitizeText_(report.title || ""),
+    incidentDate: String(report.incident_date || ""),
+    createdAt: String(report.created_at || ""),
+    status: Security_sanitizeText_(report.status || ""),
+    priority: Security_sanitizeText_(report.priority || ""),
+    publicAssigneeName: "",
+    publicResult: Security_sanitizeText_(report.public_result || ""),
+    timeline: publicTimeline,
+    attachments: publicAttachments
+  };
+}
+
+function ReportService_projectTrackAttachment_(attachment) {
+  return {
+    attachmentId: String(attachment.attachmentId || attachment.attachment_id || ""),
+    updateId: String(attachment.updateId || attachment.update_id || ""),
+    fileName: Security_sanitizeText_(attachment.fileName || attachment.file_name || ""),
+    mimeType: Security_sanitizeText_(attachment.mimeType || attachment.mime_type || ""),
+    fileSize: Number(attachment.fileSize || attachment.file_size || 0),
+    width: Number(attachment.width || 0),
+    height: Number(attachment.height || 0),
+    fileRole: Security_sanitizeText_(attachment.fileRole || attachment.file_role || ""),
+    createdAt: String(attachment.createdAt || attachment.created_at || "")
+  };
+}
+
 function ReportService_checkRateLimit_(request) {
   const now = new Date();
   const action = "report.create";
@@ -436,6 +592,84 @@ function ReportService_buildRateLimitKey_(request) {
   ].join("|");
 
   return "rl_" + Security_hashSha256_(source, "rate-limit").slice(0, 48);
+}
+
+function ReportService_checkTrackRateLimit_(trackingCode) {
+  const now = new Date();
+  const action = "report.track";
+  const rateKey = ReportService_buildTrackRateLimitKey_(trackingCode);
+  const existing = SheetRepository_findById_("rate_limits", "rate_key", rateKey, {
+    keyColumnName: "rate_key",
+    includeDeleted: true
+  });
+
+  if (!existing) {
+    SheetRepository_append_("rate_limits", {
+      rate_key: rateKey,
+      action: action,
+      window_start: now.toISOString(),
+      count: 1,
+      blocked_until: "",
+      updated_at: now.toISOString(),
+      expires_at: new Date(now.getTime() + REPORT_TRACK_RATE_LIMIT_.windowSeconds * 1000).toISOString()
+    }, {
+      keyColumnName: "rate_key",
+      userId: "system"
+    });
+    return;
+  }
+
+  const windowStart = new Date(existing.window_start || now.toISOString());
+  const blockedUntil = existing.blocked_until ? new Date(existing.blocked_until) : null;
+
+  if (blockedUntil && blockedUntil.getTime() > now.getTime()) {
+    throw ApiError_("RATE_LIMITED", "มีการใช้งานถี่เกินไป กรุณาลองใหม่ภายหลัง", {
+      retryAfterSeconds: Math.ceil((blockedUntil.getTime() - now.getTime()) / 1000)
+    });
+  }
+
+  if (now.getTime() - windowStart.getTime() > REPORT_TRACK_RATE_LIMIT_.windowSeconds * 1000) {
+    SheetRepository_updateById_("rate_limits", "rate_key", rateKey, {
+      window_start: now.toISOString(),
+      count: 1,
+      blocked_until: "",
+      updated_at: now.toISOString(),
+      expires_at: new Date(now.getTime() + REPORT_TRACK_RATE_LIMIT_.windowSeconds * 1000).toISOString()
+    }, {
+      userId: "system"
+    });
+    return;
+  }
+
+  const nextCount = Number(existing.count || 0) + 1;
+  const updates = {
+    count: nextCount,
+    updated_at: now.toISOString(),
+    expires_at: new Date(windowStart.getTime() + REPORT_TRACK_RATE_LIMIT_.windowSeconds * 1000).toISOString()
+  };
+
+  if (nextCount > REPORT_TRACK_RATE_LIMIT_.limit) {
+    updates.blocked_until = new Date(windowStart.getTime() + REPORT_TRACK_RATE_LIMIT_.windowSeconds * 1000).toISOString();
+  }
+
+  SheetRepository_updateById_("rate_limits", "rate_key", rateKey, updates, {
+    userId: "system"
+  });
+
+  if (nextCount > REPORT_TRACK_RATE_LIMIT_.limit) {
+    throw ApiError_("RATE_LIMITED", "มีการใช้งานถี่เกินไป กรุณาลองใหม่ภายหลัง", {
+      retryAfterSeconds: Math.ceil((new Date(updates.blocked_until).getTime() - now.getTime()) / 1000)
+    });
+  }
+}
+
+function ReportService_buildTrackRateLimitKey_(trackingCode) {
+  const source = [
+    "report.track",
+    ReportService_normalizeTrackingCode_(trackingCode)
+  ].join("|");
+
+  return "rl_track_" + Security_hashSha256_(source, "rate-limit").slice(0, 48);
 }
 
 function ReportService_generateUniqueTrackingCode_(createdAt) {

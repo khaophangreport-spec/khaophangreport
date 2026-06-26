@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="ติดตามสถานะเรื่องแจ้งของตำบลเขาพัง" />
+    <meta name="description" content="ติดตามสถานะเรื่องแจ้งของตำบลเขาพังด้วยรหัสติดตาม" />
     <title>ติดตามสถานะ | Khaophang Report</title>
     <link rel="stylesheet" href="assets/css/variables.css" />
     <link rel="stylesheet" href="assets/css/reset.css" />
@@ -16,7 +16,7 @@
     <script src="assets/js/utils.js" defer></script>
     <script src="assets/js/public/track.js" defer></script>
   </head>
-  <body>
+  <body data-track-page="search">
     <header class="site-header">
       <a class="site-brand" href="index.html" aria-label="กลับหน้าแรก Khaophang Report">
         <span class="site-logo" aria-hidden="true">KR</span>
@@ -30,12 +30,70 @@
         <a href="contact.html">ติดต่อเรา</a>
       </nav>
     </header>
-    <main class="page-shell">
-      <section class="content-section" aria-labelledby="page-title">
-        <h1 id="page-title">ติดตามสถานะ</h1>
-        <p class="placeholder-text">พื้นที่ตั้งต้นสำหรับค้นหาด้วยรหัสติดตาม</p>
+
+    <main class="page-shell track-page">
+      <section class="content-section track-hero" aria-labelledby="page-title">
+        <p class="eyebrow">ติดตามเรื่องแจ้ง</p>
+        <h1 id="page-title">ตรวจสอบความคืบหน้าด้วยรหัสติดตาม</h1>
+        <p>กรอกรหัสที่ได้รับหลังส่งเรื่อง เพื่อดูสถานะล่าสุด Timeline และผลการดำเนินงานที่เปิดเผยต่อประชาชน</p>
+      </section>
+
+      <section class="content-section track-search-section" aria-labelledby="track-form-title">
+        <div class="section-heading">
+          <h2 id="track-form-title">กรอกรหัสติดตาม</h2>
+          <p>รูปแบบรหัส เช่น KPR-260626-A7F4</p>
+        </div>
+
+        <form class="track-form" data-track-form novalidate>
+          <div class="form-field">
+            <label for="tracking-code">รหัสติดตาม</label>
+            <input
+              id="tracking-code"
+              name="trackingCode"
+              type="text"
+              inputmode="text"
+              autocomplete="off"
+              autocapitalize="characters"
+              spellcheck="false"
+              placeholder="KPR-260626-A7F4"
+              aria-describedby="tracking-code-help tracking-code-error"
+              data-tracking-input
+            />
+            <p id="tracking-code-help" class="form-help">ระบบจะปรับตัวอักษรใหญ่และตัดช่องว่างให้อัตโนมัติ</p>
+            <p id="tracking-code-error" class="field-error" data-tracking-error aria-live="polite"></p>
+          </div>
+
+          <div class="track-actions">
+            <button class="button button-primary" type="submit" data-track-submit>ตรวจสอบสถานะ</button>
+            <button class="button button-outline" type="button" data-track-clear>ล้างข้อมูล</button>
+          </div>
+        </form>
+
+        <div class="track-state track-state--loading" data-track-loading hidden aria-live="polite">
+          <div class="skeleton track-skeleton"></div>
+          <div class="skeleton track-skeleton track-skeleton--short"></div>
+          <p>กำลังค้นหาสถานะเรื่องแจ้ง...</p>
+        </div>
+
+        <div class="alert alert-warning" data-track-not-found hidden role="status">
+          <h3>ไม่พบรหัสติดตามนี้</h3>
+          <p>กรุณาตรวจสอบตัวอักษรและตัวเลขอีกครั้ง หากเพิ่งส่งเรื่อง โปรดลองใหม่อีกครั้งในสักครู่</p>
+        </div>
+
+        <div class="alert alert-warning" data-track-rate-limit hidden role="status">
+          <h3>มีการค้นหาถี่เกินไป</h3>
+          <p data-track-rate-limit-message>กรุณารอสักครู่แล้วลองใหม่</p>
+          <button class="button button-secondary button-small" type="button" data-track-retry>ลองใหม่</button>
+        </div>
+
+        <div class="alert alert-danger" data-track-error hidden role="alert">
+          <h3>ยังไม่สามารถเชื่อมต่อระบบได้</h3>
+          <p data-track-error-message>กรุณาตรวจสอบอินเทอร์เน็ตแล้วลองใหม่อีกครั้ง</p>
+          <button class="button button-secondary button-small" type="button" data-track-retry>ลองใหม่</button>
+        </div>
       </section>
     </main>
+
     <footer class="site-footer">
       <p><strong>Khaophang Report</strong></p>
       <p>อีเมล <a href="mailto:khaophangreport@gmail.com">khaophangreport@gmail.com</a></p>
@@ -43,8 +101,9 @@
         <a href="privacy.html">Privacy</a>
         <a href="terms.html">Terms</a>
       </nav>
-      <p>ใช้รหัสติดตามเพื่อตรวจสอบสถานะเรื่องแจ้งของคุณ</p>
+      <p>ข้อมูลที่แสดงเป็นข้อมูลสาธารณะสำหรับติดตามสถานะเท่านั้น</p>
     </footer>
+
     <nav class="mobile-bottom-nav" aria-label="เมนูหลักบนมือถือ">
       <a class="mobile-bottom-nav__item" href="index.html">
         <span aria-hidden="true">⌂</span>

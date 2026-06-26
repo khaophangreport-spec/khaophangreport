@@ -13,6 +13,8 @@
     <link rel="stylesheet" href="assets/css/public.css" />
     <script src="assets/js/config.js" defer></script>
     <script src="assets/js/utils.js" defer></script>
+    <script src="assets/js/toast.js" defer></script>
+    <script src="assets/js/public/report-success.js" defer></script>
   </head>
   <body>
     <header class="site-header">
@@ -31,12 +33,18 @@
     <main class="page-shell">
       <section class="content-section success-panel" aria-labelledby="page-title" data-success-panel>
         <p class="eyebrow">ผลการส่งเรื่อง</p>
-        <h1 id="page-title">ส่งเรื่องสำเร็จ</h1>
-        <p>ระบบรับเรื่องของคุณเรียบร้อยแล้ว กรุณาเก็บรหัสติดตามไว้เพื่อตรวจสอบความคืบหน้า</p>
+        <h1 id="page-title" data-success-title>ส่งเรื่องสำเร็จ</h1>
+        <p data-success-lead>ระบบรับเรื่องของคุณเรียบร้อยแล้ว กรุณาเก็บรหัสติดตามไว้เพื่อตรวจสอบความคืบหน้า</p>
         <div class="tracking-summary" data-success-content hidden>
           <div class="tracking-code-card">
-            <span>รหัสติดตาม</span>
-            <strong data-tracking-code></strong>
+            <div>
+              <span>รหัสติดตาม</span>
+              <strong data-tracking-code></strong>
+            </div>
+            <button class="button button-secondary" type="button" data-copy-code>คัดลอกรหัส</button>
+          </div>
+          <div class="alert alert-info">
+            <p>โปรดบันทึกหรือคัดลอกรหัสนี้ไว้ หากปิดหน้านี้แล้วอาจต้องใช้รหัสที่เก็บไว้เองในการติดตามสถานะ</p>
           </div>
           <dl class="report-success-list">
             <div>
@@ -58,11 +66,12 @@
           </dl>
         </div>
         <div class="alert alert-warning" data-success-empty hidden>
-          <p>ไม่พบผลการส่งเรื่องในเบราว์เซอร์นี้ หากคุณมีรหัสติดตามแล้ว สามารถตรวจสอบสถานะได้จากหน้าติดตาม</p>
+          <p>ไม่พบผลการส่งเรื่องในเบราว์เซอร์นี้ ระบบจะไม่สร้างรหัสติดตามแทน หากคุณมีรหัสอยู่แล้วให้ไปหน้าติดตามสถานะ</p>
         </div>
+        <p class="form-help" data-copy-status aria-live="polite"></p>
         <div class="action-row">
-          <a class="button button-primary" href="track.html">ไปหน้าติดตามสถานะ</a>
-          <a class="button button-outline" href="report.html">แจ้งเรื่องใหม่</a>
+          <a class="button button-primary" href="track.html" data-track-link>ติดตามสถานะ</a>
+          <a class="button button-outline" href="index.html">กลับหน้าแรก</a>
         </div>
       </section>
     </main>
@@ -93,79 +102,5 @@
         <span>ติดต่อ</span>
       </a>
     </nav>
-    <script>
-      (function () {
-        "use strict";
-
-        const RESULT_KEY = "KPR_REPORT_RESULT_V1";
-        document.addEventListener("DOMContentLoaded", init);
-
-        function init() {
-          const result = readResult();
-          const content = document.querySelector("[data-success-content]");
-          const empty = document.querySelector("[data-success-empty]");
-
-          if (!result || !result.trackingCode) {
-            setHidden(content, true);
-            setHidden(empty, false);
-            return;
-          }
-
-          setHidden(content, false);
-          setHidden(empty, true);
-          setText("[data-tracking-code]", result.trackingCode);
-          setText("[data-report-title]", result.title || "-");
-          setText("[data-category-name]", result.categoryName || "-");
-          setText("[data-created-at]", formatDateTime(result.createdAt));
-          setText("[data-report-status]", getStatusLabel(result.status));
-        }
-
-        function readResult() {
-          try {
-            return JSON.parse(window.sessionStorage.getItem(RESULT_KEY) || "null");
-          } catch (error) {
-            return null;
-          }
-        }
-
-        function setText(selector, value) {
-          const element = document.querySelector(selector);
-
-          if (element) {
-            element.textContent = value === null || value === undefined ? "" : String(value);
-          }
-        }
-
-        function setHidden(element, hidden) {
-          if (element) {
-            element.hidden = hidden;
-          }
-        }
-
-        function formatDateTime(value) {
-          if (window.KPR_UTILS && typeof window.KPR_UTILS.formatThaiDateTime === "function") {
-            return window.KPR_UTILS.formatThaiDateTime(value) || "-";
-          }
-
-          return value || "-";
-        }
-
-        function getStatusLabel(value) {
-          const labels = {
-            new: "รับเรื่องแล้ว",
-            reviewing: "กำลังตรวจสอบ",
-            assigned: "มอบหมายเจ้าหน้าที่แล้ว",
-            in_progress: "กำลังดำเนินการ",
-            waiting: "รอข้อมูลเพิ่มเติม",
-            resolved: "ดำเนินการแล้ว",
-            closed: "ปิดเรื่องแล้ว",
-            rejected: "ไม่รับเรื่อง",
-            duplicate: "เรื่องซ้ำ"
-          };
-
-          return labels[value] || value || "-";
-        }
-      })();
-    </script>
   </body>
 </html>

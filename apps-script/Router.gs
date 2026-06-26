@@ -3,7 +3,8 @@ const ROUTER_ACTIONS_ = Object.freeze({
   "public.config": SettingsService_getPublicConfig,
   "category.list": CategoryService_listPublic,
   "announcement.list": AnnouncementService_listPublic,
-  "report.create": ReportService_create
+  "report.create": ReportService_create,
+  "report.track": ReportService_track
 });
 
 function Router_handleGet_(e) {

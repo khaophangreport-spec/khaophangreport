@@ -42,6 +42,26 @@ function CategoryService_projectPublic_(category) {
   };
 }
 
+function CategoryService_getPublicById_(categoryId) {
+  const category = SheetRepository_findById_("categories", "category_id", categoryId, {
+    keyColumnName: "category_id"
+  });
+
+  if (!category || !Utils_toBoolean_(category.is_active)) {
+    return {
+      categoryId: "",
+      code: "",
+      name: "",
+      description: "",
+      icon: "circle",
+      color: "#287444",
+      targetDays: 0
+    };
+  }
+
+  return CategoryService_projectPublic_(category);
+}
+
 function CategoryService_normalizeColor_(value) {
   const color = String(value || "#287444").trim();
 

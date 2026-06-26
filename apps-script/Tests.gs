@@ -429,3 +429,173 @@ function testReportCreateRateLimitKeyNoRawPii() {
     rateKey: rateKey
   };
 }
+
+function testReportTrackRouterWhitelist() {
+  if (ROUTER_ACTIONS_["report.track"] !== ReportService_track) {
+    throw new Error("report.track is not registered in Router whitelist");
+  }
+
+  console.log("report.track is registered in Router whitelist");
+  return {
+    ok: true,
+    action: "report.track"
+  };
+}
+
+function testReportTrackNormalizeTrackingCode() {
+  const normalized = ReportService_normalizeTrackingCode_(" kpr - 260626 - a7f4 ");
+
+  if (normalized !== "KPR-260626-A7F4") {
+    throw new Error("Tracking code normalization failed: " + normalized);
+  }
+
+  if (!ReportService_isTrackingCodeFormatValid_(normalized)) {
+    throw new Error("Normalized tracking code did not pass format validation");
+  }
+
+  console.log(normalized);
+  return {
+    ok: true,
+    trackingCode: normalized
+  };
+}
+
+function testReportTrackNotFoundGeneric() {
+  try {
+    ReportService_track({
+      action: "report.track",
+      requestId: "REQ-TEST-TRACK-NOT-FOUND",
+      data: {
+        trackingCode: "invalid"
+      }
+    });
+  } catch (error) {
+    if (error && error.code === "NOT_FOUND") {
+      console.log("report.track returned generic not found for invalid code");
+      return {
+        ok: true,
+        code: error.code
+      };
+    }
+
+    throw error;
+  }
+
+  throw new Error("report.track did not reject invalid tracking code");
+}
+
+function testReportTrackPublicProjectionNoLeak() {
+  const publicData = ReportService_projectPublicTrack_({
+    report_id: "REPORT-SECRET",
+    tracking_code: "KPR-260626-A7F4",
+    request_id: "REQ-SECRET",
+    category_id: "CAT-001",
+    title: "Public title",
+    incident_date: "2026-06-25",
+    created_at: "2026-06-26T00:00:00.000Z",
+    status: "new",
+    priority: "normal",
+    assigned_to: "USER-SECRET",
+    public_result: "Public result",
+    internal_summary: "Internal summary",
+    reporter_name: "Private Name",
+    reporter_phone: "0812345678",
+    reporter_email: "person@example.com",
+    version: 9
+  }, {
+    categoryId: "CAT-001",
+    name: "Road",
+    icon: "road",
+    color: "#287444",
+    default_assignee: "USER-SECRET"
+  }, [{
+    updateId: "UPD-001",
+    type: "status",
+    status: "new",
+    message: "Public timeline",
+    createdAt: "2026-06-26T00:00:00.000Z",
+    internal_note: "Internal note",
+    updated_by: "USER-SECRET",
+    attachments: []
+  }], [{
+    attachmentId: "ATT-001",
+    updateId: "UPD-001",
+    fileName: "photo.jpg",
+    mimeType: "image/jpeg",
+    fileSize: 100,
+    width: 10,
+    height: 10,
+    fileRole: "report",
+    createdAt: "2026-06-26T00:00:00.000Z",
+    file_id: "DRIVE-SECRET"
+  }]);
+
+  const serialized = JSON.stringify(publicData);
+  const forbiddenValues = [
+    "REPORT-SECRET",
+    "REQ-SECRET",
+    "USER-SECRET",
+    "Internal summary",
+    "Internal note",
+    "Private Name",
+    "0812345678",
+    "person@example.com",
+    "DRIVE-SECRET"
+  ];
+  const forbiddenKeys = [
+    "report_id",
+    "reportId",
+    "request_id",
+    "requestId",
+    "reporter_name",
+    "reporterName",
+    "reporter_phone",
+    "reporterPhone",
+    "reporter_email",
+    "reporterEmail",
+    "internal_summary",
+    "internalSummary",
+    "internal_note",
+    "internalNote",
+    "assigned_to",
+    "assignedTo",
+    "default_assignee",
+    "defaultAssignee",
+    "file_id",
+    "fileId"
+  ];
+
+  forbiddenValues.concat(forbiddenKeys).forEach(function (forbidden) {
+    if (serialized.indexOf(forbidden) !== -1) {
+      throw new Error("report.track public projection leaked: " + forbidden);
+    }
+  });
+
+  if (publicData.trackingCode !== "KPR-260626-A7F4" || publicData.category.categoryId !== "CAT-001") {
+    throw new Error("report.track public projection missed required public fields");
+  }
+
+  console.log(JSON.stringify(publicData));
+  return {
+    ok: true,
+    projection: publicData
+  };
+}
+
+function testReportTrackRateLimitKeyNoRawTrackingCode() {
+  const rateKey = ReportService_buildTrackRateLimitKey_("KPR-260626-A7F4");
+
+  if (rateKey.indexOf("KPR-260626-A7F4") !== -1) {
+    throw new Error("report.track rate limit key contains raw tracking code");
+  }
+
+  if (rateKey.indexOf("rl_track_") !== 0) {
+    throw new Error("report.track rate limit key does not use expected prefix");
+  }
+
+  console.log(rateKey);
+  return {
+    ok: true,
+    rateKey: rateKey
+  };
+}

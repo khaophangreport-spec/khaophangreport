@@ -355,6 +355,235 @@
   gap: var(--space-4);
 }
 
+.track-page {
+  gap: var(--space-5);
+}
+
+.track-hero,
+.track-detail-header {
+  background: linear-gradient(180deg, var(--color-leaf-soft), var(--color-surface));
+  border-color: var(--color-primary-200);
+}
+
+.track-search-section {
+  gap: var(--space-5);
+}
+
+.track-actions {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: 1fr;
+}
+
+.track-state {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.track-state--loading {
+  color: var(--color-text-muted);
+}
+
+.track-skeleton {
+  min-height: 3.25rem;
+}
+
+.track-skeleton--short {
+  width: 64%;
+}
+
+.track-detail {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.track-summary-card {
+  background: var(--color-surface);
+  border-color: var(--color-primary-200);
+  gap: var(--space-4);
+}
+
+.track-summary-card__header {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.track-code-label {
+  color: var(--color-text-muted);
+  display: block;
+  font-size: var(--font-size-sm);
+  margin-bottom: var(--space-1);
+}
+
+.track-code-value {
+  color: var(--color-primary-900);
+  display: block;
+  font-size: 1.4rem;
+  overflow-wrap: anywhere;
+}
+
+.track-category-line {
+  align-items: center;
+  color: var(--color-text-muted);
+  display: flex;
+  gap: var(--space-3);
+}
+
+.track-category-icon,
+.track-attachment-card__icon {
+  align-items: center;
+  background: var(--color-primary-100);
+  border: 1px solid var(--color-primary-200);
+  border-radius: var(--radius-sm);
+  color: var(--color-primary-900);
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  height: 2.25rem;
+  justify-content: center;
+  width: 2.25rem;
+}
+
+.track-meta-grid {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.track-meta-grid div {
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3);
+}
+
+.track-meta-grid dt {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.track-meta-grid dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.track-timeline {
+  display: grid;
+  gap: var(--space-4);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.track-timeline__item {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: auto minmax(0, 1fr);
+  position: relative;
+}
+
+.track-timeline__item::before {
+  background: var(--color-primary-200);
+  content: "";
+  height: calc(100% + var(--space-4));
+  left: 0.56rem;
+  position: absolute;
+  top: 1.1rem;
+  width: 2px;
+}
+
+.track-timeline__item:last-child::before {
+  display: none;
+}
+
+.track-timeline__marker {
+  background: var(--color-primary-700);
+  border: 3px solid var(--color-surface);
+  border-radius: var(--radius-pill);
+  box-shadow: 0 0 0 1px var(--color-primary-300);
+  height: 1.15rem;
+  margin-top: 0.35rem;
+  position: relative;
+  width: 1.15rem;
+  z-index: 1;
+}
+
+.track-timeline__body {
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+.track-timeline__header {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.track-timeline__header time {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+}
+
+.track-result-box {
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-muted);
+  padding: var(--space-4);
+}
+
+.track-result-box p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.track-attachment-list {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.track-attachment-list--timeline {
+  margin-top: var(--space-1);
+}
+
+.track-attachment-card {
+  align-items: center;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: auto minmax(0, 1fr);
+  padding: var(--space-3);
+}
+
+.track-attachment-card__detail {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.track-attachment-card__detail strong,
+.track-attachment-card__detail small {
+  overflow-wrap: anywhere;
+}
+
+.track-attachment-card__detail small {
+  color: var(--color-text-muted);
+}
+
+.track-next-action {
+  background: var(--color-primary-50);
+  border-color: var(--color-primary-200);
+}
+
 .report-page {
   gap: var(--space-5);
 }
@@ -641,12 +870,18 @@
 }
 
 .tracking-code-card {
+  align-items: stretch;
   background: var(--color-surface);
   border: 1px solid var(--color-primary-200);
   border-radius: var(--radius-md);
   display: grid;
   gap: var(--space-1);
   padding: var(--space-4);
+}
+
+.tracking-code-card .button {
+  justify-self: start;
+  margin-top: var(--space-2);
 }
 
 .tracking-code-card span {
@@ -684,6 +919,15 @@
 .report-success-list dd {
   margin: 0;
   overflow-wrap: anywhere;
+}
+
+.clipboard-fallback-input {
+  height: 1px;
+  left: 0;
+  opacity: 0;
+  position: fixed;
+  top: 0;
+  width: 1px;
 }
 
 .privacy-content,
@@ -728,6 +972,32 @@
   .public-feature-grid,
   .report-options {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .track-actions {
+    align-items: center;
+    display: flex;
+  }
+
+  .track-summary-card__header {
+    align-items: start;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .track-code-value {
+    font-size: 1.75rem;
+  }
+
+  .track-meta-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .track-attachment-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .track-attachment-list--timeline {
+    grid-template-columns: 1fr;
   }
 
   .home-page {
@@ -802,5 +1072,14 @@
     display: flex;
     padding-inline: 0;
     position: static;
+  }
+
+  .tracking-code-card {
+    align-items: center;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .tracking-code-card .button {
+    margin-top: 0;
   }
 }
