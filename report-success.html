@@ -12,17 +12,62 @@
   <link rel="stylesheet" href="assets/css/utilities.css">
   <link rel="stylesheet" href="assets/css/public.css">
 </head>
-<body>
-  <main class="page-shell">
-    <section class="page-card" aria-labelledby="page-title">
+<body data-page="report">
+  <a class="skip-link" href="#main-content">ข้ามไปยังเนื้อหา</a>
+
+  <header class="site-header">
+    <nav class="site-nav" aria-label="เมนูหลัก">
+      <a class="site-brand" href="index.html" data-nav-target="home" aria-label="Khaophang Report หน้าแรก">
+        <span class="logo-placeholder" aria-hidden="true">KR</span>
+        <span class="brand-text">
+          <span class="brand-title">Khaophang Report</span>
+          <span class="brand-subtitle">ระบบรับแจ้งปัญหาชุมชน</span>
+        </span>
+      </a>
+      <div class="desktop-nav">
+        <a href="index.html" data-nav-target="home">หน้าแรก</a>
+        <a href="report.html" data-nav-target="report">แจ้งปัญหา</a>
+        <a href="track.html" data-nav-target="track">ติดตามสถานะ</a>
+        <a href="faq.html" data-nav-target="faq">คำถามที่พบบ่อย</a>
+        <a href="contact.html" data-nav-target="contact">ติดต่อเรา</a>
+      </div>
+    </nav>
+  </header>
+
+  <main id="main-content" class="page-shell" tabindex="-1">
+    <section class="page-card page-intro" aria-labelledby="page-title">
       <p class="eyebrow">สำเร็จ</p>
       <h1 id="page-title">ส่งเรื่องเรียบร้อยแล้ว</h1>
       <p>หน้านี้เตรียมไว้สำหรับแสดงรหัสติดตามหลังเชื่อมต่อ API</p>
-      <a class="button button-secondary" href="track.html">ไปหน้าติดตามสถานะ</a>
+      <div class="action-row">
+        <a class="button button-primary" href="track.html">ไปหน้าติดตามสถานะ</a>
+        <a class="button button-secondary" href="index.html">กลับหน้าแรก</a>
+      </div>
     </section>
   </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div>
+        <strong>Khaophang Report</strong>
+        <p>เก็บรหัสติดตามไว้เพื่อตรวจสอบความคืบหน้าของเรื่องแจ้ง</p>
+      </div>
+      <nav class="footer-links" aria-label="เมนูส่วนท้าย">
+        <a href="mailto:khaophangreport@gmail.com">khaophangreport@gmail.com</a>
+        <a href="privacy.html" data-nav-target="privacy">Privacy</a>
+        <a href="terms.html" data-nav-target="terms">Terms</a>
+      </nav>
+    </div>
+  </footer>
+
+  <nav class="mobile-bottom-nav" aria-label="เมนูหลักบนมือถือ">
+    <a href="index.html" data-nav-target="home"><span aria-hidden="true">⌂</span><span>หน้าแรก</span></a>
+    <a href="report.html" data-nav-target="report"><span aria-hidden="true">＋</span><span>แจ้งปัญหา</span></a>
+    <a href="track.html" data-nav-target="track"><span aria-hidden="true">⌕</span><span>ติดตาม</span></a>
+    <a href="contact.html" data-nav-target="contact"><span aria-hidden="true">☎</span><span>ติดต่อ</span></a>
+  </nav>
+
   <script src="assets/js/config.js"></script>
   <script src="assets/js/utils.js"></script>
 </body>
 </html>
-

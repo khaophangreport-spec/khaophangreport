@@ -12,12 +12,20 @@
   <link rel="stylesheet" href="../assets/css/utilities.css">
   <link rel="stylesheet" href="../assets/css/admin.css">
 </head>
-<body>
-  <main class="admin-shell">
-    <section class="page-card" aria-labelledby="page-title">
+<body data-admin-page="login">
+  <main class="admin-login-shell">
+    <section class="page-card admin-login-card" aria-labelledby="page-title">
+      <a class="admin-brand" href="../index.html" aria-label="กลับหน้าแรก Khaophang Report">
+        <span class="admin-logo" aria-hidden="true">KR</span>
+        <span class="admin-brand-text">
+          <span class="admin-brand-title">Khaophang Report</span>
+          <span class="admin-brand-subtitle">Admin Console</span>
+        </span>
+      </a>
       <p class="eyebrow">ผู้ดูแลระบบ</p>
       <h1 id="page-title">เข้าสู่ระบบ</h1>
       <p>โครงหน้า Login เริ่มต้น ยังไม่เชื่อมต่อ `auth.login`</p>
+      <div class="state-box" data-state="empty">ฟอร์มเข้าสู่ระบบจะเพิ่มในขั้น Authentication</div>
     </section>
   </main>
   <script src="../assets/js/config.js"></script>
@@ -25,4 +33,3 @@
   <script src="../assets/js/auth.js"></script>
 </body>
 </html>
-
