@@ -25,6 +25,26 @@ function Config_getProperty_(key, fallbackValue) {
   return value === null || value === undefined || value === "" ? fallbackValue : value;
 }
 
+function Config_setProperty_(key, value) {
+  Config_getScriptProperties_().setProperty(key, String(value || ""));
+}
+
+function Config_getSpreadsheetId_() {
+  return Config_getProperty_(CONFIG_KEYS_.SPREADSHEET_ID, "");
+}
+
+function Config_setSpreadsheetId_(spreadsheetId) {
+  Config_setProperty_(CONFIG_KEYS_.SPREADSHEET_ID, spreadsheetId);
+}
+
+function Config_getRootFolderId_() {
+  return Config_getProperty_(CONFIG_KEYS_.ROOT_FOLDER_ID, "");
+}
+
+function Config_setRootFolderId_(folderId) {
+  Config_setProperty_(CONFIG_KEYS_.ROOT_FOLDER_ID, folderId);
+}
+
 function Config_getEnvironment_() {
   return Config_getProperty_(CONFIG_KEYS_.ENVIRONMENT, "development");
 }

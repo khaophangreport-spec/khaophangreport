@@ -55,3 +55,23 @@ function Validation_latLng_(latitude, longitude, fields) {
     fields.location = "กรุณาระบุพิกัดให้ถูกต้อง";
   }
 }
+
+function Validation_requiredObject_(value, fieldName, fields) {
+  if (!Utils_isPlainObject_(value)) {
+    fields[fieldName] = "รูปแบบข้อมูลไม่ถูกต้อง";
+  }
+}
+
+function Validation_positiveInteger_(value, fieldName, fields) {
+  const parsedValue = parseInt(value, 10);
+
+  if (!isFinite(parsedValue) || parsedValue < 1) {
+    fields[fieldName] = "กรุณาระบุตัวเลขจำนวนเต็มที่ถูกต้อง";
+  }
+}
+
+function Validation_allowedValue_(value, allowedValues, fieldName, fields) {
+  if (allowedValues.indexOf(value) === -1) {
+    fields[fieldName] = "ค่าที่ระบุไม่อยู่ในรายการที่อนุญาต";
+  }
+}
