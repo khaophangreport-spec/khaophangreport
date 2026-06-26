@@ -1,10 +1,81 @@
 .eyebrow {
   color: var(--color-primary-700);
-  font-weight: 700;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
 }
 
 .placeholder-text {
   color: var(--color-text-muted);
+}
+
+.container {
+  margin-inline: auto;
+  max-width: var(--content-max-width);
+  padding-inline: var(--container-padding);
+  width: 100%;
+}
+
+.stack {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.stack-small {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.stack-large {
+  display: grid;
+  gap: var(--space-6);
+}
+
+.cluster {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.grid-auto {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.text-muted {
+  color: var(--color-text-muted);
+}
+
+.text-success {
+  color: var(--color-success);
+}
+
+.text-warning {
+  color: var(--color-warning);
+}
+
+.text-danger {
+  color: var(--color-danger);
+}
+
+.surface {
+  background: var(--color-surface);
+}
+
+.rounded {
+  border-radius: var(--radius-md);
+}
+
+.shadow-sm {
+  box-shadow: var(--shadow-sm);
+}
+
+.full-width {
+  width: 100%;
+}
+
+.hidden {
+  display: none;
 }
 
 .sr-only {
@@ -16,4 +87,10 @@
   width: 1px;
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
+}
+
+@media (min-width: 640px) {
+  .grid-auto {
+    grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  }
 }

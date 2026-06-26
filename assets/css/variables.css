@@ -1,26 +1,82 @@
 :root {
+  --color-primary-950: #0f2f1d;
   --color-primary-900: #174a2b;
+  --color-primary-800: #1f5f38;
   --color-primary-700: #287444;
+  --color-primary-600: #358958;
+  --color-primary-500: #4a9f6a;
+  --color-primary-200: #c8e5d1;
   --color-primary-100: #e7f3ea;
   --color-primary-50: #f4faf5;
+  --color-earth-700: #745b2f;
+  --color-earth-100: #f2eadb;
+  --color-leaf-soft: #eef7e9;
   --color-background: #f7f8f3;
   --color-surface: #ffffff;
+  --color-surface-soft: #fbfdf8;
+  --color-surface-muted: #f1f5ee;
   --color-text: #1d2a22;
+  --color-text-soft: #38493f;
   --color-text-muted: #66736b;
-  --color-border: #dde5df;
-  --color-success: #2e7d32;
-  --color-warning: #d98200;
-  --color-danger: #c0392b;
+  --color-border: #d9e4dc;
+  --color-border-strong: #b8c8bd;
+  --color-focus: #b7791f;
+  --color-success: #2f7d46;
+  --color-success-bg: #e8f5eb;
+  --color-warning: #a76508;
+  --color-warning-bg: #fff4dd;
+  --color-danger: #b93a2f;
+  --color-danger-bg: #fdeceb;
+  --color-info: #2f6f8f;
+  --color-info-bg: #e7f3f8;
+  --color-overlay: rgba(15, 47, 29, 0.52);
+
+  --font-family-base: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-md: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.35rem;
+  --font-size-2xl: 1.7rem;
+  --font-size-3xl: 2rem;
+  --font-weight-regular: 400;
+  --font-weight-medium: 600;
+  --font-weight-bold: 700;
+  --line-height-tight: 1.25;
+  --line-height-base: 1.65;
+
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
   --space-4: 1rem;
+  --space-5: 1.25rem;
   --space-6: 1.5rem;
   --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+
+  --radius-xs: 6px;
   --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 18px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-pill: 999px;
+
   --shadow-sm: 0 2px 8px rgba(23, 74, 43, 0.08);
-  --content-max-width: 1200px;
-  --font-family-base: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --shadow-md: 0 12px 32px rgba(23, 74, 43, 0.12);
+  --shadow-lg: 0 20px 48px rgba(15, 47, 29, 0.18);
+
+  --container-sm: 42rem;
+  --container-md: 56rem;
+  --container-lg: 72rem;
+  --content-max-width: var(--container-lg);
+  --container-padding: 1rem;
+
+  --z-header: 20;
+  --z-dropdown: 40;
+  --z-toast: 80;
+  --z-modal: 100;
+
+  --control-height: 2.75rem;
+  --transition-fast: 160ms ease;
+  --transition-base: 220ms ease;
 }

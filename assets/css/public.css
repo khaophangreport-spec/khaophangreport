@@ -1,9 +1,76 @@
 .hero-section {
-  background: linear-gradient(180deg, var(--color-primary-50), var(--color-surface));
+  background: linear-gradient(180deg, var(--color-leaf-soft), var(--color-surface));
+  border-color: var(--color-primary-200);
+}
+
+.hero-section p {
+  max-width: 42rem;
+}
+
+.public-feature-grid,
+.report-options,
+.faq-list {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.public-feature-item {
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+}
+
+.report-form,
+.track-form,
+.contact-form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.success-panel {
+  background: var(--color-success-bg);
+  border-color: #b9dfc5;
+}
+
+.tracking-summary {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.privacy-content,
+.terms-content {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.public-bottom-actions {
+  background: rgba(255, 255, 255, 0.94);
+  border-top: 1px solid var(--color-border);
+  bottom: 0;
+  display: grid;
+  gap: var(--space-3);
+  left: 0;
+  padding: var(--space-3) var(--container-padding);
+  position: sticky;
+  right: 0;
 }
 
 @media (min-width: 768px) {
   .page-shell {
     padding: var(--space-8);
+  }
+
+  .public-feature-grid,
+  .report-options {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .public-bottom-actions {
+    background: transparent;
+    border-top: 0;
+    display: flex;
+    padding-inline: 0;
+    position: static;
   }
 }
