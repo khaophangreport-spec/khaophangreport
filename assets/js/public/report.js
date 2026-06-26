@@ -31,6 +31,7 @@
     bindEvents();
     updateCharacterCounts();
     updateReporterMode();
+    syncMapFromCoordinates();
     updateStep();
     loadCategories();
     window.addEventListener("beforeunload", handleBeforeUnload);
@@ -58,6 +59,9 @@
     elements.criticalWarning = document.querySelector("[data-critical-warning]");
     elements.useLocation = document.querySelector("[data-use-location]");
     elements.locationMessage = document.querySelector("[data-location-message]");
+    elements.coordinatePreview = document.querySelector("[data-coordinate-preview]");
+    elements.coordinateText = document.querySelector("[data-coordinate-text]");
+    elements.mapLink = document.querySelector("[data-map-link]");
     elements.imageInput = document.querySelector("[data-image-input]");
     elements.imageEmpty = document.querySelector("[data-image-empty]");
     elements.imageList = document.querySelector("[data-image-list]");
@@ -81,6 +85,8 @@
     elements.form.addEventListener("input", function (event) {
       markDirty();
       updateCharacterCounts();
+      updateNextButtonState();
+      handleLocationInput(event.target);
       clearFieldError(event.target);
       scheduleDraftSave();
     });
@@ -89,6 +95,8 @@
       markDirty();
       updateReporterMode();
       updateCriticalWarning();
+      updateNextButtonState();
+      handleLocationInput(event.target);
       clearFieldError(event.target);
       scheduleDraftSave();
     });
@@ -177,9 +185,15 @@
     document.querySelectorAll(".report-category-card").forEach(function (button) {
       button.setAttribute("aria-pressed", button.dataset.categoryId === state.selectedCategoryId ? "true" : "false");
     });
+
+    updateNextButtonState();
   }
 
   function goNext() {
+    if (elements.nextButton.disabled) {
+      return;
+    }
+
     if (state.currentStep === state.maxStep) {
       validateAllSteps();
       return;
@@ -225,10 +239,19 @@
 
     elements.backButton.textContent = state.currentStep === 1 ? "กลับหน้าแรก" : "ย้อนกลับ";
     elements.nextButton.textContent = state.currentStep === state.maxStep ? "ตรวจสอบข้อมูล" : "ถัดไป";
+    updateNextButtonState();
 
     if (state.currentStep === state.maxStep) {
       renderReview();
     }
+  }
+
+  function updateNextButtonState() {
+    if (!elements.nextButton) {
+      return;
+    }
+
+    elements.nextButton.disabled = state.currentStep === 1 && !getFieldValue("categoryId");
   }
 
   function validateStep(step) {
@@ -275,29 +298,35 @@
 
     if (!validateRequired("title", title, "กรุณากรอกหัวข้อปัญหา")) {
       isValid = false;
-    } else if (title.length < 5) {
+    } else if (!window.KPR_VALIDATION.minLength(title, 5).isValid) {
       setError("title", "กรุณากรอกหัวข้ออย่างน้อย 5 ตัวอักษร");
+      isValid = false;
+    } else if (!window.KPR_VALIDATION.maxLength(title, 150).isValid) {
+      setError("title", "กรุณากรอกหัวข้อไม่เกิน 150 ตัวอักษร");
       isValid = false;
     }
 
     if (!validateRequired("description", description, "กรุณาอธิบายรายละเอียดปัญหา")) {
       isValid = false;
-    } else if (description.length < 10) {
+    } else if (!window.KPR_VALIDATION.minLength(description, 10).isValid) {
       setError("description", "กรุณาอธิบายรายละเอียดอย่างน้อย 10 ตัวอักษร");
+      isValid = false;
+    } else if (!window.KPR_VALIDATION.maxLength(description, 3000).isValid) {
+      setError("description", "กรุณาอธิบายรายละเอียดไม่เกิน 3000 ตัวอักษร");
       isValid = false;
     }
 
     if (!validateRequired("incidentDate", incidentDate, "กรุณาระบุวันที่พบปัญหา")) {
       isValid = false;
-    } else if (!isValidDate(incidentDate)) {
+    } else if (!window.KPR_VALIDATION.date(incidentDate).isValid) {
       setError("incidentDate", "กรุณาระบุวันที่ให้ถูกต้อง");
       isValid = false;
-    } else if (isFutureDate(incidentDate)) {
+    } else if (!window.KPR_VALIDATION.notFutureDate(incidentDate).isValid) {
       setError("incidentDate", "วันที่พบปัญหาต้องไม่เป็นวันในอนาคต");
       isValid = false;
     }
 
-    if (PRIORITY_VALUES.indexOf(priority) === -1) {
+    if (!window.KPR_VALIDATION.allowedValue(priority, PRIORITY_VALUES).isValid) {
       setError("priorityReported", "กรุณาเลือกระดับความเร่งด่วน");
       isValid = false;
     }
@@ -427,6 +456,11 @@
       error.textContent = message;
     }
 
+    if (fieldName === "coordinates") {
+      setCoordinateFieldsInvalid(error);
+      return;
+    }
+
     if (field && error && error.id) {
       field.setAttribute("aria-invalid", "true");
       field.setAttribute("aria-describedby", mergeDescribedBy(field.getAttribute("aria-describedby"), error.id));
@@ -439,6 +473,11 @@
 
     if (error) {
       error.textContent = "";
+    }
+
+    if (fieldName === "coordinates") {
+      clearCoordinateFieldsInvalid();
+      return;
     }
 
     if (field) {
@@ -464,7 +503,7 @@
     }
 
     const fieldName = firstError.getAttribute("data-error-for");
-    const field = getField(fieldName);
+    const field = fieldName === "coordinates" ? getField("latitude") : getField(fieldName);
 
     if (field) {
       field.focus();
@@ -498,8 +537,8 @@
     setHidden(elements.anonymousNote, !isAnonymous);
   }
 
-  function fillCurrentLocation() {
-    if (!navigator.geolocation) {
+  async function fillCurrentLocation() {
+    if (!window.KPR_LOCATION || !window.KPR_LOCATION.isSupported()) {
       showLocationMessage("เบราว์เซอร์นี้ไม่รองรับการใช้ตำแหน่งปัจจุบัน กรุณากรอกสถานที่เอง", "warning");
       return;
     }
@@ -507,26 +546,105 @@
     showLocationMessage("กำลังขอตำแหน่งปัจจุบัน...", "info");
     elements.useLocation.disabled = true;
 
-    navigator.geolocation.getCurrentPosition(function (position) {
-      setFieldValue("latitude", String(position.coords.latitude.toFixed(6)));
-      setFieldValue("longitude", String(position.coords.longitude.toFixed(6)));
+    try {
+      const position = await window.KPR_LOCATION.getCurrentPosition({
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 60000
+      });
+
+      setFieldValue("latitude", position.latitude);
+      setFieldValue("longitude", position.longitude);
+      syncMapFromCoordinates();
+      clearError("coordinates");
       markDirty();
-      showLocationMessage("เติมพิกัดปัจจุบันแล้ว ระบบจะไม่เก็บพิกัดนี้ใน draft หลัง refresh", "success");
+      saveDraft(false);
+      showLocationMessage("เติมพิกัดปัจจุบันแล้ว คุณยังสามารถแก้ไขสถานที่หรือพิกัดเองได้", "success");
+    } catch (error) {
+      showLocationMessage(getLocationErrorMessage(error), "warning");
+    } finally {
       elements.useLocation.disabled = false;
-    }, function () {
-      showLocationMessage("ไม่สามารถเข้าถึงตำแหน่งได้ คุณยังสามารถกรอกสถานที่เองได้", "warning");
-      elements.useLocation.disabled = false;
-    }, {
-      enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: 60000
-    });
+    }
   }
 
   function showLocationMessage(message, type) {
     elements.locationMessage.className = "alert alert-" + (type === "success" ? "success" : type === "warning" ? "warning" : "info");
     setText(elements.locationMessage, message);
     setHidden(elements.locationMessage, false);
+  }
+
+  function handleLocationInput(field) {
+    if (!field || !field.dataset || !field.dataset.field) {
+      return;
+    }
+
+    if (field.dataset.field === "latitude" || field.dataset.field === "longitude") {
+      clearError("coordinates");
+      syncMapFromCoordinates();
+    }
+
+    if (field.dataset.field === "mapUrl") {
+      syncMapFromCoordinates();
+    }
+
+    if (field.dataset.field === "locationName" || field.dataset.field === "landmark") {
+      clearError("locationName");
+      clearError("landmark");
+    }
+  }
+
+  function syncMapFromCoordinates() {
+    const latitude = getFieldValue("latitude");
+    const longitude = getFieldValue("longitude");
+    const hasLocationHelper = window.KPR_LOCATION && typeof window.KPR_LOCATION.buildGoogleMapsUrl === "function";
+    const mapUrl = hasLocationHelper ? window.KPR_LOCATION.buildGoogleMapsUrl(latitude, longitude) : "";
+    const coordinateText = hasLocationHelper ? window.KPR_LOCATION.formatCoordinates(latitude, longitude) : "";
+
+    if (mapUrl) {
+      setFieldValue("mapUrl", mapUrl);
+      updateMapLink(mapUrl);
+      setText(elements.coordinateText, "พิกัดที่เลือก: " + coordinateText);
+      setHidden(elements.coordinatePreview, false);
+    } else {
+      updateMapLink(getFieldValue("mapUrl") || "https://maps.google.com/");
+      setText(elements.coordinateText, "");
+      setHidden(elements.coordinatePreview, true);
+    }
+  }
+
+  function updateMapLink(url) {
+    if (elements.mapLink) {
+      elements.mapLink.href = url;
+    }
+  }
+
+  function setCoordinateFieldsInvalid(error) {
+    ["latitude", "longitude"].forEach(function (fieldName) {
+      const field = getField(fieldName);
+
+      if (field && error && error.id) {
+        field.setAttribute("aria-invalid", "true");
+        field.setAttribute("aria-describedby", mergeDescribedBy(field.getAttribute("aria-describedby"), error.id));
+      }
+    });
+  }
+
+  function clearCoordinateFieldsInvalid() {
+    ["latitude", "longitude"].forEach(function (fieldName) {
+      const field = getField(fieldName);
+
+      if (field) {
+        field.removeAttribute("aria-invalid");
+      }
+    });
+  }
+
+  function getLocationErrorMessage(error) {
+    if (error && error.message) {
+      return error.message;
+    }
+
+    return "ไม่สามารถใช้ตำแหน่งปัจจุบันได้ กรุณากรอกสถานที่เอง";
   }
 
   function handleImageSelection(event) {
@@ -735,6 +853,7 @@
     setHidden(elements.categoryEmpty, stateName !== "empty");
     setHidden(elements.categoryError, stateName !== "error");
     setHidden(elements.categoryList, stateName !== "success");
+    updateNextButtonState();
   }
 
   function getSelectedCategory() {
@@ -921,20 +1040,6 @@
     }
 
     return value;
-  }
-
-  function isValidDate(value) {
-    const date = new Date(value);
-
-    return value && !Number.isNaN(date.getTime());
-  }
-
-  function isFutureDate(value) {
-    const selected = new Date(value + "T00:00:00");
-    const today = new Date();
-
-    today.setHours(0, 0, 0, 0);
-    return selected.getTime() > today.getTime();
   }
 
   function getMaxImages() {

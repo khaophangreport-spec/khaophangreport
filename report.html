@@ -162,17 +162,21 @@
               <div class="form-grid report-two-column">
                 <div class="form-field">
                   <label class="form-label" for="latitude">Latitude</label>
-                  <input class="form-control" id="latitude" name="latitude" data-field="latitude" type="number" inputmode="decimal" step="any" aria-describedby="latitude-error" />
+                  <input class="form-control" id="latitude" name="latitude" data-field="latitude" type="number" inputmode="decimal" step="any" aria-describedby="coordinates-help latitude-error" placeholder="เช่น 8.915000" />
                 </div>
                 <div class="form-field">
                   <label class="form-label" for="longitude">Longitude</label>
-                  <input class="form-control" id="longitude" name="longitude" data-field="longitude" type="number" inputmode="decimal" step="any" aria-describedby="latitude-error" />
+                  <input class="form-control" id="longitude" name="longitude" data-field="longitude" type="number" inputmode="decimal" step="any" aria-describedby="coordinates-help latitude-error" placeholder="เช่น 98.875000" />
                 </div>
               </div>
+              <div class="report-coordinate-preview" data-coordinate-preview hidden aria-live="polite">
+                <span data-coordinate-text></span>
+              </div>
+              <small class="form-help" id="coordinates-help">พิกัดเป็นข้อมูลเสริม หากไม่สะดวกใช้ GPS สามารถกรอกสถานที่หรือจุดสังเกตแทนได้</small>
               <p class="form-error" id="latitude-error" data-error-for="coordinates" aria-live="polite"></p>
               <div class="action-row">
                 <button class="button button-secondary" type="button" data-use-location>ใช้ตำแหน่งปัจจุบัน</button>
-                <a class="button button-outline" href="https://maps.google.com/" target="_blank" rel="noopener">เปิด Google Maps</a>
+                <a class="button button-outline" href="https://maps.google.com/" target="_blank" rel="noopener" data-map-link>เปิด Google Maps</a>
               </div>
               <div class="alert alert-info" data-location-message hidden></div>
             </div>
@@ -281,7 +285,7 @@
           <div class="report-form-actions">
             <button class="button button-outline" type="button" data-back-step>ย้อนกลับ</button>
             <button class="button button-secondary" type="button" data-save-draft>บันทึกแบบร่าง</button>
-            <button class="button button-primary" type="button" data-next-step>ถัดไป</button>
+            <button class="button button-primary" type="button" data-next-step disabled>ถัดไป</button>
           </div>
           <p class="form-help" data-form-status aria-live="polite"></p>
         </form>

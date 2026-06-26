@@ -73,6 +73,39 @@
     return createResult(toText(value).length <= limit, message || "กรุณากรอกไม่เกิน " + limit + " ตัวอักษร");
   }
 
+  function minLength(value, min, message) {
+    const limit = Number(min);
+    if (!Number.isFinite(limit) || limit < 0) {
+      return createResult(false, "กำหนดจำนวนตัวอักษรขั้นต่ำไม่ถูกต้อง");
+    }
+
+    return createResult(toText(value).trim().length >= limit, message || "กรุณากรอกอย่างน้อย " + limit + " ตัวอักษร");
+  }
+
+  function notFutureDate(value, message) {
+    const text = toText(value).trim();
+    if (!text) {
+      return createResult(true, "");
+    }
+
+    const dateResult = date(text, message || "กรุณากรอกวันที่ให้ถูกต้อง");
+    if (!dateResult.isValid) {
+      return dateResult;
+    }
+
+    const selectedDate = new Date(text + "T00:00:00");
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    return createResult(selectedDate.getTime() <= today.getTime(), message || "วันที่ต้องไม่เป็นวันในอนาคต");
+  }
+
+  function allowedValue(value, allowedValues, message) {
+    const values = Array.isArray(allowedValues) ? allowedValues : [];
+
+    return createResult(values.indexOf(value) !== -1, message || "ค่าที่เลือกไม่ถูกต้อง");
+  }
+
   window.KPR_VALIDATION = Object.freeze({
     required: required,
     phone: phone,
@@ -80,6 +113,9 @@
     date: date,
     latLng: latLng,
     maxLength: maxLength,
+    minLength: minLength,
+    notFutureDate: notFutureDate,
+    allowedValue: allowedValue,
     isRequired: function (value) {
       return required(value).isValid;
     }
