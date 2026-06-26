@@ -17,10 +17,32 @@ function Security_hashSha256_(value, salt) {
   const text = String(salt || "") + String(value || "");
   const bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, text, Utilities.Charset.UTF_8);
 
+  return Security_bytesToHex_(bytes);
+}
+
+function Security_hashBytesSha256_(bytes) {
+  return Security_bytesToHex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, bytes || []));
+}
+
+function Security_bytesToHex_(bytes) {
   return bytes.map(function (byte) {
     const normalized = byte < 0 ? byte + 256 : byte;
     return ("0" + normalized.toString(16)).slice(-2);
   }).join("");
+}
+
+function Security_sanitizeUserText_(value, maxLength) {
+  const normalizedValue = Utils_normalizeString_(value)
+    .replace(/[\u0000-\u001F\u007F]/g, "");
+  const limitedValue = maxLength ? normalizedValue.slice(0, maxLength) : normalizedValue;
+
+  return Security_sanitizeSheetText_(limitedValue);
+}
+
+function Security_sanitizeSheetText_(value) {
+  const text = value === null || value === undefined ? "" : String(value);
+
+  return /^[=+\-@]/.test(text) ? "'" + text : text;
 }
 
 function Security_hashWithSecret_(value, secretPropertyKey) {

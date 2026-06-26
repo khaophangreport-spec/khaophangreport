@@ -278,3 +278,154 @@ function testRouterMissingAction() {
   console.log(JSON.stringify(payload));
   return payload;
 }
+
+function testReportCreateRouterWhitelist() {
+  if (ROUTER_ACTIONS_["report.create"] !== ReportService_create) {
+    throw new Error("report.create is not registered in Router whitelist");
+  }
+
+  console.log("report.create is registered in Router whitelist");
+  return {
+    ok: true,
+    action: "report.create"
+  };
+}
+
+function testReportCreateRequiresRequestId() {
+  try {
+    ReportService_create({
+      action: "report.create",
+      requestId: "",
+      data: {}
+    });
+  } catch (error) {
+    if (error && error.code === "VALIDATION_ERROR") {
+      console.log("report.create rejected missing requestId");
+      return {
+        ok: true,
+        code: error.code
+      };
+    }
+
+    throw error;
+  }
+
+  throw new Error("report.create did not reject missing requestId");
+}
+
+function testReportCreateValidationMissingConsent() {
+  const fields = {};
+
+  ReportService_validateConsent_({
+    truthConfirmed: false,
+    privacyAccepted: false,
+    privacyVersion: ""
+  }, {
+    privacyVersion: "1.0"
+  }, fields);
+
+  if (!fields["consent.truthConfirmed"] || !fields["consent.privacyAccepted"] || !fields["consent.privacyVersion"]) {
+    throw new Error("Report consent validation did not detect all missing consent fields");
+  }
+
+  console.log(JSON.stringify(fields));
+  return {
+    ok: true,
+    fields: fields
+  };
+}
+
+function testReportCreateAnonymousReporterSanitizesPii() {
+  const reporter = ReportService_normalizeReporter_({
+    isAnonymous: true,
+    name: "สมชาย ใจดี",
+    phone: "0812345678",
+    email: "person@example.com",
+    contactMethod: "phone"
+  }, true, "phone");
+
+  if (reporter.name || reporter.phone || reporter.email || reporter.contactMethod !== "none") {
+    throw new Error("Anonymous reporter normalization kept PII");
+  }
+
+  console.log(JSON.stringify(reporter));
+  return {
+    ok: true,
+    reporter: reporter
+  };
+}
+
+function testReportCreateAttachmentValidationLimit() {
+  const fields = {};
+
+  AttachmentService_validateCreatePayload_([
+    { fileName: "1.jpg", mimeType: "image/jpeg", base64: "x", fileSize: 10, width: 10, height: 10 },
+    { fileName: "2.jpg", mimeType: "image/jpeg", base64: "x", fileSize: 10, width: 10, height: 10 },
+    { fileName: "3.jpg", mimeType: "image/jpeg", base64: "x", fileSize: 10, width: 10, height: 10 },
+    { fileName: "4.jpg", mimeType: "image/jpeg", base64: "x", fileSize: 10, width: 10, height: 10 }
+  ], fields, {
+    maxImages: 3,
+    maxImageSizeMb: 1,
+    maxImageDimension: 1600
+  });
+
+  if (!fields.attachments) {
+    throw new Error("Attachment validation did not reject more than 3 images");
+  }
+
+  console.log(JSON.stringify(fields));
+  return {
+    ok: true,
+    fields: fields
+  };
+}
+
+function testReportCreateMimeDetection() {
+  const jpeg = AttachmentService_detectMimeType_([0xFF, 0xD8, 0xFF, 0, 0, 0, 0, 0, 0, 0, 0, 0]);
+  const png = AttachmentService_detectMimeType_([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 0]);
+  const webp = AttachmentService_detectMimeType_([0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50]);
+
+  if (jpeg !== "image/jpeg" || png !== "image/png" || webp !== "image/webp") {
+    throw new Error("MIME detection failed");
+  }
+
+  console.log(JSON.stringify({
+    jpeg: jpeg,
+    png: png,
+    webp: webp
+  }));
+  return {
+    ok: true,
+    mimeTypes: [jpeg, png, webp]
+  };
+}
+
+function testReportCreateRateLimitKeyNoRawPii() {
+  const rateKey = ReportService_buildRateLimitKey_({
+    data: {
+      categoryId: "CAT-001",
+      title: "ไฟดับหน้าบ้าน",
+      location: {
+        name: "หน้าบ้าน"
+      },
+      reporter: {
+        phone: "0812345678",
+        email: "person@example.com"
+      }
+    }
+  });
+
+  if (rateKey.indexOf("0812345678") !== -1 || rateKey.indexOf("person@example.com") !== -1 || rateKey.indexOf("ไฟดับ") !== -1) {
+    throw new Error("Rate limit key contains raw user data");
+  }
+
+  if (rateKey.indexOf("rl_") !== 0) {
+    throw new Error("Rate limit key does not use expected prefix");
+  }
+
+  console.log(rateKey);
+  return {
+    ok: true,
+    rateKey: rateKey
+  };
+}
