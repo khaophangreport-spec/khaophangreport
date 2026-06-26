@@ -5,6 +5,7 @@
   const MAX_DRAFT_AGE_MS = 7 * 24 * 60 * 60 * 1000;
   const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
   const PRIORITY_VALUES = ["low", "normal", "high", "critical"];
+  const CONTACT_METHOD_VALUES = ["phone", "email", "none"];
 
   const state = {
     currentStep: 1,
@@ -13,6 +14,7 @@
     selectedCategoryId: "",
     images: [],
     objectUrls: [],
+    previewPayload: null,
     isDirty: false,
     hasSubmitted: false,
     queryCategoryId: ""
@@ -35,6 +37,7 @@
     updateStep();
     loadCategories();
     window.addEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("pagehide", clearObjectUrls);
   }
 
   function cacheElements() {
@@ -63,6 +66,7 @@
     elements.coordinateText = document.querySelector("[data-coordinate-text]");
     elements.mapLink = document.querySelector("[data-map-link]");
     elements.imageInput = document.querySelector("[data-image-input]");
+    elements.imageStatus = document.querySelector("[data-image-status]");
     elements.imageEmpty = document.querySelector("[data-image-empty]");
     elements.imageList = document.querySelector("[data-image-list]");
     elements.reporterFields = document.querySelector("[data-reporter-fields]");
@@ -99,6 +103,16 @@
       handleLocationInput(event.target);
       clearFieldError(event.target);
       scheduleDraftSave();
+    });
+
+    elements.form.addEventListener("click", function (event) {
+      const editButton = event.target.closest("[data-edit-step]");
+
+      if (!editButton) {
+        return;
+      }
+
+      goToStep(Number(editButton.dataset.editStep));
     });
   }
 
@@ -195,7 +209,7 @@
     }
 
     if (state.currentStep === state.maxStep) {
-      validateAllSteps();
+      prepareSubmitPayload();
       return;
     }
 
@@ -206,6 +220,16 @@
 
     state.currentStep += 1;
     saveDraft(false);
+    updateStep();
+    scrollToFormTop();
+  }
+
+  function goToStep(step) {
+    if (step < 1 || step > state.maxStep) {
+      return;
+    }
+
+    state.currentStep = step;
     updateStep();
     scrollToFormTop();
   }
@@ -238,7 +262,7 @@
     });
 
     elements.backButton.textContent = state.currentStep === 1 ? "กลับหน้าแรก" : "ย้อนกลับ";
-    elements.nextButton.textContent = state.currentStep === state.maxStep ? "ตรวจสอบข้อมูล" : "ถัดไป";
+    elements.nextButton.textContent = state.currentStep === state.maxStep ? "ส่งเรื่อง" : "ถัดไป";
     updateNextButtonState();
 
     if (state.currentStep === state.maxStep) {
@@ -357,8 +381,18 @@
   }
 
   function validateImagesStep() {
-    if (state.images.length > getMaxImages()) {
+    if (getActiveImageCount() > getMaxImages()) {
       setError("images", "เพิ่มรูปได้สูงสุด " + getMaxImages() + " รูป");
+      return false;
+    }
+
+    if (state.images.some(function (image) { return image.status === "compressing"; })) {
+      setError("images", "กรุณารอให้ระบบบีบอัดรูปภาพให้เสร็จก่อน");
+      return false;
+    }
+
+    if (state.images.some(function (image) { return image.status === "error"; })) {
+      setError("images", "กรุณาลบรูปที่มีปัญหา หรือเลือกไฟล์ใหม่อีกครั้ง");
       return false;
     }
 
@@ -368,6 +402,7 @@
   function validateReporterStep() {
     let isValid = true;
     const isAnonymous = getReporterMode() === "anonymous";
+    const contactMethod = getFieldValue("contactMethod") || "phone";
 
     if (!isAnonymous) {
       if (!validateRequired("reporterName", getFieldValue("reporterName"), "กรุณากรอกชื่อผู้แจ้ง")) {
@@ -389,7 +424,25 @@
         setError("reporterEmail", emailResult.message);
         isValid = false;
       }
+
+      if (!window.KPR_VALIDATION.allowedValue(contactMethod, CONTACT_METHOD_VALUES).isValid) {
+        setError("contactMethod", "กรุณาเลือกช่องทางติดต่อให้ถูกต้อง");
+        isValid = false;
+      }
+
+      if (contactMethod === "email" && !getFieldValue("reporterEmail")) {
+        setError("reporterEmail", "กรุณากรอกอีเมลเมื่อเลือกให้อีเมลเป็นช่องทางติดต่อ");
+        isValid = false;
+      }
     }
+
+    return isValid;
+  }
+
+  function validateConsentStep() {
+    let isValid = true;
+
+    clearStepErrors(state.maxStep);
 
     if (!isChecked("truthConfirmed")) {
       setError("truthConfirmed", "กรุณายืนยันว่าข้อมูลเป็นความจริง");
@@ -418,12 +471,27 @@
       updateStep();
       focusFirstError();
       setStatus("กรุณาตรวจสอบข้อมูลในขั้นที่ " + firstInvalidStep);
-      return;
+      return false;
     }
 
     renderReview();
+    return true;
+  }
+
+  function prepareSubmitPayload() {
+    if (!validateAllSteps()) {
+      return;
+    }
+
+    if (!validateConsentStep()) {
+      focusFirstError();
+      setStatus("กรุณายืนยันข้อมูลก่อนส่งเรื่อง");
+      return;
+    }
+
+    state.previewPayload = buildReportPayload();
     setHidden(elements.reviewSuccess, false);
-    setStatus("ข้อมูลครบถ้วนแล้ว แต่ยังไม่ได้ส่ง API จริงในขั้นตอนนี้");
+    setStatus("เตรียมข้อมูลสำหรับส่งเรื่องเรียบร้อยแล้ว ขั้นตอนนี้ยังไม่เรียก API จริง");
   }
 
   function validateRequired(fieldName, value, message) {
@@ -535,6 +603,20 @@
 
     setHidden(elements.reporterFields, isAnonymous);
     setHidden(elements.anonymousNote, !isAnonymous);
+
+    if (elements.reporterFields) {
+      elements.reporterFields.querySelectorAll("input, select, textarea").forEach(function (field) {
+        field.disabled = isAnonymous;
+      });
+    }
+
+    if (isAnonymous) {
+      setFieldValue("contactMethod", "none");
+      clearError("reporterName");
+      clearError("reporterPhone");
+      clearError("reporterEmail");
+      clearError("contactMethod");
+    }
   }
 
   async function fillCurrentLocation() {
@@ -647,71 +729,80 @@
     return "ไม่สามารถใช้ตำแหน่งปัจจุบันได้ กรุณากรอกสถานที่เอง";
   }
 
-  function handleImageSelection(event) {
+  async function handleImageSelection(event) {
     const files = Array.from(event.target.files || []);
     const maxImages = getMaxImages();
-    const nextImages = state.images.slice();
 
     clearError("images");
+    setImageStatus("");
 
-    files.some(function (file) {
-      if (nextImages.length >= maxImages) {
+    if (!files.length) {
+      return;
+    }
+
+    if (!window.KPR_IMAGE_COMPRESS || !window.KPR_IMAGE_COMPRESS.isSupported()) {
+      setError("images", "เบราว์เซอร์นี้ไม่รองรับการบีบอัดรูปภาพ กรุณาลองใช้เบราว์เซอร์รุ่นใหม่");
+      elements.imageInput.value = "";
+      return;
+    }
+
+    for (let index = 0; index < files.length; index += 1) {
+      const file = files[index];
+
+      if (getActiveImageCount() >= maxImages) {
         setError("images", "เพิ่มรูปได้สูงสุด " + maxImages + " รูป");
-        return true;
+        break;
       }
 
-      if (ALLOWED_IMAGE_TYPES.indexOf(file.type) === -1) {
-        setError("images", "รองรับเฉพาะไฟล์ JPG, PNG และ WebP");
-        return false;
+      if (!isAllowedImageType(file)) {
+        addImageError(file, "รองรับเฉพาะไฟล์ JPG, PNG และ WebP");
+        continue;
       }
 
-      if (file.size > getMaxImageSizeBytes()) {
-        setError("images", "รูปนี้มีขนาดใหญ่กว่า " + getMaxImageSizeMb() + " MB");
-        return false;
-      }
+      await addAndCompressImage(file);
+    }
 
-      nextImages.push(file);
-      return false;
-    });
-
-    state.images = nextImages;
     elements.imageInput.value = "";
     markDirty();
     renderImages();
+    updateImageStatus();
   }
 
   function renderImages() {
-    clearObjectUrls();
     clearChildren(elements.imageList);
 
-    state.images.forEach(function (file, index) {
+    state.images.forEach(function (imageItem, index) {
       const item = document.createElement("div");
-      const image = document.createElement("img");
+      const preview = createImagePreview(imageItem, index);
       const detail = document.createElement("div");
       const name = document.createElement("strong");
       const meta = document.createElement("small");
+      const status = document.createElement("p");
       const removeButton = document.createElement("button");
-      const objectUrl = URL.createObjectURL(file);
 
-      state.objectUrls.push(objectUrl);
-      item.className = "report-image-item";
-      image.className = "report-image-thumb";
-      image.src = objectUrl;
-      image.alt = "ตัวอย่างรูปภาพ " + (index + 1);
-      name.textContent = file.name;
-      meta.textContent = formatFileSize(file.size);
+      item.className = "report-image-item report-image-item--" + imageItem.status;
+      detail.className = "report-image-detail";
+      name.textContent = imageItem.fileName || imageItem.sourceFileName || "รูปภาพ " + (index + 1);
+      meta.textContent = getImageMetaText(imageItem);
+      status.className = imageItem.status === "error" ? "report-image-error" : "report-image-status";
+      status.textContent = getImageStatusText(imageItem);
       removeButton.className = "button button-small button-outline";
       removeButton.type = "button";
       removeButton.textContent = "ลบ";
       removeButton.addEventListener("click", function () {
-        state.images.splice(index, 1);
+        removeImage(imageItem.id);
         markDirty();
         renderImages();
+        updateImageStatus();
       });
 
       detail.appendChild(name);
       detail.appendChild(meta);
-      item.appendChild(image);
+      if (status.textContent) {
+        detail.appendChild(status);
+      }
+
+      item.appendChild(preview);
       item.appendChild(detail);
       item.appendChild(removeButton);
       elements.imageList.appendChild(item);
@@ -721,35 +812,395 @@
     setHidden(elements.imageList, state.images.length === 0);
   }
 
+  async function addAndCompressImage(file) {
+    const imageItem = {
+      id: createImageId(),
+      status: "compressing",
+      sourceFileName: file.name || "รูปภาพ",
+      originalSize: file.size,
+      fileName: file.name || "รูปภาพ",
+      mimeType: file.type,
+      fileSize: file.size,
+      width: 0,
+      height: 0,
+      file: null,
+      previewUrl: "",
+      error: ""
+    };
+
+    state.images.push(imageItem);
+    renderImages();
+    updateImageStatus();
+
+    try {
+      const result = await window.KPR_IMAGE_COMPRESS.compress(file, {
+        maxDimension: getMaxImageDimension(),
+        maxSizeMb: getMaxImageSizeMb()
+      });
+
+      imageItem.status = "ready";
+      imageItem.file = result.file;
+      imageItem.fileName = result.fileName;
+      imageItem.mimeType = result.mimeType;
+      imageItem.fileSize = result.fileSize;
+      imageItem.width = result.width;
+      imageItem.height = result.height;
+      imageItem.originalWidth = result.originalWidth;
+      imageItem.originalHeight = result.originalHeight;
+      imageItem.originalSize = result.originalSize;
+      imageItem.wasCompressed = result.wasCompressed;
+      imageItem.metadata = buildImageMetadata(imageItem);
+      imageItem.previewUrl = URL.createObjectURL(result.file);
+      clearError("images");
+    } catch (error) {
+      imageItem.status = "error";
+      imageItem.error = error && error.message ? error.message : "ไม่สามารถบีบอัดรูปภาพนี้ได้";
+    }
+
+    renderImages();
+    updateImageStatus();
+  }
+
+  function addImageError(file, message) {
+    state.images.push({
+      id: createImageId(),
+      status: "error",
+      sourceFileName: file && file.name ? file.name : "ไฟล์รูปภาพ",
+      originalSize: file && file.size ? file.size : 0,
+      fileName: file && file.name ? file.name : "ไฟล์รูปภาพ",
+      mimeType: file && file.type ? file.type : "",
+      fileSize: file && file.size ? file.size : 0,
+      width: 0,
+      height: 0,
+      file: null,
+      previewUrl: "",
+      error: message
+    });
+    renderImages();
+    updateImageStatus();
+  }
+
+  function createImagePreview(imageItem, index) {
+    if (imageItem.previewUrl && imageItem.status === "ready") {
+      const image = document.createElement("img");
+
+      image.className = "report-image-thumb";
+      image.src = imageItem.previewUrl;
+      image.alt = "ตัวอย่างรูปภาพ " + (index + 1);
+      return image;
+    }
+
+    const placeholder = document.createElement("div");
+
+    placeholder.className = "report-image-thumb report-image-thumb--placeholder";
+    placeholder.setAttribute("aria-hidden", "true");
+    placeholder.textContent = imageItem.status === "compressing" ? "..." : "!";
+    return placeholder;
+  }
+
+  function removeImage(imageId) {
+    const index = state.images.findIndex(function (imageItem) {
+      return imageItem.id === imageId;
+    });
+
+    if (index === -1) {
+      return;
+    }
+
+    revokeImageUrl(state.images[index]);
+    state.images.splice(index, 1);
+
+    if (!state.images.some(function (imageItem) { return imageItem.status === "error"; })) {
+      clearError("images");
+    }
+  }
+
+  function revokeImageUrl(imageItem) {
+    if (imageItem && imageItem.previewUrl) {
+      URL.revokeObjectURL(imageItem.previewUrl);
+      imageItem.previewUrl = "";
+    }
+  }
+
+  function getImageMetaText(imageItem) {
+    if (imageItem.status === "compressing") {
+      return "กำลังบีบอัดรูปภาพ...";
+    }
+
+    if (imageItem.status === "error") {
+      return imageItem.mimeType ? imageItem.mimeType : "ไฟล์นี้ไม่พร้อมใช้งาน";
+    }
+
+    return [
+      formatFileSize(imageItem.fileSize),
+      imageItem.width && imageItem.height ? imageItem.width + " x " + imageItem.height + " px" : "",
+      getMimeLabel(imageItem.mimeType)
+    ].filter(Boolean).join(" / ");
+  }
+
+  function getImageStatusText(imageItem) {
+    if (imageItem.status === "compressing") {
+      return "กำลังลดขนาดรูปและเตรียมตัวอย่าง";
+    }
+
+    if (imageItem.status === "error") {
+      return imageItem.error || "รูปภาพนี้มีปัญหา";
+    }
+
+    if (imageItem.wasCompressed) {
+      return "พร้อมส่ง บีบอัดจาก " + formatFileSize(imageItem.originalSize);
+    }
+
+    return "พร้อมส่ง";
+  }
+
+  function updateImageStatus() {
+    const readyCount = getUploadableImages().length;
+    const compressingCount = state.images.filter(function (imageItem) {
+      return imageItem.status === "compressing";
+    }).length;
+    const errorCount = state.images.filter(function (imageItem) {
+      return imageItem.status === "error";
+    }).length;
+
+    if (compressingCount > 0) {
+      setImageStatus("กำลังบีบอัดรูปภาพ " + compressingCount + " รูป...");
+      return;
+    }
+
+    if (errorCount > 0) {
+      setImageStatus("มีรูปที่ต้องตรวจสอบ " + errorCount + " รูป");
+      return;
+    }
+
+    if (readyCount > 0) {
+      setImageStatus("เพิ่มรูปภาพพร้อมส่งแล้ว " + readyCount + "/" + getMaxImages() + " รูป");
+      return;
+    }
+
+    setImageStatus("");
+  }
+
+  function setImageStatus(message) {
+    setText(elements.imageStatus, message);
+  }
+
+  function getUploadableImages() {
+    return state.images.filter(function (imageItem) {
+      return imageItem.status === "ready" && imageItem.file;
+    });
+  }
+
+  function getActiveImageCount() {
+    return state.images.filter(function (imageItem) {
+      return imageItem.status === "ready" || imageItem.status === "compressing";
+    }).length;
+  }
+
+  function buildImageMetadata(imageItem) {
+    return {
+      fileName: imageItem.fileName,
+      mimeType: imageItem.mimeType,
+      fileSize: imageItem.fileSize,
+      width: imageItem.width,
+      height: imageItem.height
+    };
+  }
+
+  function getImageMetadataList() {
+    return getUploadableImages().map(function (imageItem) {
+      return buildImageMetadata(imageItem);
+    });
+  }
+
   function renderReview() {
     clearChildren(elements.reviewList);
     setHidden(elements.reviewSuccess, true);
 
     const category = getSelectedCategory();
-    const items = [
-      ["หมวด", category ? category.name : "-"],
-      ["หัวข้อ", getFieldValue("title") || "-"],
-      ["รายละเอียด", getFieldValue("description") || "-"],
-      ["วันที่พบปัญหา", formatThaiDate(getFieldValue("incidentDate")) || "-"],
-      ["ความเร่งด่วน", getPriorityLabel(getFieldValue("priorityReported"))],
-      ["สถานที่", buildLocationSummary()],
-      ["รูปภาพ", state.images.length + " รูป"],
-      ["รูปแบบการแจ้ง", getReporterMode() === "anonymous" ? "ไม่ระบุตัวตน" : "ระบุตัวตน"],
-      ["ช่องทางติดต่อ", getReporterMode() === "anonymous" ? "ไม่ระบุ" : getContactSummary()]
+    const sections = [
+      {
+        step: 1,
+        title: "หมวดปัญหา",
+        lines: [
+          ["หมวด", category ? category.name : "-"],
+          ["คำอธิบาย", category && category.description ? category.description : "-"]
+        ]
+      },
+      {
+        step: 2,
+        title: "รายละเอียดปัญหา",
+        lines: [
+          ["หัวข้อ", getFieldValue("title") || "-"],
+          ["รายละเอียด", getFieldValue("description") || "-"],
+          ["วันที่พบปัญหา", formatThaiDate(getFieldValue("incidentDate")) || "-"],
+          ["ความเร่งด่วน", getPriorityLabel(getFieldValue("priorityReported"))]
+        ]
+      },
+      {
+        step: 3,
+        title: "สถานที่",
+        lines: [
+          ["สรุปสถานที่", buildLocationSummary()],
+          ["ลิงก์แผนที่", getFieldValue("mapUrl") || "-"]
+        ]
+      },
+      {
+        step: 4,
+        title: "รูปภาพ",
+        lines: getImageSummaryLines()
+      },
+      {
+        step: 5,
+        title: "ข้อมูลผู้แจ้ง",
+        lines: getReporterSummaryLines()
+      },
+      {
+        step: 6,
+        title: "การยืนยัน",
+        lines: [
+          ["ยืนยันข้อมูลจริง", isChecked("truthConfirmed") ? "ยืนยันแล้ว" : "ยังไม่ได้ยืนยัน"],
+          ["ยอมรับนโยบาย", isChecked("privacyAccepted") ? "ยอมรับแล้ว" : "ยังไม่ได้ยอมรับ"]
+        ]
+      }
     ];
 
-    items.forEach(function (item) {
-      const wrapper = document.createElement("article");
-      const title = document.createElement("h3");
-      const value = document.createElement("p");
-
-      wrapper.className = "report-review-item";
-      title.textContent = item[0];
-      value.textContent = item[1];
-      wrapper.appendChild(title);
-      wrapper.appendChild(value);
-      elements.reviewList.appendChild(wrapper);
+    sections.forEach(function (section) {
+      elements.reviewList.appendChild(createReviewSection(section));
     });
+  }
+
+  function createReviewSection(section) {
+    const wrapper = document.createElement("article");
+    const header = document.createElement("div");
+    const title = document.createElement("h3");
+    const editButton = document.createElement("button");
+    const body = document.createElement("div");
+
+    wrapper.className = "report-review-item report-review-section";
+    header.className = "report-review-section-header";
+    body.className = "report-review-lines";
+    title.textContent = section.title;
+    editButton.className = "button button-outline button-small";
+    editButton.type = "button";
+    editButton.dataset.editStep = String(section.step);
+    editButton.textContent = "แก้ไข";
+
+    header.appendChild(title);
+    header.appendChild(editButton);
+    wrapper.appendChild(header);
+
+    section.lines.forEach(function (line) {
+      body.appendChild(createReviewLine(line[0], line[1]));
+    });
+
+    wrapper.appendChild(body);
+    return wrapper;
+  }
+
+  function createReviewLine(label, value) {
+    const line = document.createElement("div");
+    const labelElement = document.createElement("strong");
+    const valueElement = document.createElement("p");
+
+    line.className = "report-review-line";
+    labelElement.textContent = label;
+    valueElement.textContent = value || "-";
+    line.appendChild(labelElement);
+    line.appendChild(valueElement);
+    return line;
+  }
+
+  function getImageSummaryLines() {
+    const images = getImageMetadataList();
+
+    if (images.length === 0) {
+      return [["รูปภาพ", "ไม่ได้แนบรูปภาพ"]];
+    }
+
+    return images.map(function (image, index) {
+      return [
+        "รูปที่ " + (index + 1),
+        image.fileName + " (" + formatFileSize(image.fileSize) + ", " + image.width + "x" + image.height + ")"
+      ];
+    });
+  }
+
+  function getReporterSummaryLines() {
+    if (getReporterMode() === "anonymous") {
+      return [
+        ["รูปแบบการแจ้ง", "ไม่ระบุตัวตน"],
+        ["ข้อมูลส่วนตัว", "payload จะไม่ส่งชื่อ เบอร์โทร หรืออีเมล"],
+        ["ช่องทางติดต่อ", "ไม่ต้องการให้ติดต่อกลับ"]
+      ];
+    }
+
+    return [
+      ["รูปแบบการแจ้ง", "ระบุตัวตน"],
+      ["ชื่อ", getFieldValue("reporterName") || "-"],
+      ["เบอร์โทร", getFieldValue("reporterPhone") || "-"],
+      ["อีเมล", getFieldValue("reporterEmail") || "-"],
+      ["ช่องทางติดต่อ", getContactSummary()]
+    ];
+  }
+
+  function buildReportPayload() {
+    const payload = {
+      categoryId: getFieldValue("categoryId"),
+      title: getFieldValue("title"),
+      description: getFieldValue("description"),
+      incidentDate: getFieldValue("incidentDate"),
+      priorityReported: getFieldValue("priorityReported"),
+      location: buildLocationPayload(),
+      reporter: buildReporterPayload(),
+      consent: {
+        truthConfirmed: isChecked("truthConfirmed"),
+        privacyAccepted: isChecked("privacyAccepted"),
+        privacyVersion: getPrivacyVersion()
+      },
+      attachments: getImageMetadataList()
+    };
+
+    return payload;
+  }
+
+  function buildLocationPayload() {
+    const latitude = getFieldValue("latitude");
+    const longitude = getFieldValue("longitude");
+
+    return {
+      name: getFieldValue("locationName"),
+      villageNo: getFieldValue("villageNo"),
+      landmark: getFieldValue("landmark"),
+      latitude: latitude ? Number(latitude) : "",
+      longitude: longitude ? Number(longitude) : "",
+      mapUrl: getFieldValue("mapUrl")
+    };
+  }
+
+  function buildReporterPayload() {
+    if (getReporterMode() === "anonymous") {
+      return {
+        isAnonymous: true,
+        contactMethod: "none"
+      };
+    }
+
+    return {
+      isAnonymous: false,
+      name: getFieldValue("reporterName"),
+      phone: normalizePhone(getFieldValue("reporterPhone")),
+      email: getFieldValue("reporterEmail"),
+      contactMethod: getFieldValue("contactMethod") || "phone"
+    };
+  }
+
+  function normalizePhone(value) {
+    return toText(value).replace(/[\s-]/g, "");
+  }
+
+  function getPrivacyVersion() {
+    return "1.0";
   }
 
   function saveDraft(showMessage) {
@@ -970,8 +1421,8 @@
   }
 
   function clearObjectUrls() {
-    state.objectUrls.forEach(function (url) {
-      URL.revokeObjectURL(url);
+    state.images.forEach(function (imageItem) {
+      revokeImageUrl(imageItem);
     });
     state.objectUrls = [];
   }
@@ -1042,6 +1493,30 @@
     return value;
   }
 
+  function isAllowedImageType(file) {
+    if (window.KPR_IMAGE_COMPRESS && typeof window.KPR_IMAGE_COMPRESS.isAllowedType === "function") {
+      return window.KPR_IMAGE_COMPRESS.isAllowedType(file.type);
+    }
+
+    return ALLOWED_IMAGE_TYPES.indexOf(file.type) !== -1;
+  }
+
+  function createImageId() {
+    if (window.KPR_UTILS && typeof window.KPR_UTILS.generateRequestId === "function") {
+      return "IMG-" + window.KPR_UTILS.generateRequestId();
+    }
+
+    if (window.KPR_UTILS && typeof window.KPR_UTILS.createRequestId === "function") {
+      return "IMG-" + window.KPR_UTILS.createRequestId();
+    }
+
+    if (window.crypto && typeof window.crypto.randomUUID === "function") {
+      return "IMG-" + window.crypto.randomUUID();
+    }
+
+    return "IMG-" + Date.now() + "-" + Math.random().toString(36).slice(2);
+  }
+
   function getMaxImages() {
     const config = window.APP_CONFIG || {};
     const value = Number(config.MAX_IMAGES);
@@ -1060,6 +1535,13 @@
     return getMaxImageSizeMb() * 1024 * 1024;
   }
 
+  function getMaxImageDimension() {
+    const config = window.APP_CONFIG || {};
+    const value = Number(config.MAX_IMAGE_DIMENSION);
+
+    return Number.isFinite(value) && value > 0 ? value : 1600;
+  }
+
   function formatFileSize(bytes) {
     const size = Number(bytes);
 
@@ -1068,6 +1550,16 @@
     }
 
     return (size / 1024 / 1024).toFixed(2) + " MB";
+  }
+
+  function getMimeLabel(mimeType) {
+    const labels = {
+      "image/jpeg": "JPG",
+      "image/png": "PNG",
+      "image/webp": "WebP"
+    };
+
+    return labels[mimeType] || mimeType || "";
   }
 
   function clampStep(step) {

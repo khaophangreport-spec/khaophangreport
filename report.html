@@ -186,7 +186,7 @@
             <div class="section-heading">
               <p class="eyebrow">Step 4</p>
               <h2 id="images-title">เพิ่มรูปภาพ</h2>
-              <p>เพิ่มรูปได้สูงสุด 3 รูป รองรับ JPG, PNG และ WebP ขั้นตอนนี้ยังไม่บีบอัดหรือส่งไฟล์จริง</p>
+              <p>เพิ่มรูปได้สูงสุด 3 รูป รองรับ JPG, PNG และ WebP ระบบจะบีบอัดในเบราว์เซอร์ให้ด้านยาวไม่เกิน 1600px และไม่เกิน 1 MB ต่อรูปก่อนส่งจริง</p>
             </div>
             <div class="form-grid">
               <div class="report-upload-box">
@@ -194,6 +194,7 @@
                 <input class="sr-only" id="report-images" name="images" type="file" accept="image/jpeg,image/png,image/webp" multiple data-image-input />
                 <p>รูปภาพจะไม่ถูกเก็บใน Local Storage และต้องเลือกใหม่หาก refresh หน้า</p>
               </div>
+              <p class="form-help" data-image-status aria-live="polite"></p>
               <p class="form-error" data-error-for="images" aria-live="polite"></p>
               <div class="empty-state report-image-empty" data-image-empty>
                 <h3>ยังไม่ได้เพิ่มรูปภาพ</h3>
@@ -250,23 +251,14 @@
                 </div>
                 <div class="form-field">
                   <label class="form-label" for="contact-method">ช่องทางติดต่อที่สะดวก</label>
-                  <select class="form-select" id="contact-method" name="contactMethod" data-field="contactMethod">
+                  <select class="form-select" id="contact-method" name="contactMethod" data-field="contactMethod" aria-describedby="contact-method-error">
                     <option value="phone">โทรศัพท์</option>
                     <option value="email">อีเมล</option>
                     <option value="none">ไม่ต้องการให้ติดต่อกลับ</option>
                   </select>
+                  <p class="form-error" id="contact-method-error" data-error-for="contactMethod" aria-live="polite"></p>
                 </div>
               </div>
-              <label class="report-check">
-                <input type="checkbox" name="truthConfirmed" data-field="truthConfirmed" />
-                <span>ขอยืนยันว่าข้อมูลที่แจ้งเป็นความจริงตามที่ทราบ</span>
-              </label>
-              <p class="form-error" data-error-for="truthConfirmed" aria-live="polite"></p>
-              <label class="report-check">
-                <input type="checkbox" name="privacyAccepted" data-field="privacyAccepted" />
-                <span>ยอมรับการใช้ข้อมูลตาม <a href="privacy.html" target="_blank" rel="noopener">นโยบายความเป็นส่วนตัว</a> และ <a href="terms.html" target="_blank" rel="noopener">เงื่อนไขการใช้งาน</a></span>
-              </label>
-              <p class="form-error" data-error-for="privacyAccepted" aria-live="polite"></p>
             </div>
           </section>
 
@@ -280,6 +272,18 @@
               <p>ข้อมูลครบถ้วนสำหรับโครงสร้างฟอร์มแล้ว การส่งเรื่องจริงจะเชื่อมต่อในขั้นถัดไป</p>
             </div>
             <div class="report-review-list" data-review-list></div>
+            <div class="report-consent-panel">
+              <label class="report-check">
+                <input id="truth-confirmed" type="checkbox" name="truthConfirmed" data-field="truthConfirmed" aria-describedby="truth-confirmed-error" />
+                <span>ขอยืนยันว่าข้อมูลที่แจ้งเป็นความจริงตามที่ทราบ</span>
+              </label>
+              <p class="form-error" id="truth-confirmed-error" data-error-for="truthConfirmed" aria-live="polite"></p>
+              <label class="report-check">
+                <input id="privacy-accepted" type="checkbox" name="privacyAccepted" data-field="privacyAccepted" aria-describedby="privacy-accepted-error" />
+                <span>ยอมรับการใช้ข้อมูลตาม <a href="privacy.html" target="_blank" rel="noopener">นโยบายความเป็นส่วนตัว</a> และ <a href="terms.html" target="_blank" rel="noopener">เงื่อนไขการใช้งาน</a></span>
+              </label>
+              <p class="form-error" id="privacy-accepted-error" data-error-for="privacyAccepted" aria-live="polite"></p>
+            </div>
           </section>
 
           <div class="report-form-actions">
