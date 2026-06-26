@@ -189,11 +189,13 @@ var INITIAL_PUBLIC_SETTINGS = Object.freeze([
   { key: 'app_name', value: 'Khaophang Report', type: 'string', is_public: true, description: 'ชื่อระบบภาษาอังกฤษ', group_name: 'general' },
   { key: 'app_name_th', value: 'ระบบรับแจ้งและติดตามปัญหาชุมชนตำบลเขาพัง', type: 'string', is_public: true, description: 'ชื่อระบบภาษาไทย', group_name: 'general' },
   { key: 'contact_email', value: 'khaophangreport@gmail.com', type: 'string', is_public: true, description: 'อีเมลติดต่อโครงการ', group_name: 'contact' },
+  { key: 'site_url', value: 'https://khaophangreport.pages.dev', type: 'string', is_public: true, description: 'URL เว็บไซต์หลัก', group_name: 'general' },
   { key: 'max_images', value: '3', type: 'number', is_public: true, description: 'จำนวนภาพสูงสุดต่อการแจ้ง', group_name: 'upload' },
   { key: 'max_image_size_mb', value: '1', type: 'number', is_public: true, description: 'ขนาดภาพสูงสุดหลังบีบอัดต่อภาพ', group_name: 'upload' },
   { key: 'max_image_dimension', value: '1600', type: 'number', is_public: true, description: 'ด้านยาวสูงสุดของภาพ', group_name: 'upload' },
   { key: 'default_page_size', value: '20', type: 'number', is_public: true, description: 'จำนวนรายการเริ่มต้นต่อหน้า', group_name: 'pagination' },
   { key: 'privacy_version', value: '1.0', type: 'string', is_public: true, description: 'เวอร์ชันนโยบายความเป็นส่วนตัว', group_name: 'privacy' },
+  { key: 'terms_version', value: '1.0', type: 'string', is_public: true, description: 'เวอร์ชันเงื่อนไขการใช้งาน', group_name: 'privacy' },
   { key: 'maintenance_mode', value: 'false', type: 'boolean', is_public: true, description: 'สถานะปิดปรับปรุงระบบ', group_name: 'system' },
   { key: 'schema_version', value: SETUP_SCHEMA_VERSION, type: 'string', is_public: false, description: 'เวอร์ชันโครงสร้างข้อมูล', group_name: 'system' }
 ]);
@@ -205,7 +207,7 @@ function setupSystem() {
   try {
     var spreadsheet = SheetRepository.openOrCreateSpreadsheet();
     var sheetResults = setupSheets_(spreadsheet);
-    var seedResults = seedInitialData_(spreadsheet);
+    var seedResults = seedInitialData(spreadsheet);
     var driveResult = DriveRepository.ensureRootStructure(SETUP_DRIVE_FOLDERS);
     var validationResult = validateSetup();
 
@@ -235,17 +237,24 @@ function setupSheets_(spreadsheet) {
   });
 }
 
-function seedInitialData_(spreadsheet) {
+function seedInitialData(spreadsheet) {
+  var targetSpreadsheet = spreadsheet || SheetRepository.openSpreadsheet();
+
   return {
-    categories: seedCategories_(spreadsheet),
-    settings: seedSettings_(spreadsheet),
-    schemaMigrations: seedSchemaMigration_(spreadsheet)
+    categories: seedCategories(targetSpreadsheet),
+    settings: seedSettings(targetSpreadsheet),
+    schemaMigrations: seedSchemaMigration_(targetSpreadsheet)
   };
 }
 
-function seedCategories_(spreadsheet) {
+function seedInitialData_(spreadsheet) {
+  return seedInitialData(spreadsheet);
+}
+
+function seedCategories(spreadsheet) {
+  var targetSpreadsheet = spreadsheet || SheetRepository.openSpreadsheet();
   var schema = findSetupSchema_('categories');
-  var sheet = SheetRepository.getSheet(spreadsheet, 'categories');
+  var sheet = ensureSetupSheet_(targetSpreadsheet, schema);
   var now = nowIso_();
   var items = INITIAL_CATEGORIES.map(function (category, index) {
     return {
@@ -267,12 +276,17 @@ function seedCategories_(spreadsheet) {
     };
   });
 
-  return SheetRepository.seedRowsByKey(sheet, schema.headers, 'code', items);
+  return seedRowsIdempotent_(sheet, schema.headers, items, ['category_id', 'code']);
 }
 
-function seedSettings_(spreadsheet) {
+function seedCategories_(spreadsheet) {
+  return seedCategories(spreadsheet);
+}
+
+function seedSettings(spreadsheet) {
+  var targetSpreadsheet = spreadsheet || SheetRepository.openSpreadsheet();
   var schema = findSetupSchema_('settings');
-  var sheet = SheetRepository.getSheet(spreadsheet, 'settings');
+  var sheet = ensureSetupSheet_(targetSpreadsheet, schema);
   var now = nowIso_();
   var items = INITIAL_PUBLIC_SETTINGS.map(function (setting) {
     return {
@@ -288,12 +302,16 @@ function seedSettings_(spreadsheet) {
     };
   });
 
-  return SheetRepository.seedRowsByKey(sheet, schema.headers, 'key', items);
+  return seedRowsIdempotent_(sheet, schema.headers, items, ['key']);
+}
+
+function seedSettings_(spreadsheet) {
+  return seedSettings(spreadsheet);
 }
 
 function seedSchemaMigration_(spreadsheet) {
   var schema = findSetupSchema_('schema_migrations');
-  var sheet = SheetRepository.getSheet(spreadsheet, 'schema_migrations');
+  var sheet = ensureSetupSheet_(spreadsheet, schema);
   var migrationId = '20260626_001';
   var items = [{
     migration_id: migrationId,
@@ -307,7 +325,112 @@ function seedSchemaMigration_(spreadsheet) {
     detail: 'Initial Google Sheets schema and Drive folders setup'
   }];
 
-  return SheetRepository.seedRowsByKey(sheet, schema.headers, 'migration_id', items);
+  return seedRowsIdempotent_(sheet, schema.headers, items, ['migration_id']);
+}
+
+function ensureSetupSheet_(spreadsheet, schema) {
+  var sheet = SheetRepository.getSheet(spreadsheet, schema.name);
+
+  if (sheet) {
+    return sheet;
+  }
+
+  return SheetRepository.setupSheet(spreadsheet, schema);
+}
+
+function createSeedLog_() {
+  return {
+    inserted: 0,
+    skipped: 0,
+    error: 0,
+    insertedKeys: [],
+    skippedKeys: [],
+    errors: []
+  };
+}
+
+function seedRowsIdempotent_(sheet, headers, items, uniqueColumns) {
+  var log = createSeedLog_();
+  var headerMap = SheetRepository.getHeaderMap(sheet);
+  var rowsToAppend = [];
+  var existing = {};
+
+  (uniqueColumns || []).forEach(function (columnName) {
+    if (headerMap[columnName] === undefined) {
+      log.error += 1;
+      log.errors.push('Missing unique column: ' + columnName);
+    } else {
+      existing[columnName] = {};
+    }
+  });
+
+  if (log.error > 0) {
+    return log;
+  }
+
+  SheetRepository.getDataRangeValues(sheet).forEach(function (row) {
+    uniqueColumns.forEach(function (columnName) {
+      var value = row[headerMap[columnName]];
+
+      if (value !== '') {
+        existing[columnName][String(value)] = true;
+      }
+    });
+  });
+
+  (items || []).forEach(function (item) {
+    try {
+      var duplicateColumn = findDuplicateSeedColumn_(item, uniqueColumns, existing);
+      var seedKey = buildSeedKey_(item, uniqueColumns);
+
+      if (duplicateColumn) {
+        log.skipped += 1;
+        log.skippedKeys.push(seedKey + ' exists by ' + duplicateColumn);
+        return;
+      }
+
+      rowsToAppend.push(SheetRepository.objectToRow(item, headers));
+      uniqueColumns.forEach(function (columnName) {
+        var value = item[columnName];
+
+        if (value !== undefined && value !== '') {
+          existing[columnName][String(value)] = true;
+        }
+      });
+      log.inserted += 1;
+      log.insertedKeys.push(seedKey);
+    } catch (error) {
+      log.error += 1;
+      log.errors.push(error && error.message ? error.message : String(error));
+    }
+  });
+
+  if (rowsToAppend.length > 0) {
+    SheetRepository.appendRows(sheet, rowsToAppend);
+  }
+
+  return log;
+}
+
+function findDuplicateSeedColumn_(item, uniqueColumns, existing) {
+  for (var index = 0; index < uniqueColumns.length; index += 1) {
+    var columnName = uniqueColumns[index];
+    var value = item[columnName];
+
+    if (value !== undefined && value !== '' && existing[columnName][String(value)]) {
+      return columnName;
+    }
+  }
+
+  return '';
+}
+
+function buildSeedKey_(item, uniqueColumns) {
+  var parts = (uniqueColumns || []).map(function (columnName) {
+    return columnName + '=' + (item[columnName] !== undefined ? item[columnName] : '');
+  });
+
+  return parts.join('|');
 }
 
 function validateSetup() {
@@ -378,32 +501,123 @@ function validateSetup() {
   return result;
 }
 
-function validateSeedData_(spreadsheet, result) {
-  var categoriesSheet = SheetRepository.getSheet(spreadsheet, 'categories');
-  var settingsSheet = SheetRepository.getSheet(spreadsheet, 'settings');
+function validateSeedData(spreadsheet) {
+  var targetSpreadsheet = spreadsheet || SheetRepository.openSpreadsheet();
+  var result = {
+    ok: true,
+    categories: {
+      ok: true,
+      activeCount: 0,
+      issues: []
+    },
+    settings: {
+      ok: true,
+      requiredKeys: getRequiredPublicSettingKeys_(),
+      missingKeys: [],
+      issues: []
+    },
+    issues: []
+  };
 
-  if (!categoriesSheet || !settingsSheet) {
+  validateCategorySeedData_(targetSpreadsheet, result);
+  validateSettingsSeedData_(targetSpreadsheet, result);
+
+  result.ok = result.categories.ok && result.settings.ok;
+  result.issues = result.categories.issues.concat(result.settings.issues);
+
+  return result;
+}
+
+function validateSeedData_(spreadsheet, result) {
+  var seedValidation = validateSeedData(spreadsheet);
+  result.seedData = seedValidation;
+
+  if (!seedValidation.ok) {
     result.ok = false;
-    result.issues.push('Missing seed validation sheet');
+    result.issues = result.issues.concat(seedValidation.issues);
+  }
+}
+
+function validateCategorySeedData_(spreadsheet, result) {
+  var categoriesSheet = SheetRepository.getSheet(spreadsheet, 'categories');
+
+  if (!categoriesSheet) {
+    result.categories.ok = false;
+    result.categories.issues.push('Missing categories sheet');
     return;
   }
 
-  var categoryMap = getExistingKeyMap_(categoriesSheet, 'code');
-  var settingsMap = getExistingKeyMap_(settingsSheet, 'key');
+  var headers = SheetRepository.getHeaders(categoriesSheet);
+  var headerMap = SheetRepository.getHeaderMap(categoriesSheet);
 
-  INITIAL_CATEGORIES.forEach(function (category) {
-    if (!categoryMap[category.code]) {
-      result.ok = false;
-      result.issues.push('Missing category seed: ' + category.code);
+  if (headerMap.is_active === undefined || headerMap.code === undefined) {
+    result.categories.ok = false;
+    result.categories.issues.push('Missing required categories header');
+    return;
+  }
+
+  SheetRepository.getDataRangeValues(categoriesSheet).forEach(function (row) {
+    if (isSeedActiveBoolean_(row[headerMap.is_active])) {
+      result.categories.activeCount += 1;
     }
   });
 
-  INITIAL_PUBLIC_SETTINGS.forEach(function (setting) {
-    if (!settingsMap[setting.key]) {
-      result.ok = false;
-      result.issues.push('Missing setting seed: ' + setting.key);
+  if (result.categories.activeCount < 1) {
+    result.categories.ok = false;
+    result.categories.issues.push('categories must have at least 1 active row');
+  }
+}
+
+function validateSettingsSeedData_(spreadsheet, result) {
+  var settingsSheet = SheetRepository.getSheet(spreadsheet, 'settings');
+
+  if (!settingsSheet) {
+    result.settings.ok = false;
+    result.settings.issues.push('Missing settings sheet');
+    return;
+  }
+
+  var headerMap = SheetRepository.getHeaderMap(settingsSheet);
+
+  if (headerMap.key === undefined || headerMap.is_public === undefined) {
+    result.settings.ok = false;
+    result.settings.issues.push('Missing required settings header');
+    return;
+  }
+
+  var publicSettingsMap = {};
+
+  SheetRepository.getDataRangeValues(settingsSheet).forEach(function (row) {
+    var key = row[headerMap.key];
+    var isPublic = row[headerMap.is_public];
+
+    if (key !== '' && isSeedActiveBoolean_(isPublic)) {
+      publicSettingsMap[String(key)] = true;
     }
   });
+
+  result.settings.requiredKeys.forEach(function (key) {
+    if (!publicSettingsMap[key]) {
+      result.settings.missingKeys.push(key);
+    }
+  });
+
+  if (result.settings.missingKeys.length > 0) {
+    result.settings.ok = false;
+    result.settings.issues.push('Missing public settings: ' + result.settings.missingKeys.join(', '));
+  }
+}
+
+function getRequiredPublicSettingKeys_() {
+  return INITIAL_PUBLIC_SETTINGS.filter(function (setting) {
+    return setting.is_public === true;
+  }).map(function (setting) {
+    return setting.key;
+  });
+}
+
+function isSeedActiveBoolean_(value) {
+  return value === true || String(value).toLowerCase() === 'true';
 }
 
 function getExistingKeyMap_(sheet, keyColumnName) {

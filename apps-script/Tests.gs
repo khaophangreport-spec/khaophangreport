@@ -3,7 +3,71 @@ function runTests() {
     ok: true,
     publicConfig: testPublicConfig_(),
     categoryList: testCategoryList_(),
-    announcementList: testAnnouncementList_()
+    announcementList: testAnnouncementList_(),
+    seedData: testValidateSeedData()
+  };
+}
+
+function runSetupSeedTests() {
+  var categories = testSeedCategories();
+  var settings = testSeedSettings();
+  var initialData = testSeedInitialData();
+  var validation = testValidateSeedData();
+
+  return {
+    ok: categories.ok && settings.ok && initialData.ok && validation.ok,
+    categories: categories,
+    settings: settings,
+    initialData: initialData,
+    validation: validation
+  };
+}
+
+function testSeedCategories() {
+  var firstRun = seedCategories();
+  var secondRun = seedCategories();
+
+  return {
+    ok: isSeedLogOk_(firstRun) && isSeedLogOk_(secondRun) && secondRun.inserted === 0,
+    action: 'seedCategories',
+    firstRun: firstRun,
+    secondRun: secondRun
+  };
+}
+
+function testSeedSettings() {
+  var firstRun = seedSettings();
+  var secondRun = seedSettings();
+
+  return {
+    ok: isSeedLogOk_(firstRun) && isSeedLogOk_(secondRun) && secondRun.inserted === 0,
+    action: 'seedSettings',
+    firstRun: firstRun,
+    secondRun: secondRun
+  };
+}
+
+function testSeedInitialData() {
+  var firstRun = seedInitialData();
+  var secondRun = seedInitialData();
+
+  return {
+    ok: isSeedGroupOk_(firstRun) && isSeedGroupOk_(secondRun) &&
+      secondRun.categories.inserted === 0 &&
+      secondRun.settings.inserted === 0,
+    action: 'seedInitialData',
+    firstRun: firstRun,
+    secondRun: secondRun
+  };
+}
+
+function testValidateSeedData() {
+  var result = validateSeedData();
+
+  return {
+    ok: result.ok === true,
+    action: 'validateSeedData',
+    result: result
   };
 }
 
@@ -65,4 +129,19 @@ function callRouterForTest_(action, data) {
       message: 'อ่านผลทดสอบไม่สำเร็จ'
     }
   });
+}
+
+function isSeedLogOk_(log) {
+  return !!log &&
+    typeof log.inserted === 'number' &&
+    typeof log.skipped === 'number' &&
+    typeof log.error === 'number' &&
+    log.error === 0;
+}
+
+function isSeedGroupOk_(group) {
+  return !!group &&
+    isSeedLogOk_(group.categories) &&
+    isSeedLogOk_(group.settings) &&
+    isSeedLogOk_(group.schemaMigrations);
 }
