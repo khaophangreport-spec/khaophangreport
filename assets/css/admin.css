@@ -190,6 +190,18 @@
   gap: var(--space-4);
 }
 
+.admin-login-form[aria-busy="true"] {
+  cursor: progress;
+}
+
+.admin-login-form[aria-busy="true"] input {
+  cursor: text;
+}
+
+.admin-login-form [data-login-error][hidden] {
+  display: none;
+}
+
 body.admin-drawer-open {
   overflow: hidden;
 }
