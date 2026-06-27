@@ -517,6 +517,82 @@ function SheetRepository_batchRead_(sheetName, options) {
   };
 }
 
+function SheetRepository_selectColumns_(sheetName, columnNames, options) {
+  const safeOptions = options || {};
+  const sheet = SheetRepository_getSheet_(sheetName);
+  const headerMap = SheetRepository_getHeaderMap_(sheet);
+  const keyColumnName = safeOptions.keyColumnName || safeOptions.idColumnName || "";
+  const requestedColumns = SheetRepository_uniqueColumns_(columnNames || []);
+  const selectedColumns = SheetRepository_uniqueColumns_(
+    (keyColumnName ? [keyColumnName] : []).concat(requestedColumns)
+  );
+  const lastRow = sheet.getLastRow();
+
+  selectedColumns.forEach(function (columnName) {
+    SheetRepository_requireColumn_(headerMap, columnName, sheetName);
+  });
+
+  if (lastRow < 2 || selectedColumns.length === 0) {
+    return {
+      headers: selectedColumns,
+      objects: [],
+      rowCount: 0
+    };
+  }
+
+  const rowCount = lastRow - 1;
+  const columnValues = {};
+
+  selectedColumns.forEach(function (columnName) {
+    columnValues[columnName] = sheet.getRange(2, headerMap[columnName], rowCount, 1).getValues();
+  });
+
+  const objects = [];
+
+  for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
+    if (keyColumnName && String(columnValues[keyColumnName][rowIndex][0] || "") === "") {
+      continue;
+    }
+
+    const item = {};
+
+    selectedColumns.forEach(function (columnName) {
+      const value = columnValues[columnName][rowIndex][0];
+      item[columnName] = value === undefined || value === null ? "" : value;
+    });
+
+    if (!safeOptions.includeDeleted && SheetRepository_isDeleted_(item)) {
+      continue;
+    }
+
+    objects.push(item);
+  }
+
+  return {
+    headers: selectedColumns,
+    objects: objects,
+    rowCount: objects.length
+  };
+}
+
+function SheetRepository_uniqueColumns_(columnNames) {
+  const seen = {};
+  const output = [];
+
+  (columnNames || []).forEach(function (columnName) {
+    const normalizedColumnName = String(columnName || "");
+
+    if (!normalizedColumnName || seen[normalizedColumnName]) {
+      return;
+    }
+
+    seen[normalizedColumnName] = true;
+    output.push(normalizedColumnName);
+  });
+
+  return output;
+}
+
 function SheetRepository_batchWrite_(sheetName, rowObjects, options) {
   const safeOptions = options || {};
   const sheet = SheetRepository_getSheet_(sheetName);

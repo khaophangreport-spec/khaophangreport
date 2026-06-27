@@ -110,6 +110,42 @@
     window.location.href = getSafeReturnUrl();
   }
 
+  function isLoginPage() {
+    return /\/admin\/login\.html$/i.test(window.location.pathname) ||
+      document.body.classList.contains("admin-login-page");
+  }
+
+  function getCurrentAdminReturnUrl() {
+    const adminMarker = "/admin/";
+    const pathname = window.location.pathname;
+
+    if (pathname.indexOf(adminMarker) === -1 || /\/login\.html$/i.test(pathname)) {
+      return DEFAULT_DASHBOARD_URL;
+    }
+
+    return pathname.split(adminMarker).pop() + window.location.search + window.location.hash;
+  }
+
+  function buildLoginUrl() {
+    const returnUrl = getCurrentAdminReturnUrl();
+
+    if (returnUrl === DEFAULT_DASHBOARD_URL) {
+      return "login.html";
+    }
+
+    return "login.html?returnUrl=" + encodeURIComponent(returnUrl);
+  }
+
+  function redirectToLogin() {
+    clearSession();
+
+    if (isLoginPage()) {
+      return;
+    }
+
+    window.location.replace(buildLoginUrl());
+  }
+
   async function verifySession() {
     const session = getStoredSession();
 
@@ -131,6 +167,17 @@
       clearSession();
       return null;
     }
+  }
+
+  async function requireAdminSession() {
+    const user = await verifySession();
+
+    if (!user) {
+      redirectToLogin();
+      return null;
+    }
+
+    return user;
   }
 
   function setText(element, text) {
@@ -380,6 +427,27 @@
     }
   }
 
+  async function logout() {
+    const session = getStoredSession();
+    const sessionToken = session && session.sessionToken ? session.sessionToken : "";
+
+    try {
+      if (sessionToken && window.KPR_API) {
+        await window.KPR_API.write("auth.logout", {}, {
+          sessionToken: sessionToken,
+          withSession: true
+        });
+      }
+    } catch (error) {
+      // Client session is cleared even when the revoke request cannot complete.
+    } finally {
+      clearSession();
+      if (!isLoginPage()) {
+        window.location.href = "login.html";
+      }
+    }
+  }
+
   const storedSession = getStoredSession();
   if (storedSession && storedSession.user) {
     currentUser = storedSession.user;
@@ -403,14 +471,13 @@
       updateStoredUser(user || null);
     },
     handleSessionExpired: function () {
-      clearSession();
+      redirectToLogin();
     },
     verifySession: verifySession,
+    requireAdminSession: requireAdminSession,
+    redirectToLogin: redirectToLogin,
     getReturnUrl: getSafeReturnUrl,
-    logout: function () {
-      clearSession();
-      window.location.href = "login.html";
-    }
+    logout: logout
   };
 
   document.addEventListener("DOMContentLoaded", initLoginPage);

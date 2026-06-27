@@ -954,3 +954,151 @@ function testFirstAdminSetupKeyRequired() {
 
   throw new Error("Setup_validateFirstAdminSetupKey_ did not reject invalid key");
 }
+
+function testDashboardSummaryRouterWhitelist() {
+  if (ROUTER_ACTIONS_["dashboard.summary"] !== DashboardService_summary) {
+    throw new Error("dashboard.summary is not registered in Router whitelist");
+  }
+
+  console.log("dashboard.summary is registered in Router whitelist");
+  return {
+    ok: true,
+    action: "dashboard.summary"
+  };
+}
+
+function testDashboardSummaryOfficerDefaultMine() {
+  const scope = DashboardService_resolveScope_({}, {
+    user_id: "USER-OFFICER",
+    role: "officer"
+  }, UserService_getPermissions_("officer"));
+
+  if (scope !== "mine") {
+    throw new Error("Officer default dashboard scope should be mine");
+  }
+
+  console.log(scope);
+  return {
+    ok: true,
+    scope: scope
+  };
+}
+
+function testDashboardSummaryOfficerCannotGlobal() {
+  try {
+    DashboardService_resolveScope_({
+      scope: "global"
+    }, {
+      user_id: "USER-OFFICER",
+      role: "officer"
+    }, UserService_getPermissions_("officer"));
+  } catch (error) {
+    if (error && error.code === "FORBIDDEN") {
+      console.log("Officer global dashboard scope rejected");
+      return {
+        ok: true,
+        code: error.code
+      };
+    }
+
+    throw error;
+  }
+
+  throw new Error("Officer global dashboard scope was not rejected");
+}
+
+function testDashboardSummaryBuildNoPii() {
+  const summary = DashboardService_buildSummary_([
+    {
+      report_id: "REPORT-SECRET",
+      request_id: "REQ-SECRET",
+      category_id: "CAT-ROAD",
+      status: "new",
+      assigned_to: "USER-SECRET",
+      target_due_at: "2026-06-20T00:00:00.000Z",
+      created_at: "2026-06-01T00:00:00.000Z",
+      year_month: "2026-06",
+      village_no: "1",
+      village_key: "1",
+      title: "Private title",
+      reporter_name: "Private Name",
+      reporter_phone: "0812345678",
+      reporter_email: "person@example.com"
+    },
+    {
+      report_id: "REPORT-CLOSED",
+      category_id: "CAT-ROAD",
+      status: "closed",
+      assigned_to: "USER-SECRET",
+      target_due_at: "2026-06-05T00:00:00.000Z",
+      created_at: "2026-06-01T00:00:00.000Z",
+      closed_at: "2026-06-03T00:00:00.000Z",
+      year_month: "2026-06",
+      village_no: "2",
+      village_key: "2"
+    }
+  ], [{
+    category_id: "CAT-ROAD",
+    code: "road",
+    name: "Road",
+    icon: "road",
+    color: "#287444",
+    sort_order: 1,
+    is_active: true
+  }], {
+    scope: "global"
+  }, new Date("2026-06-27T00:00:00.000Z"));
+
+  const serialized = JSON.stringify(summary);
+  const forbidden = [
+    "REPORT-SECRET",
+    "REQ-SECRET",
+    "USER-SECRET",
+    "Private title",
+    "Private Name",
+    "0812345678",
+    "person@example.com",
+    "report_id",
+    "request_id",
+    "assigned_to",
+    "reporter_name",
+    "reporter_phone",
+    "reporter_email"
+  ];
+
+  forbidden.forEach(function (value) {
+    if (serialized.indexOf(value) !== -1) {
+      throw new Error("dashboard.summary leaked private data: " + value);
+    }
+  });
+
+  if (summary.cards.total !== 2 || summary.cards.overdue !== 1 || summary.byCategory[0].categoryId !== "CAT-ROAD") {
+    throw new Error("dashboard.summary build returned invalid aggregates");
+  }
+
+  console.log(JSON.stringify(summary));
+  return {
+    ok: true,
+    summary: summary
+  };
+}
+
+function testDashboardSummaryCacheClearVersion() {
+  const beforeVersion = DashboardService_getCacheVersion_();
+  const result = DashboardService_clearCache_();
+  const afterVersion = DashboardService_getCacheVersion_();
+
+  if (!result.ok || beforeVersion === afterVersion) {
+    throw new Error("Dashboard cache version did not change");
+  }
+
+  console.log(JSON.stringify({
+    beforeVersion: beforeVersion,
+    afterVersion: afterVersion
+  }));
+  return {
+    ok: true,
+    beforeVersion: beforeVersion,
+    afterVersion: afterVersion
+  };
+}

@@ -61,6 +61,7 @@ function ReportService_create(request) {
     ReportService_createInitialTimeline_(report, updateId, attachmentResult.records.length, now);
     createdUpdateId = updateId;
     AuditService_logReportCreated_(report, attachmentResult.records.length, requestId);
+    ReportService_clearDashboardCacheSafe_("report.create", requestId);
 
     return {
       data: {
@@ -161,6 +162,7 @@ function ReportService_addInfo(request) {
     ReportService_createAdditionalInfoTimeline_(context.report, updateId, attachmentResult.records.length, now);
     createdUpdateId = updateId;
     AuditService_logAdditionalInfoCreated_(context.report, additionalInfo, attachmentResult.records.length, requestId);
+    ReportService_clearDashboardCacheSafe_("report.addInfo", requestId);
 
     return {
       data: {
@@ -939,6 +941,20 @@ function ReportService_buildAddInfoRateLimitKey_(request) {
   ].join("|");
 
   return "rl_add_info_" + Security_hashSha256_(source, "rate-limit").slice(0, 48);
+}
+
+function ReportService_clearDashboardCacheSafe_(action, requestId) {
+  try {
+    if (typeof DashboardService_clearCache_ === "function") {
+      DashboardService_clearCache_();
+    }
+  } catch (error) {
+    Security_safeLog_("DASHBOARD_CACHE_CLEAR_FAILED", {
+      action: action || "",
+      requestId: requestId || "",
+      code: error && error.code ? error.code : "INTERNAL_ERROR"
+    });
+  }
 }
 
 function ReportService_generateUniqueTrackingCode_(createdAt) {

@@ -1,6 +1,21 @@
 (function () {
   "use strict";
 
+  const MENU_PERMISSION_MAP = Object.freeze({
+    reports: "report.read",
+    assigned: "report.read",
+    export: "report.read",
+    users: "user.manage",
+    categories: "settings.manage",
+    announcements: "announcement.manage",
+    activity: "admin.full",
+    settings: "settings.manage"
+  });
+
+  const AUTH_LOADING_TEXT = "\u0e01\u0e33\u0e25\u0e31\u0e07\u0e15\u0e23\u0e27\u0e08\u0e2a\u0e2d\u0e1a\u0e2a\u0e34\u0e17\u0e18\u0e34\u0e4c...";
+  const USER_LABEL = "\u0e1c\u0e39\u0e49\u0e43\u0e0a\u0e49\u0e07\u0e32\u0e19";
+  const ROLE_LABEL = "\u0e1a\u0e17\u0e1a\u0e32\u0e17";
+
   const drawer = document.querySelector("[data-admin-page] #admin-drawer");
   const overlay = document.querySelector("[data-admin-drawer-close].admin-drawer-overlay");
   const openButton = document.querySelector("[data-admin-drawer-open]");
@@ -12,7 +27,9 @@
       container.querySelectorAll(
         'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
       )
-    );
+    ).filter(function (element) {
+      return !element.hidden && element.getAttribute("aria-hidden") !== "true";
+    });
   }
 
   function setDrawerState(isOpen) {
@@ -74,9 +91,45 @@
     }
   }
 
-  function applyRoleMenuHook() {
-    const auth = window.KPR_AUTH;
-    const user = auth && typeof auth.getCurrentUser === "function" ? auth.getCurrentUser() : null;
+  function getPermissions(user) {
+    return Array.isArray(user && user.permissions) ? user.permissions : [];
+  }
+
+  function hasPermission(user, permission) {
+    if (!permission) {
+      return true;
+    }
+
+    const permissions = getPermissions(user);
+
+    return permissions.indexOf("admin.full") !== -1 || permissions.indexOf(permission) !== -1;
+  }
+
+  function renderUser(user) {
+    const displayName = user && user.displayName ? user.displayName : "-";
+    const role = user && user.role ? user.role : "-";
+
+    document.querySelectorAll(".admin-user-summary").forEach(function (element) {
+      element.textContent = USER_LABEL + ": " + displayName + " | " + ROLE_LABEL + ": " + role;
+    });
+  }
+
+  function applyPermissionMenu(user) {
+    document.querySelectorAll("[data-menu-key]").forEach(function (item) {
+      const menuKey = item.dataset.menuKey || "";
+      const permission = MENU_PERMISSION_MAP[menuKey] || "";
+      const allowed = hasPermission(user, permission);
+
+      item.hidden = !allowed;
+      item.setAttribute("aria-hidden", allowed ? "false" : "true");
+
+      if (!allowed && item.getAttribute("aria-current") === "page") {
+        item.removeAttribute("aria-current");
+      }
+    });
+  }
+
+  function applyRoleMenuHook(user) {
     const role = user && user.role ? user.role : "";
     const roleItems = document.querySelectorAll("[data-roles]");
 
@@ -93,6 +146,7 @@
     const logoutButtons = document.querySelectorAll("[data-admin-logout]");
     logoutButtons.forEach(function (button) {
       button.addEventListener("click", function () {
+        button.disabled = true;
         if (window.KPR_AUTH && typeof window.KPR_AUTH.logout === "function") {
           window.KPR_AUTH.logout();
         }
@@ -100,19 +154,102 @@
     });
   }
 
-  if (openButton) {
-    openButton.addEventListener("click", function () {
-      setDrawerState(true);
-    });
+  function ensureAuthLoading() {
+    let loading = document.querySelector("[data-admin-auth-loading]");
+
+    if (!loading) {
+      loading = document.createElement("div");
+      loading.className = "admin-auth-loading";
+      loading.setAttribute("data-admin-auth-loading", "");
+      loading.setAttribute("role", "status");
+      loading.setAttribute("aria-live", "polite");
+      loading.textContent = AUTH_LOADING_TEXT;
+      document.body.appendChild(loading);
+    }
+
+    return loading;
   }
 
-  closeButtons.forEach(function (button) {
-    button.addEventListener("click", function () {
-      setDrawerState(false);
-    });
-  });
+  function setAuthLoading(isLoading) {
+    if (!document.body.matches('[data-admin-guard="required"]')) {
+      return;
+    }
 
-  document.addEventListener("keydown", handleDrawerKeydown);
-  applyRoleMenuHook();
-  bindLogoutButtons();
+    if (isLoading) {
+      document.body.classList.add("admin-auth-pending");
+      document.body.classList.remove("admin-auth-ready");
+      ensureAuthLoading();
+      return;
+    }
+
+    const loading = document.querySelector("[data-admin-auth-loading]");
+
+    if (loading) {
+      loading.remove();
+    }
+
+    document.body.classList.remove("admin-auth-pending");
+    document.body.classList.add("admin-auth-ready");
+  }
+
+  async function guardAdminPage() {
+    if (!document.body.matches('[data-admin-guard="required"]')) {
+      return null;
+    }
+
+    setAuthLoading(true);
+
+    if (!window.KPR_AUTH || typeof window.KPR_AUTH.requireAdminSession !== "function") {
+      if (window.KPR_AUTH && typeof window.KPR_AUTH.redirectToLogin === "function") {
+        window.KPR_AUTH.redirectToLogin();
+      } else {
+        window.location.replace("login.html");
+      }
+      return null;
+    }
+
+    const user = await window.KPR_AUTH.requireAdminSession();
+
+    if (!user) {
+      return null;
+    }
+
+    renderUser(user);
+    applyPermissionMenu(user);
+    applyRoleMenuHook(user);
+    setAuthLoading(false);
+
+    return user;
+  }
+
+  function bindDrawer() {
+    if (openButton) {
+      openButton.addEventListener("click", function () {
+        setDrawerState(true);
+      });
+    }
+
+    closeButtons.forEach(function (button) {
+      button.addEventListener("click", function () {
+        setDrawerState(false);
+      });
+    });
+
+    document.addEventListener("keydown", handleDrawerKeydown);
+  }
+
+  async function init() {
+    bindDrawer();
+    bindLogoutButtons();
+
+    try {
+      await guardAdminPage();
+    } catch (error) {
+      if (window.KPR_AUTH && typeof window.KPR_AUTH.redirectToLogin === "function") {
+        window.KPR_AUTH.redirectToLogin();
+      }
+    }
+  }
+
+  init();
 })();

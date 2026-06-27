@@ -7,6 +7,7 @@ const ROUTER_ACTIONS_ = Object.freeze({
   "auth.me": AuthService_me,
   "auth.logout": AuthService_logout,
   "auth.changePassword": AuthService_changePassword,
+  "dashboard.summary": DashboardService_summary,
   "report.create": ReportService_create,
   "report.track": ReportService_track,
   "report.addInfo": ReportService_addInfo

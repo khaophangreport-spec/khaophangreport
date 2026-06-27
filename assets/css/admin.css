@@ -2,6 +2,40 @@
   background: var(--color-background);
 }
 
+body[data-admin-guard="required"].admin-auth-pending .admin-mobile-topbar,
+body[data-admin-guard="required"].admin-auth-pending .admin-drawer,
+body[data-admin-guard="required"].admin-auth-pending .admin-drawer-overlay,
+body[data-admin-guard="required"].admin-auth-pending .admin-app {
+  visibility: hidden;
+}
+
+.admin-auth-loading {
+  align-items: center;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  color: var(--color-primary-950);
+  display: inline-flex;
+  font-weight: var(--font-weight-bold);
+  gap: var(--space-3);
+  inset: 50% auto auto 50%;
+  min-height: 3.5rem;
+  padding: var(--space-4) var(--space-5);
+  position: fixed;
+  transform: translate(-50%, -50%);
+  z-index: var(--z-modal);
+}
+
+.admin-auth-loading::before {
+  background: var(--color-primary-600);
+  border-radius: 999px;
+  content: "";
+  display: inline-block;
+  height: 0.75rem;
+  width: 0.75rem;
+}
+
 .admin-mobile-topbar {
   align-items: center;
   background: var(--color-surface);
