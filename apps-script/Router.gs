@@ -10,6 +10,8 @@ const ROUTER_ACTIONS_ = Object.freeze({
   "dashboard.summary": DashboardService_summary,
   "admin.report.list": ReportService_listAdmin,
   "admin.report.detail": ReportService_detailAdmin,
+  "admin.report.assign": AssignmentService_assign,
+  "admin.report.updateStatus": ReportService_updateStatus,
   "report.create": ReportService_create,
   "report.track": ReportService_track,
   "report.addInfo": ReportService_addInfo

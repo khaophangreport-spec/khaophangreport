@@ -54,6 +54,19 @@ const REPORT_ADMIN_LIST_STATUS_VALUES_ = Object.freeze([
   "rejected",
   "duplicate"
 ]);
+const REPORT_STATUS_VALUES_ = Object.freeze(["new", "reviewing", "assigned", "in_progress", "waiting", "resolved", "closed", "rejected", "duplicate"]);
+const REPORT_STATUS_TRANSITIONS_ = Object.freeze({
+  new: Object.freeze(["reviewing", "assigned", "waiting", "rejected", "duplicate"]),
+  reviewing: Object.freeze(["assigned", "in_progress", "waiting", "rejected", "duplicate"]),
+  assigned: Object.freeze(["in_progress", "waiting", "resolved"]),
+  in_progress: Object.freeze(["waiting", "resolved"]),
+  waiting: Object.freeze(["reviewing", "assigned", "in_progress", "rejected"]),
+  resolved: Object.freeze(["closed", "in_progress"]),
+  closed: Object.freeze([]),
+  rejected: Object.freeze(["reviewing"]),
+  duplicate: Object.freeze(["reviewing"])
+});
+const REPORT_CRITICAL_STATUS_VALUES_ = Object.freeze(["closed", "rejected", "duplicate"]);
 const REPORT_ADMIN_CLOSED_STATUS_VALUES_ = Object.freeze(["resolved", "closed", "rejected", "duplicate"]);
 const REPORT_ADMIN_PRIORITY_ORDER_ = Object.freeze({
   low: 1,
@@ -304,10 +317,58 @@ function ReportService_detailAdmin(request) {
       attachments: attachments,
       assignments: assignments,
       additionalInfo: additionalInfo,
+      eligibleOfficers: AssignmentService_listAssignableOfficers_(context.permissions),
       permissions: permissions
     },
     message: "โหลดรายละเอียดเรื่องสำเร็จ"
   };
+}
+
+function ReportService_updateStatus(request) {
+  const lock = LockService.getScriptLock();
+  const context = ReportService_requireAdminListContext_(request);
+  const requestId = Utils_normalizeString_(request && request.requestId);
+
+  ReportService_assertPermission_(context.permissions, "report.update", "ไม่มีสิทธิ์เปลี่ยนสถานะเรื่องแจ้ง");
+  lock.waitLock(30000);
+
+  try {
+    const payload = ReportService_normalizeUpdateStatusPayload_(request && request.data);
+    const report = SheetRepository_findById_("reports", "report_id", payload.reportId, {
+      keyColumnName: "report_id"
+    });
+
+    if (!report || Utils_toBoolean_(report.is_deleted)) {
+      throw ApiError_("NOT_FOUND", "ไม่พบเรื่องแจ้งนี้");
+    }
+
+    ReportService_assertAdminReportAccess_(report, context);
+    ReportService_validateStatusTransition_(report, payload, context.permissions);
+
+    const now = Utils_nowIso_();
+    const updates = ReportService_buildStatusUpdateFields_(report, payload, context.user, now);
+    const updatedReport = SheetRepository_updateById_("reports", "report_id", report.report_id, updates, {
+      userId: context.user.user_id,
+      expectedVersion: payload.version
+    });
+
+    ReportService_createStatusTimeline_(report, updatedReport, payload, context.user, now);
+    AuditService_logReportStatusUpdated_(report, updatedReport, payload, context.user, requestId);
+    ReportService_clearDashboardCacheSafe_("admin.report.updateStatus", requestId);
+
+    return {
+      data: {
+        reportId: String(updatedReport.report_id || ""),
+        oldStatus: String(report.status || ""),
+        newStatus: String(updatedReport.status || ""),
+        updatedAt: now,
+        version: Number(updatedReport.version || 0)
+      },
+      message: "อัปเดตสถานะเรื่องแจ้งสำเร็จ"
+    };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function ReportService_requireAdminListContext_(request) {
@@ -346,6 +407,159 @@ function ReportService_assertAdminReportAccess_(report, context) {
       String(report.assigned_to || "") !== String(user.user_id || "")) {
     throw ApiError_("FORBIDDEN", "ไม่มีสิทธิ์ดูรายละเอียดเรื่องนี้");
   }
+}
+
+function ReportService_normalizeUpdateStatusPayload_(data) {
+  const safeData = Utils_isPlainObject_(data) ? data : {};
+  const fields = {};
+  const payload = {
+    reportId: Utils_normalizeString_(safeData.reportId),
+    version: safeData.version,
+    newStatus: Utils_normalizeString_(safeData.newStatus).toLowerCase(),
+    publicMessage: Security_sanitizeUserText_(safeData.publicMessage, 1000),
+    internalNote: Security_sanitizeUserText_(safeData.internalNote, 2000),
+    result: Security_sanitizeUserText_(safeData.result, 2000),
+    rejectionReason: Security_sanitizeUserText_(safeData.rejectionReason, 1000),
+    duplicateOfReportId: Utils_normalizeString_(safeData.duplicateOfReportId || safeData.duplicateReportId),
+    duplicateReason: Security_sanitizeUserText_(safeData.duplicateReason || safeData.reason, 1000),
+    reason: Security_sanitizeUserText_(safeData.reason, 1000),
+    confirmed: Utils_toBoolean_(safeData.confirmed)
+  };
+
+  if (!payload.reportId) {
+    fields.reportId = "กรุณาระบุเรื่องแจ้ง";
+  }
+
+  if (payload.version === undefined || payload.version === null || payload.version === "") {
+    fields.version = "กรุณาระบุ Version ปัจจุบัน";
+  }
+
+  if (!payload.newStatus || REPORT_STATUS_VALUES_.indexOf(payload.newStatus) === -1) {
+    fields.newStatus = "สถานะใหม่ไม่ถูกต้อง";
+  }
+
+  if (Object.keys(fields).length > 0) {
+    throw ApiError_("VALIDATION_ERROR", "กรุณาตรวจสอบข้อมูลการเปลี่ยนสถานะ", fields);
+  }
+
+  return payload;
+}
+
+function ReportService_validateStatusTransition_(report, payload, permissions) {
+  const fields = {};
+  const oldStatus = Utils_normalizeString_(report && report.status).toLowerCase();
+  const newStatus = payload.newStatus;
+
+  if (!ReportService_isStatusTransitionAllowed_(oldStatus, newStatus, permissions)) {
+    throw ApiError_("INVALID_STATUS_TRANSITION", "ไม่สามารถเปลี่ยนสถานะตามที่เลือกได้", {
+      newStatus: "สถานะนี้ไม่สามารถเปลี่ยนจากสถานะปัจจุบันได้"
+    });
+  }
+
+  ReportService_validateStatusRequiredFields_(oldStatus, payload, fields);
+
+  if (Object.keys(fields).length > 0) {
+    throw ApiError_("VALIDATION_ERROR", "กรุณากรอกข้อมูลที่จำเป็นสำหรับสถานะนี้", fields);
+  }
+}
+
+function ReportService_isStatusTransitionAllowed_(oldStatus, newStatus, permissions) {
+  const fromStatus = Utils_normalizeString_(oldStatus).toLowerCase();
+  const toStatus = Utils_normalizeString_(newStatus).toLowerCase();
+  const allowed = REPORT_STATUS_TRANSITIONS_[fromStatus] || Object.freeze([]);
+
+  if (!fromStatus || !toStatus || fromStatus === toStatus || allowed.indexOf(toStatus) === -1) {
+    return false;
+  }
+
+  if ((fromStatus === "rejected" || fromStatus === "duplicate") && toStatus === "reviewing") {
+    return ReportService_hasPermission_(permissions, "report.assign");
+  }
+
+  return true;
+}
+
+function ReportService_validateStatusRequiredFields_(oldStatus, payload, fields) {
+  if (payload.newStatus === "waiting" && !payload.publicMessage) {
+    fields.publicMessage = "กรุณาระบุข้อความที่ประชาชนเห็นได้";
+  }
+
+  if (payload.newStatus === "resolved" && !payload.result) {
+    fields.result = "กรุณาระบุผลการดำเนินการ";
+  }
+
+  if (payload.newStatus === "rejected" && !payload.rejectionReason) {
+    fields.rejectionReason = "กรุณาระบุเหตุผลการปฏิเสธ";
+  }
+
+  if (payload.newStatus === "duplicate" && !payload.duplicateOfReportId && !payload.duplicateReason) {
+    fields.duplicate = "กรุณาระบุเรื่องอ้างอิงหรือเหตุผลว่าเป็นเรื่องซ้ำ";
+  }
+
+  if (ReportService_isReopenTransition_(oldStatus, payload.newStatus) && !payload.reason) {
+    fields.reason = "กรุณาระบุเหตุผลการเปิดกลับมาดำเนินการ";
+  }
+
+  if (ReportService_isCriticalStatus_(payload.newStatus) && !payload.confirmed) {
+    fields.confirmed = "กรุณายืนยันก่อนเปลี่ยนเป็นสถานะสำคัญ";
+  }
+}
+
+function ReportService_isCriticalStatus_(status) {
+  return REPORT_CRITICAL_STATUS_VALUES_.indexOf(Utils_normalizeString_(status).toLowerCase()) !== -1;
+}
+
+function ReportService_isReopenTransition_(oldStatus, newStatus) {
+  const fromStatus = Utils_normalizeString_(oldStatus).toLowerCase();
+  const toStatus = Utils_normalizeString_(newStatus).toLowerCase();
+
+  return (fromStatus === "resolved" && toStatus === "in_progress") ||
+    ((fromStatus === "rejected" || fromStatus === "duplicate") && toStatus === "reviewing");
+}
+
+function ReportService_buildStatusUpdateFields_(report, payload, actor, updatedAt) {
+  const oldStatus = Utils_normalizeString_(report && report.status).toLowerCase();
+  const updates = {
+    status: payload.newStatus,
+    updated_at: updatedAt,
+    updated_by: actor && actor.user_id ? actor.user_id : "system"
+  };
+
+  if (payload.newStatus === "resolved") {
+    updates.public_result = payload.result;
+    updates.resolved_at = updatedAt;
+  }
+
+  if (payload.newStatus === "closed") {
+    updates.closed_at = updatedAt;
+  }
+
+  if (payload.newStatus === "rejected") {
+    updates.rejected_at = updatedAt;
+    updates.rejection_reason = payload.rejectionReason;
+  }
+
+  if (payload.newStatus === "duplicate") {
+    updates.duplicate_of_report_id = payload.duplicateOfReportId || "";
+    if (payload.duplicateReason) {
+      updates.rejection_reason = payload.duplicateReason;
+    }
+  }
+
+  if (oldStatus === "resolved" && payload.newStatus === "in_progress") {
+    updates.resolved_at = "";
+  }
+
+  if (oldStatus === "rejected" && payload.newStatus === "reviewing") {
+    updates.rejected_at = "";
+    updates.rejection_reason = "";
+  }
+
+  if (oldStatus === "duplicate" && payload.newStatus === "reviewing") {
+    updates.duplicate_of_report_id = "";
+  }
+
+  return updates;
 }
 
 function ReportService_canViewReporterPii_(permissions) {
@@ -704,6 +918,10 @@ function ReportService_buildAdminDetailPermissions_(permissions) {
     canViewReporterPii: ReportService_canViewReporterPii_(permissions),
     canViewInternalNotes: ReportService_canViewInternalNotes_(permissions)
   };
+}
+
+function ReportService_isClosedStatus_(status) {
+  return REPORT_ADMIN_CLOSED_STATUS_VALUES_.indexOf(Utils_normalizeString_(status).toLowerCase()) !== -1;
 }
 
 function ReportService_projectAdminDetailReport_(report, categoryMap, userMap, permissions) {
@@ -1294,6 +1512,112 @@ function ReportService_createAdditionalInfoTimeline_(report, updateId, attachmen
     keyColumnName: "update_id",
     userId: "public"
   });
+}
+
+function ReportService_createAssignmentTimeline_(oldReport, updatedReport, officer, actor, note, createdAt) {
+  const officerName = Security_sanitizeText_(officer && (officer.display_name || officer.username) ? officer.display_name || officer.username : "");
+  const actorName = Security_sanitizeText_(actor && (actor.display_name || actor.username) ? actor.display_name || actor.username : "");
+  const internalNoteParts = [
+    "มอบหมายงานให้ " + (officerName || updatedReport.assigned_to || ""),
+    note ? "หมายเหตุ: " + Security_sanitizeText_(note) : ""
+  ].filter(Boolean);
+
+  return SheetRepository_append_("report_updates", {
+    update_id: Utils_createUuid_(),
+    report_id: updatedReport.report_id,
+    update_type: "assignment",
+    old_status: oldReport.status || "",
+    new_status: updatedReport.status || "",
+    public_message: "มอบหมายเจ้าหน้าที่รับผิดชอบแล้ว",
+    internal_note: internalNoteParts.join(" | "),
+    is_public: true,
+    updated_by: actor && actor.user_id ? actor.user_id : "",
+    updated_by_name_snapshot: actorName,
+    updated_by_role_snapshot: actor && actor.role ? actor.role : "",
+    created_at: createdAt,
+    is_deleted: false,
+    version: 1
+  }, {
+    keyColumnName: "update_id",
+    userId: actor && actor.user_id ? actor.user_id : "system"
+  });
+}
+
+function ReportService_createStatusTimeline_(oldReport, updatedReport, payload, actor, createdAt) {
+  const actorName = Security_sanitizeText_(actor && (actor.display_name || actor.username) ? actor.display_name || actor.username : "");
+
+  return SheetRepository_append_("report_updates", {
+    update_id: Utils_createUuid_(),
+    report_id: updatedReport.report_id,
+    update_type: ReportService_resolveStatusUpdateType_(payload.newStatus),
+    old_status: oldReport.status || "",
+    new_status: updatedReport.status || "",
+    public_message: ReportService_buildStatusPublicMessage_(oldReport, updatedReport, payload),
+    internal_note: ReportService_buildStatusInternalNote_(payload),
+    is_public: true,
+    updated_by: actor && actor.user_id ? actor.user_id : "",
+    updated_by_name_snapshot: actorName,
+    updated_by_role_snapshot: actor && actor.role ? actor.role : "",
+    created_at: createdAt,
+    is_deleted: false,
+    version: 1
+  }, {
+    keyColumnName: "update_id",
+    userId: actor && actor.user_id ? actor.user_id : "system"
+  });
+}
+
+function ReportService_resolveStatusUpdateType_(newStatus) {
+  if (newStatus === "resolved") {
+    return "result";
+  }
+
+  if (newStatus === "waiting") {
+    return "request_info";
+  }
+
+  return "status";
+}
+
+function ReportService_buildStatusPublicMessage_(oldReport, updatedReport, payload) {
+  const newStatus = Utils_normalizeString_(updatedReport && updatedReport.status).toLowerCase();
+
+  if (newStatus === "waiting") {
+    return payload.publicMessage;
+  }
+
+  if (newStatus === "resolved") {
+    return payload.publicMessage || payload.result;
+  }
+
+  if (newStatus === "closed") {
+    return payload.publicMessage || "ปิดเรื่องเรียบร้อยแล้ว";
+  }
+
+  if (newStatus === "rejected") {
+    return payload.publicMessage || payload.rejectionReason;
+  }
+
+  if (newStatus === "duplicate") {
+    return payload.publicMessage || "เรื่องนี้ถูกจัดเป็นเรื่องซ้ำ";
+  }
+
+  if (ReportService_isReopenTransition_(oldReport && oldReport.status, newStatus)) {
+    return payload.publicMessage || "เปิดเรื่องกลับมาดำเนินการต่อ";
+  }
+
+  return payload.publicMessage || "อัปเดตสถานะเป็น " + newStatus;
+}
+
+function ReportService_buildStatusInternalNote_(payload) {
+  return [
+    payload.internalNote ? "หมายเหตุ: " + payload.internalNote : "",
+    payload.result ? "ผลการดำเนินการ: " + payload.result : "",
+    payload.rejectionReason ? "เหตุผลปฏิเสธ: " + payload.rejectionReason : "",
+    payload.duplicateOfReportId ? "เรื่องอ้างอิง: " + payload.duplicateOfReportId : "",
+    payload.duplicateReason ? "เหตุผลเรื่องซ้ำ: " + payload.duplicateReason : "",
+    payload.reason ? "เหตุผลเปิดกลับ: " + payload.reason : ""
+  ].filter(Boolean).join(" | ");
 }
 
 function ReportService_assertNotDuplicateRequest_(requestId) {

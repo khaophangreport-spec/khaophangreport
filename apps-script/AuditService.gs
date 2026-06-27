@@ -194,3 +194,47 @@ function AuditService_logFirstAdminCreated_(user, requestId) {
     }
   });
 }
+
+function AuditService_logReportAssigned_(oldReport, updatedReport, assignment, officer, actor, requestId, oldAssigneeId) {
+  return AuditService_log_({
+    userId: actor && actor.user_id ? actor.user_id : "system",
+    userNameSnapshot: actor && (actor.display_name || actor.username) ? actor.display_name || actor.username : "",
+    roleSnapshot: actor && actor.role ? actor.role : "",
+    action: "admin.report.assign",
+    entityType: "report",
+    entityId: updatedReport && updatedReport.report_id ? updatedReport.report_id : "",
+    requestId: requestId || "",
+    success: true,
+    detail: {
+      assignmentId: assignment && assignment.assignment_id ? assignment.assignment_id : "",
+      oldAssigneeId: oldAssigneeId || "",
+      newAssigneeId: officer && officer.user_id ? officer.user_id : "",
+      oldStatus: oldReport && oldReport.status ? oldReport.status : "",
+      newStatus: updatedReport && updatedReport.status ? updatedReport.status : "",
+      targetDueAt: updatedReport && updatedReport.target_due_at ? updatedReport.target_due_at : ""
+    }
+  });
+}
+
+function AuditService_logReportStatusUpdated_(oldReport, updatedReport, payload, actor, requestId) {
+  return AuditService_log_({
+    userId: actor && actor.user_id ? actor.user_id : "system",
+    userNameSnapshot: actor && (actor.display_name || actor.username) ? actor.display_name || actor.username : "",
+    roleSnapshot: actor && actor.role ? actor.role : "",
+    action: "admin.report.updateStatus",
+    entityType: "report",
+    entityId: updatedReport && updatedReport.report_id ? updatedReport.report_id : "",
+    requestId: requestId || "",
+    success: true,
+    detail: {
+      oldStatus: oldReport && oldReport.status ? oldReport.status : "",
+      newStatus: updatedReport && updatedReport.status ? updatedReport.status : "",
+      version: updatedReport && updatedReport.version ? Number(updatedReport.version) : 0,
+      duplicateOfReportId: payload && payload.duplicateOfReportId ? payload.duplicateOfReportId : "",
+      hasPublicMessage: !!(payload && payload.publicMessage),
+      hasInternalNote: !!(payload && payload.internalNote),
+      hasResult: !!(payload && payload.result),
+      confirmed: !!(payload && payload.confirmed)
+    }
+  });
+}

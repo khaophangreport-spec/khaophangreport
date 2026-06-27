@@ -29,6 +29,20 @@
     duplicate: "status-chip-warning"
   });
 
+  const STATUS_TRANSITIONS = Object.freeze({
+    new: Object.freeze(["reviewing", "assigned", "waiting", "rejected", "duplicate"]),
+    reviewing: Object.freeze(["assigned", "in_progress", "waiting", "rejected", "duplicate"]),
+    assigned: Object.freeze(["in_progress", "waiting", "resolved"]),
+    in_progress: Object.freeze(["waiting", "resolved"]),
+    waiting: Object.freeze(["reviewing", "assigned", "in_progress", "rejected"]),
+    resolved: Object.freeze(["closed", "in_progress"]),
+    closed: Object.freeze([]),
+    rejected: Object.freeze(["reviewing"]),
+    duplicate: Object.freeze(["reviewing"])
+  });
+
+  const CRITICAL_STATUS_VALUES = Object.freeze(["closed", "rejected", "duplicate"]);
+
   const PRIORITY_LABELS = Object.freeze({
     low: "ต่ำ",
     normal: "ปกติ",
@@ -48,7 +62,9 @@
     returnUrl: "reports.html",
     version: 0,
     data: null,
-    isLoading: false
+    isLoading: false,
+    isAssigning: false,
+    isUpdatingStatus: false
   };
 
   function $(selector) {
@@ -212,6 +228,8 @@
     setHidden("[data-detail-not-found]", true);
     setHidden("[data-detail-content]", false);
     setRefreshEnabled(true);
+    renderAssignmentAction();
+    renderStatusAction();
   }
 
   function setRefreshEnabled(isEnabled) {
@@ -385,6 +403,20 @@
     appendDefinition(list, "เหตุผลปฏิเสธ", report.rejectionReason);
   }
 
+  function renderStatusAction() {
+    const button = $("[data-detail-status-open]");
+    const report = state.data && state.data.report ? state.data.report : {};
+    const options = getAvailableStatusOptions(report.status);
+    const canUpdate = hasPermission("canUpdate") && options.length > 0;
+
+    if (!button) {
+      return;
+    }
+
+    button.hidden = !canUpdate;
+    button.disabled = !canUpdate || state.isLoading;
+  }
+
   function renderPriorityInfo(report) {
     const list = $("[data-detail-priority-info]");
 
@@ -400,6 +432,491 @@
     appendDefinition(list, "ผู้รับผิดชอบ", report.assigneeName || "ยังไม่มอบหมาย");
     appendDefinition(list, "รหัสผู้รับผิดชอบ", report.assignedTo);
     appendDefinition(list, "กำหนดเป้าหมาย", formatDateTime(report.targetDueAt));
+    renderAssignmentAction();
+  }
+
+  function renderAssignmentAction() {
+    const button = $("[data-detail-assign-open]");
+    const canAssign = hasPermission("canAssign") && Array.isArray(state.data && state.data.eligibleOfficers) &&
+      state.data.eligibleOfficers.length > 0;
+
+    if (!button) {
+      return;
+    }
+
+    button.hidden = !canAssign;
+    button.disabled = !canAssign || state.isLoading;
+  }
+
+  function getAvailableStatusOptions(status) {
+    const currentStatus = String(status || "");
+    const options = (STATUS_TRANSITIONS[currentStatus] || []).slice();
+
+    if ((currentStatus === "rejected" || currentStatus === "duplicate") && !hasPermission("canAssign")) {
+      return [];
+    }
+
+    return options;
+  }
+
+  function populateStatusOptions() {
+    const select = $("[data-status-new-status]");
+    const report = state.data && state.data.report ? state.data.report : {};
+    const options = getAvailableStatusOptions(report.status);
+
+    clearElement(select);
+
+    if (!select) {
+      return;
+    }
+
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = "เลือกสถานะใหม่";
+    select.appendChild(placeholder);
+
+    options.forEach(function (status) {
+      const option = document.createElement("option");
+      option.value = status;
+      option.textContent = getStatusLabel(status);
+      select.appendChild(option);
+    });
+  }
+
+  function setStatusModalOpen(open) {
+    const modal = $("[data-status-modal]");
+    const button = $("[data-detail-status-open]");
+    const select = $("[data-status-new-status]");
+
+    if (!modal) {
+      return;
+    }
+
+    modal.hidden = !open;
+    document.body.classList.toggle("is-report-detail-modal-open", !!open || !!($("[data-assign-modal]") && !$("[data-assign-modal]").hidden));
+
+    if (open) {
+      populateStatusOptions();
+      resetStatusForm();
+      updateStatusFieldVisibility();
+      window.setTimeout(function () {
+        if (select) {
+          select.focus();
+        }
+      }, 0);
+      return;
+    }
+
+    if (button) {
+      button.focus();
+    }
+  }
+
+  function resetStatusForm() {
+    const form = $("[data-status-form]");
+
+    if (form) {
+      form.reset();
+    }
+
+    setStatusError("");
+    $all("[data-status-field-error]").forEach(function (element) {
+      element.textContent = "";
+    });
+  }
+
+  function setStatusError(message, fields) {
+    const alert = $("[data-status-error]");
+
+    if (alert) {
+      alert.hidden = !message;
+      alert.textContent = message || "";
+    }
+
+    $all("[data-status-field-error]").forEach(function (element) {
+      const key = element.getAttribute("data-status-field-error");
+      element.textContent = fields && fields[key] ? fields[key] : "";
+    });
+  }
+
+  function getSelectedStatus() {
+    const select = $("[data-status-new-status]");
+    return select ? select.value : "";
+  }
+
+  function isCriticalStatus(status) {
+    return CRITICAL_STATUS_VALUES.indexOf(status) !== -1;
+  }
+
+  function isReopenStatus(status) {
+    const report = state.data && state.data.report ? state.data.report : {};
+    const currentStatus = report.status || "";
+
+    return (currentStatus === "resolved" && status === "in_progress") ||
+      ((currentStatus === "rejected" || currentStatus === "duplicate") && status === "reviewing");
+  }
+
+  function setStatusFieldVisible(name, visible) {
+    const field = $("[data-status-field='" + name + "']");
+
+    if (field) {
+      field.hidden = !visible;
+    }
+  }
+
+  function updateStatusFieldVisibility() {
+    const status = getSelectedStatus();
+    const confirmRow = $("[data-status-confirm-row]");
+
+    setStatusFieldVisible("publicMessage", status === "waiting");
+    setStatusFieldVisible("result", status === "resolved");
+    setStatusFieldVisible("rejectionReason", status === "rejected");
+    setStatusFieldVisible("duplicate", status === "duplicate");
+    setStatusFieldVisible("reason", isReopenStatus(status));
+
+    if (confirmRow) {
+      confirmRow.hidden = !isCriticalStatus(status);
+    }
+
+    updateStatusPreview();
+  }
+
+  function getStatusInputValue(selector) {
+    const element = $(selector);
+    return element ? element.value.trim() : "";
+  }
+
+  function buildStatusPreviewMessage(status) {
+    if (!status) {
+      return "เลือกสถานะใหม่เพื่อดูข้อความตัวอย่าง";
+    }
+
+    if (status === "waiting") {
+      return getStatusInputValue("[data-status-public-message]") || "รอข้อมูลเพิ่มเติมจากผู้แจ้ง";
+    }
+
+    if (status === "resolved") {
+      return getStatusInputValue("[data-status-result]") || "ดำเนินการแล้ว";
+    }
+
+    if (status === "closed") {
+      return "ปิดเรื่องเรียบร้อยแล้ว";
+    }
+
+    if (status === "rejected") {
+      return getStatusInputValue("[data-status-rejection-reason]") || "ไม่สามารถดำเนินการต่อได้";
+    }
+
+    if (status === "duplicate") {
+      return "เรื่องนี้ถูกจัดเป็นเรื่องซ้ำ";
+    }
+
+    if (isReopenStatus(status)) {
+      return "เปิดเรื่องกลับมาดำเนินการต่อ";
+    }
+
+    return "อัปเดตสถานะเป็น " + getStatusLabel(status);
+  }
+
+  function updateStatusPreview() {
+    const preview = $("[data-status-preview-text]");
+
+    if (preview) {
+      preview.textContent = buildStatusPreviewMessage(getSelectedStatus());
+    }
+  }
+
+  function validateStatusForm(payload) {
+    const fields = {};
+
+    if (!payload.newStatus) {
+      fields.newStatus = "กรุณาเลือกสถานะใหม่";
+    }
+
+    if (payload.newStatus === "waiting" && !payload.publicMessage) {
+      fields.publicMessage = "กรุณาระบุข้อความถึงประชาชน";
+    }
+
+    if (payload.newStatus === "resolved" && !payload.result) {
+      fields.result = "กรุณาระบุผลการดำเนินการ";
+    }
+
+    if (payload.newStatus === "rejected" && !payload.rejectionReason) {
+      fields.rejectionReason = "กรุณาระบุเหตุผลการปฏิเสธ";
+    }
+
+    if (payload.newStatus === "duplicate" && !payload.duplicateOfReportId && !payload.duplicateReason) {
+      fields.duplicate = "กรุณาระบุเรื่องอ้างอิงหรือเหตุผลว่าเป็นเรื่องซ้ำ";
+    }
+
+    if (isReopenStatus(payload.newStatus) && !payload.reason) {
+      fields.reason = "กรุณาระบุเหตุผลการเปิดกลับมาดำเนินการ";
+    }
+
+    if (isCriticalStatus(payload.newStatus) && !payload.confirmed) {
+      fields.confirmed = "กรุณายืนยันก่อนเปลี่ยนสถานะนี้";
+    }
+
+    return fields;
+  }
+
+  function buildStatusPayload() {
+    const confirm = $("[data-status-confirm]");
+
+    return {
+      reportId: state.reportId,
+      version: state.version,
+      newStatus: getSelectedStatus(),
+      publicMessage: getStatusInputValue("[data-status-public-message]"),
+      internalNote: getStatusInputValue("[data-status-internal-note]"),
+      result: getStatusInputValue("[data-status-result]"),
+      rejectionReason: getStatusInputValue("[data-status-rejection-reason]"),
+      duplicateOfReportId: getStatusInputValue("[data-status-duplicate-ref]"),
+      duplicateReason: getStatusInputValue("[data-status-duplicate-reason]"),
+      reason: getStatusInputValue("[data-status-reason]"),
+      confirmed: !!(confirm && confirm.checked)
+    };
+  }
+
+  function setUpdatingStatus(updating) {
+    const elements = [
+      $("[data-status-submit]"),
+      $("[data-status-cancel]"),
+      $("[data-status-close]"),
+      $("[data-status-new-status]"),
+      $("[data-status-public-message]"),
+      $("[data-status-result]"),
+      $("[data-status-rejection-reason]"),
+      $("[data-status-duplicate-ref]"),
+      $("[data-status-duplicate-reason]"),
+      $("[data-status-reason]"),
+      $("[data-status-internal-note]"),
+      $("[data-status-confirm]")
+    ];
+    const submitText = $("[data-status-submit-text]");
+
+    state.isUpdatingStatus = !!updating;
+    elements.forEach(function (element) {
+      if (element) {
+        element.disabled = state.isUpdatingStatus;
+      }
+    });
+
+    if (submitText) {
+      submitText.textContent = state.isUpdatingStatus ? "กำลังบันทึก..." : "บันทึกสถานะ";
+    }
+  }
+
+  function getStatusErrorMessage(error) {
+    if (!error) {
+      return "ไม่สามารถเปลี่ยนสถานะได้ กรุณาลองใหม่";
+    }
+
+    if (error.code === "VERSION_CONFLICT") {
+      return "ข้อมูลเรื่องนี้ถูกอัปเดตแล้ว กรุณาโหลดใหม่ก่อนเปลี่ยนสถานะ";
+    }
+
+    if (error.code === "INVALID_STATUS_TRANSITION") {
+      return "ไม่สามารถเปลี่ยนสถานะจากสถานะปัจจุบันไปยังสถานะที่เลือกได้";
+    }
+
+    if (error.code === "FORBIDDEN") {
+      return "คุณไม่มีสิทธิ์เปลี่ยนสถานะเรื่องนี้";
+    }
+
+    if (error.code === "SESSION_EXPIRED" || error.code === "UNAUTHORIZED") {
+      return "เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่";
+    }
+
+    return error.message || "ไม่สามารถเปลี่ยนสถานะได้ กรุณาลองใหม่";
+  }
+
+  async function submitStatusUpdate(event) {
+    event.preventDefault();
+
+    if (state.isUpdatingStatus || !window.KPR_API) {
+      return;
+    }
+
+    const payload = buildStatusPayload();
+    const fields = validateStatusForm(payload);
+
+    if (Object.keys(fields).length > 0) {
+      setStatusError("กรุณาตรวจสอบข้อมูลก่อนบันทึก", fields);
+      return;
+    }
+
+    setUpdatingStatus(true);
+    setStatusError("");
+
+    try {
+      await window.KPR_API.write("admin.report.updateStatus", payload, {
+        withSession: true
+      });
+
+      setStatusModalOpen(false);
+      await loadDetail();
+    } catch (error) {
+      setStatusError(getStatusErrorMessage(error), error && error.fields ? error.fields : {});
+    } finally {
+      setUpdatingStatus(false);
+    }
+  }
+
+  function populateAssignOfficerOptions() {
+    const select = $("[data-assign-officer]");
+    const officers = Array.isArray(state.data && state.data.eligibleOfficers) ? state.data.eligibleOfficers : [];
+
+    clearElement(select);
+
+    if (!select) {
+      return;
+    }
+
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = "เลือกเจ้าหน้าที่";
+    select.appendChild(placeholder);
+
+    officers.forEach(function (officer) {
+      const option = document.createElement("option");
+      option.value = officer.userId || "";
+      option.textContent = officer.displayName || officer.userId || "เจ้าหน้าที่";
+      select.appendChild(option);
+    });
+  }
+
+  function setAssignModalOpen(open) {
+    const modal = $("[data-assign-modal]");
+    const button = $("[data-detail-assign-open]");
+    const select = $("[data-assign-officer]");
+
+    if (!modal) {
+      return;
+    }
+
+    modal.hidden = !open;
+    document.body.classList.toggle("is-report-detail-modal-open", !!open);
+
+    if (open) {
+      populateAssignOfficerOptions();
+      setAssignError("");
+      const currentAssignee = state.data && state.data.report ? state.data.report.assignedTo : "";
+      if (select && currentAssignee) {
+        select.value = currentAssignee;
+      }
+      window.setTimeout(function () {
+        if (select) {
+          select.focus();
+        }
+      }, 0);
+      return;
+    }
+
+    if (button) {
+      button.focus();
+    }
+  }
+
+  function setAssignError(message, fields) {
+    const alert = $("[data-assign-error]");
+    const fieldError = $("[data-assign-field-error='assigneeId']");
+
+    if (alert) {
+      alert.hidden = !message;
+      alert.textContent = message || "";
+    }
+
+    if (fieldError) {
+      fieldError.textContent = fields && fields.assigneeId ? fields.assigneeId : "";
+    }
+  }
+
+  function setAssigning(assigning) {
+    const submit = $("[data-assign-submit]");
+    const cancel = $("[data-assign-cancel]");
+    const close = $("[data-assign-close]");
+    const select = $("[data-assign-officer]");
+    const note = $("[data-assign-note]");
+    const submitText = $("[data-assign-submit-text]");
+
+    state.isAssigning = !!assigning;
+    [submit, cancel, close, select, note].forEach(function (element) {
+      if (element) {
+        element.disabled = state.isAssigning;
+      }
+    });
+
+    if (submitText) {
+      submitText.textContent = state.isAssigning ? "กำลังบันทึก..." : "บันทึกการมอบหมาย";
+    }
+  }
+
+  function getAssignErrorMessage(error) {
+    if (!error) {
+      return "ไม่สามารถมอบหมายงานได้ กรุณาลองใหม่";
+    }
+
+    if (error.code === "VERSION_CONFLICT") {
+      return "ข้อมูลเรื่องนี้ถูกอัปเดตแล้ว กรุณาโหลดใหม่ก่อนมอบหมายงาน";
+    }
+
+    if (error.code === "REPORT_CLOSED") {
+      return "เรื่องนี้ปิดแล้ว ไม่สามารถมอบหมายงานได้";
+    }
+
+    if (error.code === "FORBIDDEN") {
+      return "คุณไม่มีสิทธิ์มอบหมายงาน";
+    }
+
+    if (error.code === "SESSION_EXPIRED" || error.code === "UNAUTHORIZED") {
+      return "เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่";
+    }
+
+    return error.message || "ไม่สามารถมอบหมายงานได้ กรุณาลองใหม่";
+  }
+
+  async function submitAssignment(event) {
+    event.preventDefault();
+
+    if (state.isAssigning || !window.KPR_API) {
+      return;
+    }
+
+    const select = $("[data-assign-officer]");
+    const note = $("[data-assign-note]");
+    const assigneeId = select ? select.value : "";
+
+    if (!assigneeId) {
+      setAssignError("กรุณาเลือกเจ้าหน้าที่", {
+        assigneeId: "กรุณาเลือกเจ้าหน้าที่"
+      });
+      return;
+    }
+
+    setAssigning(true);
+    setAssignError("");
+
+    try {
+      await window.KPR_API.write("admin.report.assign", {
+        reportId: state.reportId,
+        assigneeId: assigneeId,
+        note: note ? note.value : "",
+        version: state.version
+      }, {
+        withSession: true
+      });
+
+      if (note) {
+        note.value = "";
+      }
+      setAssignModalOpen(false);
+      await loadDetail();
+    } catch (error) {
+      setAssignError(getAssignErrorMessage(error), error && error.fields ? error.fields : {});
+    } finally {
+      setAssigning(false);
+    }
   }
 
   function renderAttachments(attachments) {
@@ -632,6 +1149,15 @@
   function bindEvents() {
     const refresh = $("[data-detail-refresh]");
     const retry = $("[data-detail-retry]");
+    const statusOpen = $("[data-detail-status-open]");
+    const statusForm = $("[data-status-form]");
+    const statusModal = $("[data-status-modal]");
+    const statusCloseButtons = $all("[data-status-close], [data-status-cancel]");
+    const statusInputs = $all("[data-status-new-status], [data-status-public-message], [data-status-result], [data-status-rejection-reason], [data-status-duplicate-ref], [data-status-duplicate-reason], [data-status-reason]");
+    const assignOpen = $("[data-detail-assign-open]");
+    const assignForm = $("[data-assign-form]");
+    const assignModal = $("[data-assign-modal]");
+    const assignCloseButtons = $all("[data-assign-close], [data-assign-cancel]");
 
     if (refresh) {
       refresh.addEventListener("click", loadDetail);
@@ -640,6 +1166,74 @@
     if (retry) {
       retry.addEventListener("click", loadDetail);
     }
+
+    if (statusOpen) {
+      statusOpen.addEventListener("click", function () {
+        setStatusModalOpen(true);
+      });
+    }
+
+    if (statusForm) {
+      statusForm.addEventListener("submit", submitStatusUpdate);
+    }
+
+    statusCloseButtons.forEach(function (button) {
+      button.addEventListener("click", function () {
+        if (!state.isUpdatingStatus) {
+          setStatusModalOpen(false);
+        }
+      });
+    });
+
+    statusInputs.forEach(function (input) {
+      input.addEventListener("input", updateStatusFieldVisibility);
+      input.addEventListener("change", updateStatusFieldVisibility);
+    });
+
+    if (statusModal) {
+      statusModal.addEventListener("click", function (event) {
+        if (event.target === statusModal && !state.isUpdatingStatus) {
+          setStatusModalOpen(false);
+        }
+      });
+    }
+
+    if (assignOpen) {
+      assignOpen.addEventListener("click", function () {
+        setAssignModalOpen(true);
+      });
+    }
+
+    if (assignForm) {
+      assignForm.addEventListener("submit", submitAssignment);
+    }
+
+    assignCloseButtons.forEach(function (button) {
+      button.addEventListener("click", function () {
+        if (!state.isAssigning) {
+          setAssignModalOpen(false);
+        }
+      });
+    });
+
+    if (assignModal) {
+      assignModal.addEventListener("click", function (event) {
+        if (event.target === assignModal && !state.isAssigning) {
+          setAssignModalOpen(false);
+        }
+      });
+    }
+
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape" && statusModal && !statusModal.hidden && !state.isUpdatingStatus) {
+        setStatusModalOpen(false);
+        return;
+      }
+
+      if (event.key === "Escape" && assignModal && !assignModal.hidden && !state.isAssigning) {
+        setAssignModalOpen(false);
+      }
+    });
   }
 
   async function init() {

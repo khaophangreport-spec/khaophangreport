@@ -1507,3 +1507,254 @@ function testAdminReportDetailAttachmentProjectionNoDriveLeak() {
     projection: projection
   };
 }
+
+function testAdminReportAssignRouterWhitelist() {
+  if (ROUTER_ACTIONS_["admin.report.assign"] !== AssignmentService_assign) {
+    throw new Error("admin.report.assign is not registered in Router whitelist");
+  }
+
+  console.log("admin.report.assign is registered in Router whitelist");
+  return {
+    ok: true,
+    action: "admin.report.assign"
+  };
+}
+
+function testAdminReportAssignPayloadRequiresVersion() {
+  try {
+    AssignmentService_validateAssignPayload_({
+      reportId: "REPORT-001",
+      assigneeId: "USER-001"
+    });
+  } catch (error) {
+    if (error && error.code === "VALIDATION_ERROR" && error.fields && error.fields.version) {
+      console.log("admin.report.assign rejected missing version");
+      return {
+        ok: true,
+        code: error.code
+      };
+    }
+
+    throw error;
+  }
+
+  throw new Error("admin.report.assign did not reject missing version");
+}
+
+function testAdminReportAssignActiveOfficerOnly() {
+  const officers = AssignmentService_filterAssignableOfficers_([{
+    user_id: "OFFICER-ACTIVE",
+    username: "officer.active",
+    display_name: "Officer Active",
+    role: "officer",
+    status: "active",
+    is_deleted: false
+  }, {
+    user_id: "OFFICER-INACTIVE",
+    username: "officer.inactive",
+    display_name: "Officer Inactive",
+    role: "officer",
+    status: "inactive",
+    is_deleted: false
+  }, {
+    user_id: "ADMIN-ACTIVE",
+    username: "admin.active",
+    display_name: "Admin Active",
+    role: "admin",
+    status: "active",
+    is_deleted: false
+  }, {
+    user_id: "OFFICER-DELETED",
+    username: "officer.deleted",
+    display_name: "Officer Deleted",
+    role: "officer",
+    status: "active",
+    is_deleted: true
+  }]);
+
+  if (officers.length !== 1 || officers[0].userId !== "OFFICER-ACTIVE") {
+    throw new Error("Assignable officers filter did not return active officers only");
+  }
+
+  console.log(JSON.stringify(officers));
+  return {
+    ok: true,
+    officers: officers
+  };
+}
+
+function testAdminReportAssignOpenAssignmentDetection() {
+  const open = AssignmentService_isOpenAssignment_({
+    report_id: "REPORT-001",
+    assignment_status: "active",
+    completed_at: "",
+    unassigned_at: "",
+    is_deleted: false
+  });
+  const reassigned = AssignmentService_isOpenAssignment_({
+    report_id: "REPORT-001",
+    assignment_status: "reassigned",
+    completed_at: "",
+    unassigned_at: "2026-06-26T00:00:00.000Z",
+    is_deleted: false
+  });
+
+  if (!open || reassigned) {
+    throw new Error("Open assignment detection failed");
+  }
+
+  return {
+    ok: true,
+    open: open,
+    reassigned: reassigned
+  };
+}
+
+function testAdminReportUpdateStatusRouterWhitelist() {
+  if (ROUTER_ACTIONS_["admin.report.updateStatus"] !== ReportService_updateStatus) {
+    throw new Error("admin.report.updateStatus is not registered in Router whitelist");
+  }
+
+  console.log("admin.report.updateStatus is registered in Router whitelist");
+  return {
+    ok: true,
+    action: "admin.report.updateStatus"
+  };
+}
+
+function testAdminReportUpdateStatusTransitionMatrix() {
+  const officerPermissions = UserService_getPermissions_("officer");
+  const adminPermissions = UserService_getPermissions_("admin");
+
+  if (!ReportService_isStatusTransitionAllowed_("new", "reviewing", officerPermissions)) {
+    throw new Error("Expected new -> reviewing to be allowed");
+  }
+
+  if (!ReportService_isStatusTransitionAllowed_("resolved", "in_progress", officerPermissions)) {
+    throw new Error("Expected resolved -> in_progress reopen to be allowed");
+  }
+
+  if (ReportService_isStatusTransitionAllowed_("closed", "in_progress", adminPermissions)) {
+    throw new Error("Expected closed -> in_progress to be blocked");
+  }
+
+  if (ReportService_isStatusTransitionAllowed_("rejected", "reviewing", officerPermissions)) {
+    throw new Error("Expected officer rejected -> reviewing to be blocked");
+  }
+
+  if (!ReportService_isStatusTransitionAllowed_("rejected", "reviewing", adminPermissions)) {
+    throw new Error("Expected admin rejected -> reviewing to be allowed");
+  }
+
+  return {
+    ok: true,
+    checked: 5
+  };
+}
+
+function testAdminReportUpdateStatusRequiredFields() {
+  const fields = {};
+
+  ReportService_validateStatusRequiredFields_("assigned", {
+    newStatus: "resolved",
+    publicMessage: "",
+    internalNote: "",
+    result: "",
+    rejectionReason: "",
+    duplicateOfReportId: "",
+    duplicateReason: "",
+    reason: "",
+    confirmed: false
+  }, fields);
+
+  ReportService_validateStatusRequiredFields_("in_progress", {
+    newStatus: "waiting",
+    publicMessage: "",
+    internalNote: "",
+    result: "",
+    rejectionReason: "",
+    duplicateOfReportId: "",
+    duplicateReason: "",
+    reason: "",
+    confirmed: false
+  }, fields);
+
+  ReportService_validateStatusRequiredFields_("reviewing", {
+    newStatus: "rejected",
+    publicMessage: "",
+    internalNote: "",
+    result: "",
+    rejectionReason: "",
+    duplicateOfReportId: "",
+    duplicateReason: "",
+    reason: "",
+    confirmed: false
+  }, fields);
+
+  ReportService_validateStatusRequiredFields_("new", {
+    newStatus: "duplicate",
+    publicMessage: "",
+    internalNote: "",
+    result: "",
+    rejectionReason: "",
+    duplicateOfReportId: "",
+    duplicateReason: "",
+    reason: "",
+    confirmed: false
+  }, fields);
+
+  ReportService_validateStatusRequiredFields_("resolved", {
+    newStatus: "in_progress",
+    publicMessage: "",
+    internalNote: "",
+    result: "",
+    rejectionReason: "",
+    duplicateOfReportId: "",
+    duplicateReason: "",
+    reason: "",
+    confirmed: false
+  }, fields);
+
+  if (!fields.result || !fields.publicMessage || !fields.rejectionReason || !fields.duplicate || !fields.reason || !fields.confirmed) {
+    throw new Error("admin.report.updateStatus required fields were not detected");
+  }
+
+  console.log(JSON.stringify(fields));
+  return {
+    ok: true,
+    fields: fields
+  };
+}
+
+function testAdminReportUpdateStatusBuildUpdates() {
+  const updates = ReportService_buildStatusUpdateFields_({
+    report_id: "REPORT-001",
+    status: "assigned",
+    version: 3
+  }, {
+    newStatus: "resolved",
+    result: "ดำเนินการซ่อมแซมเรียบร้อย",
+    publicMessage: "",
+    internalNote: "",
+    rejectionReason: "",
+    duplicateOfReportId: "",
+    duplicateReason: "",
+    reason: "",
+    confirmed: false
+  }, {
+    user_id: "USER-001"
+  }, "2026-06-26T00:00:00.000Z");
+
+  if (updates.status !== "resolved" ||
+      updates.public_result !== "ดำเนินการซ่อมแซมเรียบร้อย" ||
+      updates.resolved_at !== "2026-06-26T00:00:00.000Z" ||
+      updates.updated_by !== "USER-001") {
+    throw new Error("admin.report.updateStatus build updates failed");
+  }
+
+  console.log(JSON.stringify(updates));
+  return {
+    ok: true,
+    updates: updates
+  };
+}
