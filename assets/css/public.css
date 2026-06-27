@@ -584,6 +584,22 @@
   border-color: var(--color-primary-200);
 }
 
+.add-info-form {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.add-info-form textarea {
+  min-height: 9rem;
+  resize: vertical;
+}
+
+.add-info-form .character-count {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  justify-self: end;
+}
+
 .report-page {
   gap: var(--space-5);
 }

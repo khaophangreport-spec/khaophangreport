@@ -4,7 +4,8 @@ const ROUTER_ACTIONS_ = Object.freeze({
   "category.list": CategoryService_listPublic,
   "announcement.list": AnnouncementService_listPublic,
   "report.create": ReportService_create,
-  "report.track": ReportService_track
+  "report.track": ReportService_track,
+  "report.addInfo": ReportService_addInfo
 });
 
 function Router_handleGet_(e) {

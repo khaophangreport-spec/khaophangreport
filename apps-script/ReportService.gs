@@ -8,6 +8,10 @@ const REPORT_TRACK_RATE_LIMIT_ = Object.freeze({
   limit: 30,
   windowSeconds: 10 * 60
 });
+const REPORT_ADD_INFO_RATE_LIMIT_ = Object.freeze({
+  limit: 10,
+  windowSeconds: 10 * 60
+});
 
 function ReportService_create(request) {
   const lock = LockService.getScriptLock();
@@ -105,6 +109,75 @@ function ReportService_track(request) {
   };
 }
 
+function ReportService_addInfo(request) {
+  const lock = LockService.getScriptLock();
+  const requestId = Utils_normalizeString_(request && request.requestId);
+
+  if (!requestId) {
+    throw ApiError_("VALIDATION_ERROR", "กรุณาระบุ Request ID", {
+      requestId: "จำเป็นสำหรับการส่งข้อมูลเพิ่มเติม"
+    });
+  }
+
+  lock.waitLock(30000);
+
+  let createdAdditionalInfoId = "";
+  let createdUpdateId = "";
+  let createdAttachmentIds = [];
+  let uploadedFileIds = [];
+
+  try {
+    ReportService_checkAddInfoRateLimit_(request);
+    ReportService_assertAddInfoNotDuplicateRequest_(requestId);
+
+    const context = ReportService_validateAddInfoRequest_(request);
+    const now = Utils_nowIso_();
+    const additionalInfoId = Utils_createUuid_();
+    const updateId = Utils_createUuid_();
+    const additionalInfo = ReportService_buildAdditionalInfoRecord_(context, {
+      additionalInfoId: additionalInfoId,
+      requestId: requestId,
+      createdAt: now
+    });
+
+    SheetRepository_append_("report_additional_info", additionalInfo, {
+      keyColumnName: "additional_info_id",
+      userId: "public"
+    });
+    createdAdditionalInfoId = additionalInfoId;
+
+    const attachmentResult = AttachmentService_uploadAdditionalInfoAttachments_(
+      context.report.report_id,
+      additionalInfoId,
+      updateId,
+      context.attachments,
+      now
+    );
+    uploadedFileIds = attachmentResult.uploadedFileIds;
+    createdAttachmentIds = attachmentResult.records.map(function (record) {
+      return record.attachment_id;
+    });
+
+    ReportService_createAdditionalInfoTimeline_(context.report, updateId, attachmentResult.records.length, now);
+    createdUpdateId = updateId;
+    AuditService_logAdditionalInfoCreated_(context.report, additionalInfo, attachmentResult.records.length, requestId);
+
+    return {
+      data: {
+        additionalInfoId: additionalInfoId,
+        createdAt: now,
+        reviewStatus: "pending"
+      },
+      message: "ส่งข้อมูลเพิ่มเติมเรียบร้อยแล้ว"
+    };
+  } catch (error) {
+    ReportService_compensateAddInfoFailure_(createdAdditionalInfoId, createdUpdateId, createdAttachmentIds, uploadedFileIds, requestId, error);
+    throw error;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 function ReportService_validateCreateRequest_(request) {
   const data = request && Utils_isPlainObject_(request.data) ? request.data : {};
   const fields = {};
@@ -166,6 +239,83 @@ function ReportService_validateCreateRequest_(request) {
   };
 }
 
+function ReportService_validateAddInfoRequest_(request) {
+  const data = request && Utils_isPlainObject_(request.data) ? request.data : {};
+  const fields = {};
+  const trackingCode = ReportService_normalizeTrackingCode_(data.trackingCode);
+  const message = Security_sanitizeUserText_(data.message, 2000);
+  const contact = Utils_isPlainObject_(data.contact) ? data.contact : {};
+  const settings = ReportService_getPublicSettings_();
+  const attachments = AttachmentService_validateCreatePayload_(data.attachments || [], fields, settings);
+
+  if (!ReportService_isTrackingCodeFormatValid_(trackingCode)) {
+    fields.trackingCode = "กรุณาระบุรหัสติดตามให้ถูกต้อง";
+  }
+
+  if (!message || message.length < 5) {
+    fields.message = "กรุณากรอกข้อมูลเพิ่มเติมอย่างน้อย 5 ตัวอักษร";
+  }
+
+  const contactPhone = Utils_normalizeString_(contact.phone).replace(/[\s-]/g, "");
+  if (contactPhone && !/^0[0-9]{8,9}$/.test(contactPhone)) {
+    fields["contact.phone"] = "รูปแบบเบอร์โทรไม่ถูกต้อง";
+  }
+
+  if (Object.keys(fields).length > 0) {
+    throw ApiError_("VALIDATION_ERROR", "กรุณาตรวจสอบข้อมูล", fields);
+  }
+
+  const report = SheetRepository_findOne_("reports", {
+    tracking_code: trackingCode
+  }, {
+    keyColumnName: "report_id"
+  });
+
+  if (!report || Utils_toBoolean_(report.is_deleted)) {
+    ReportService_throwTrackNotFound_();
+  }
+
+  ReportService_assertAddInfoAllowed_(report);
+
+  return {
+    data: data,
+    report: report,
+    trackingCode: trackingCode,
+    message: message,
+    contact: {
+      name: Security_sanitizeUserText_(contact.name, 120),
+      phone: contactPhone
+    },
+    attachments: attachments
+  };
+}
+
+function ReportService_assertAddInfoAllowed_(report) {
+  const status = Utils_normalizeString_(report && report.status).toLowerCase();
+
+  if (status === "closed") {
+    throw ApiError_("REPORT_CLOSED", "เรื่องนี้ถูกปิดแล้ว ไม่สามารถส่งข้อมูลเพิ่มเติมได้");
+  }
+}
+
+function ReportService_buildAdditionalInfoRecord_(context, ids) {
+  return {
+    additional_info_id: ids.additionalInfoId,
+    report_id: context.report.report_id,
+    message: context.message,
+    contact_name: context.contact.name,
+    contact_phone: context.contact.phone,
+    is_public: false,
+    review_status: "pending",
+    reviewed_by: "",
+    reviewed_at: "",
+    created_at: ids.createdAt,
+    request_id: ids.requestId,
+    is_deleted: false,
+    version: 1
+  };
+}
+
 function ReportService_getPublicSettings_() {
   const result = SettingsService_getPublicConfig({
     action: "public.config",
@@ -174,9 +324,9 @@ function ReportService_getPublicSettings_() {
   });
 
   return result.data || {
-    maxImages: 3,
-    maxImageSizeMb: 1,
-    maxImageDimension: 1600,
+    maxImages: APP_CONFIG_.MAX_IMAGES,
+    maxImageSizeMb: APP_CONFIG_.MAX_IMAGE_SIZE_BYTES / 1024 / 1024,
+    maxImageDimension: APP_CONFIG_.MAX_IMAGE_DIMENSION,
     privacyVersion: "1.0"
   };
 }
@@ -374,6 +524,30 @@ function ReportService_createInitialTimeline_(report, updateId, attachmentCount,
   });
 }
 
+function ReportService_createAdditionalInfoTimeline_(report, updateId, attachmentCount, createdAt) {
+  const attachmentText = attachmentCount > 0 ? " พร้อมแนบรูปภาพ " + attachmentCount + " รูป" : "";
+
+  return SheetRepository_append_("report_updates", {
+    update_id: updateId,
+    report_id: report.report_id,
+    update_type: "info_received",
+    old_status: report.status || "",
+    new_status: report.status || "",
+    public_message: "ระบบได้รับข้อมูลเพิ่มเติมจากผู้แจ้งแล้ว" + attachmentText,
+    internal_note: "ข้อมูลเพิ่มเติมรอตรวจสอบโดยเจ้าหน้าที่",
+    is_public: true,
+    updated_by: "public",
+    updated_by_name_snapshot: "",
+    updated_by_role_snapshot: "public",
+    created_at: createdAt,
+    is_deleted: false,
+    version: 1
+  }, {
+    keyColumnName: "update_id",
+    userId: "public"
+  });
+}
+
 function ReportService_assertNotDuplicateRequest_(requestId) {
   const existingReport = SheetRepository_findOne_("reports", {
     request_id: requestId
@@ -383,6 +557,19 @@ function ReportService_assertNotDuplicateRequest_(requestId) {
   });
 
   if (existingReport) {
+    throw ApiError_("DUPLICATE_REQUEST", "คำขอนี้ถูกดำเนินการไปแล้ว");
+  }
+}
+
+function ReportService_assertAddInfoNotDuplicateRequest_(requestId) {
+  const existing = SheetRepository_findOne_("report_additional_info", {
+    request_id: requestId
+  }, {
+    keyColumnName: "additional_info_id",
+    includeDeleted: true
+  });
+
+  if (existing) {
     throw ApiError_("DUPLICATE_REQUEST", "คำขอนี้ถูกดำเนินการไปแล้ว");
   }
 }
@@ -672,6 +859,88 @@ function ReportService_buildTrackRateLimitKey_(trackingCode) {
   return "rl_track_" + Security_hashSha256_(source, "rate-limit").slice(0, 48);
 }
 
+function ReportService_checkAddInfoRateLimit_(request) {
+  const now = new Date();
+  const action = "report.addInfo";
+  const rateKey = ReportService_buildAddInfoRateLimitKey_(request);
+  const existing = SheetRepository_findById_("rate_limits", "rate_key", rateKey, {
+    keyColumnName: "rate_key",
+    includeDeleted: true
+  });
+
+  if (!existing) {
+    SheetRepository_append_("rate_limits", {
+      rate_key: rateKey,
+      action: action,
+      window_start: now.toISOString(),
+      count: 1,
+      blocked_until: "",
+      updated_at: now.toISOString(),
+      expires_at: new Date(now.getTime() + REPORT_ADD_INFO_RATE_LIMIT_.windowSeconds * 1000).toISOString()
+    }, {
+      keyColumnName: "rate_key",
+      userId: "system"
+    });
+    return;
+  }
+
+  const windowStart = new Date(existing.window_start || now.toISOString());
+  const blockedUntil = existing.blocked_until ? new Date(existing.blocked_until) : null;
+
+  if (blockedUntil && blockedUntil.getTime() > now.getTime()) {
+    throw ApiError_("RATE_LIMITED", "มีการใช้งานถี่เกินไป กรุณาลองใหม่ภายหลัง", {
+      retryAfterSeconds: Math.ceil((blockedUntil.getTime() - now.getTime()) / 1000)
+    });
+  }
+
+  if (now.getTime() - windowStart.getTime() > REPORT_ADD_INFO_RATE_LIMIT_.windowSeconds * 1000) {
+    SheetRepository_updateById_("rate_limits", "rate_key", rateKey, {
+      window_start: now.toISOString(),
+      count: 1,
+      blocked_until: "",
+      updated_at: now.toISOString(),
+      expires_at: new Date(now.getTime() + REPORT_ADD_INFO_RATE_LIMIT_.windowSeconds * 1000).toISOString()
+    }, {
+      userId: "system"
+    });
+    return;
+  }
+
+  const nextCount = Number(existing.count || 0) + 1;
+  const updates = {
+    count: nextCount,
+    updated_at: now.toISOString(),
+    expires_at: new Date(windowStart.getTime() + REPORT_ADD_INFO_RATE_LIMIT_.windowSeconds * 1000).toISOString()
+  };
+
+  if (nextCount > REPORT_ADD_INFO_RATE_LIMIT_.limit) {
+    updates.blocked_until = new Date(windowStart.getTime() + REPORT_ADD_INFO_RATE_LIMIT_.windowSeconds * 1000).toISOString();
+  }
+
+  SheetRepository_updateById_("rate_limits", "rate_key", rateKey, updates, {
+    userId: "system"
+  });
+
+  if (nextCount > REPORT_ADD_INFO_RATE_LIMIT_.limit) {
+    throw ApiError_("RATE_LIMITED", "มีการใช้งานถี่เกินไป กรุณาลองใหม่ภายหลัง", {
+      retryAfterSeconds: Math.ceil((new Date(updates.blocked_until).getTime() - now.getTime()) / 1000)
+    });
+  }
+}
+
+function ReportService_buildAddInfoRateLimitKey_(request) {
+  const data = request && request.data ? request.data : {};
+  const contact = data.contact || {};
+  const source = [
+    "report.addInfo",
+    data.trackingCode || "",
+    data.message || "",
+    contact.phone || ""
+  ].join("|");
+
+  return "rl_add_info_" + Security_hashSha256_(source, "rate-limit").slice(0, 48);
+}
+
 function ReportService_generateUniqueTrackingCode_(createdAt) {
   const date = new Date(createdAt);
   const datePart = Utilities.formatDate(date, "UTC", "yyMMdd");
@@ -766,6 +1035,60 @@ function ReportService_compensateCreateFailure_(reportId, updateId, attachmentId
     AuditService_logReportCreateFailed_(requestId, error && error.code ? error.code : "INTERNAL_ERROR");
   } catch (auditError) {
     Security_safeLog_("REPORT_CREATE_AUDIT_FAILED", {
+      requestId: requestId,
+      code: auditError && auditError.code ? auditError.code : "INTERNAL_ERROR"
+    });
+  }
+}
+
+function ReportService_compensateAddInfoFailure_(additionalInfoId, updateId, attachmentIds, fileIds, requestId, error) {
+  if (fileIds && fileIds.length > 0) {
+    AttachmentService_compensateUploads_(fileIds);
+  }
+
+  (attachmentIds || []).forEach(function (attachmentId) {
+    try {
+      SheetRepository_softDeleteById_("attachments", "attachment_id", attachmentId, {
+        userId: "system"
+      });
+    } catch (compensationError) {
+      Security_safeLog_("ADD_INFO_ATTACHMENT_COMPENSATION_FAILED", {
+        attachmentId: attachmentId,
+        code: compensationError && compensationError.code ? compensationError.code : "INTERNAL_ERROR"
+      });
+    }
+  });
+
+  if (updateId) {
+    try {
+      SheetRepository_softDeleteById_("report_updates", "update_id", updateId, {
+        userId: "system"
+      });
+    } catch (compensationError) {
+      Security_safeLog_("ADD_INFO_TIMELINE_COMPENSATION_FAILED", {
+        updateId: updateId,
+        code: compensationError && compensationError.code ? compensationError.code : "INTERNAL_ERROR"
+      });
+    }
+  }
+
+  if (additionalInfoId) {
+    try {
+      SheetRepository_softDeleteById_("report_additional_info", "additional_info_id", additionalInfoId, {
+        userId: "system"
+      });
+    } catch (compensationError) {
+      Security_safeLog_("ADD_INFO_COMPENSATION_FAILED", {
+        additionalInfoId: additionalInfoId,
+        code: compensationError && compensationError.code ? compensationError.code : "INTERNAL_ERROR"
+      });
+    }
+  }
+
+  try {
+    AuditService_logAdditionalInfoFailed_(requestId, error && error.code ? error.code : "INTERNAL_ERROR");
+  } catch (auditError) {
+    Security_safeLog_("ADD_INFO_AUDIT_FAILED", {
       requestId: requestId,
       code: auditError && auditError.code ? auditError.code : "INTERNAL_ERROR"
     });

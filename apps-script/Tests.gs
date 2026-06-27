@@ -156,6 +156,98 @@ function testAnnouncementListApi() {
   return result;
 }
 
+function testAnnouncementListPublic() {
+  const result = AnnouncementService_listPublic({
+    action: "announcement.list",
+    requestId: "REQ-TEST-ANNOUNCEMENT-PUBLIC",
+    data: {
+      limit: 5
+    }
+  });
+
+  if (!result || !result.data || !Array.isArray(result.data.items)) {
+    throw new Error("AnnouncementService_listPublic did not return data.items array");
+  }
+
+  if (result.data.items.length > 5) {
+    throw new Error("AnnouncementService_listPublic returned more than requested limit");
+  }
+
+  Tests_assertAnnouncementPublicProjection_(result.data.items);
+
+  console.log(JSON.stringify({
+    ok: true,
+    count: result.data.items.length
+  }));
+  return result;
+}
+
+function testRouterAnnouncementList() {
+  if (ROUTER_ACTIONS_["announcement.list"] !== AnnouncementService_listPublic) {
+    throw new Error("announcement.list is not registered to AnnouncementService_listPublic");
+  }
+
+  const response = Router_dispatch_({
+    action: "announcement.list",
+    requestId: "REQ-TEST-ANNOUNCEMENT-ROUTER",
+    sessionToken: "",
+    data: {
+      limit: 5
+    }
+  }, {
+    method: "POST",
+    contentType: "text/plain;charset=utf-8"
+  });
+  const payload = JSON.parse(response.getContent());
+
+  if (!payload.ok || !payload.data || !Array.isArray(payload.data.items)) {
+    throw new Error("Router announcement.list did not return ok data.items array");
+  }
+
+  if (payload.data.items.length > 5) {
+    throw new Error("Router announcement.list returned more than requested limit");
+  }
+
+  Tests_assertAnnouncementPublicProjection_(payload.data.items);
+
+  console.log(JSON.stringify({
+    ok: true,
+    count: payload.data.items.length
+  }));
+  return payload;
+}
+
+function Tests_assertAnnouncementPublicProjection_(items) {
+  const forbiddenKeys = [
+    "created_by",
+    "createdBy",
+    "updated_by",
+    "updatedBy",
+    "updated_at",
+    "updatedAt",
+    "is_active",
+    "isActive",
+    "is_deleted",
+    "isDeleted",
+    "sort_order",
+    "sortOrder",
+    "version",
+    "secret",
+    "password",
+    "token"
+  ];
+
+  (items || []).forEach(function (item) {
+    const serialized = JSON.stringify(item);
+
+    forbiddenKeys.forEach(function (key) {
+      if (Object.prototype.hasOwnProperty.call(item, key) || serialized.indexOf("\"" + key + "\"") !== -1) {
+        throw new Error("announcement.list leaked internal field: " + key);
+      }
+    });
+  });
+}
+
 function testPublicReadApiRouter() {
   const actions = [
     "public.config",
@@ -591,6 +683,113 @@ function testReportTrackRateLimitKeyNoRawTrackingCode() {
 
   if (rateKey.indexOf("rl_track_") !== 0) {
     throw new Error("report.track rate limit key does not use expected prefix");
+  }
+
+  console.log(rateKey);
+  return {
+    ok: true,
+    rateKey: rateKey
+  };
+}
+
+function testReportAddInfoRouterWhitelist() {
+  if (ROUTER_ACTIONS_["report.addInfo"] !== ReportService_addInfo) {
+    throw new Error("report.addInfo is not registered in Router whitelist");
+  }
+
+  console.log("report.addInfo is registered in Router whitelist");
+  return {
+    ok: true,
+    action: "report.addInfo"
+  };
+}
+
+function testReportAddInfoRequiresRequestId() {
+  try {
+    ReportService_addInfo({
+      action: "report.addInfo",
+      requestId: "",
+      data: {}
+    });
+  } catch (error) {
+    if (error && error.code === "VALIDATION_ERROR") {
+      console.log("report.addInfo rejected missing requestId");
+      return {
+        ok: true,
+        code: error.code
+      };
+    }
+
+    throw error;
+  }
+
+  throw new Error("report.addInfo did not reject missing requestId");
+}
+
+function testReportAddInfoClosedPolicy() {
+  try {
+    ReportService_assertAddInfoAllowed_({
+      status: "closed"
+    });
+  } catch (error) {
+    if (error && error.code === "REPORT_CLOSED") {
+      console.log("report.addInfo rejected closed report");
+      return {
+        ok: true,
+        code: error.code
+      };
+    }
+
+    throw error;
+  }
+
+  throw new Error("report.addInfo did not reject closed report");
+}
+
+function testReportAddInfoBuildRecordPending() {
+  const record = ReportService_buildAdditionalInfoRecord_({
+    report: {
+      report_id: "REPORT-001"
+    },
+    message: "ข้อมูลเพิ่มเติม",
+    contact: {
+      name: "ผู้แจ้ง",
+      phone: "0812345678"
+    }
+  }, {
+    additionalInfoId: "INFO-001",
+    requestId: "REQ-ADD-INFO",
+    createdAt: "2026-06-27T00:00:00.000Z"
+  });
+
+  if (record.review_status !== "pending" || record.is_public !== false || record.request_id !== "REQ-ADD-INFO") {
+    throw new Error("report.addInfo record did not use pending/private defaults");
+  }
+
+  console.log(JSON.stringify(record));
+  return {
+    ok: true,
+    record: record
+  };
+}
+
+function testReportAddInfoRateLimitKeyNoRawData() {
+  const rateKey = ReportService_buildAddInfoRateLimitKey_({
+    data: {
+      trackingCode: "KPR-260626-A7F4",
+      message: "ยังมีปัญหาเดิมอยู่หน้าบ้าน",
+      contact: {
+        phone: "0812345678"
+      }
+    }
+  });
+
+  if (rateKey.indexOf("KPR-260626-A7F4") !== -1 || rateKey.indexOf("0812345678") !== -1 || rateKey.indexOf("หน้าบ้าน") !== -1) {
+    throw new Error("report.addInfo rate limit key contains raw data");
+  }
+
+  if (rateKey.indexOf("rl_add_info_") !== 0) {
+    throw new Error("report.addInfo rate limit key does not use expected prefix");
   }
 
   console.log(rateKey);

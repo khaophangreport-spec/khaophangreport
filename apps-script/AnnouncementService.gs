@@ -38,6 +38,10 @@ function AnnouncementService_isPublicVisible_(announcement, now) {
     return false;
   }
 
+  if (Utils_toBoolean_(announcement.is_deleted)) {
+    return false;
+  }
+
   const startAt = AnnouncementService_parseOptionalDate_(announcement.start_at);
   const endAt = AnnouncementService_parseOptionalDate_(announcement.end_at);
 

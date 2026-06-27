@@ -16,6 +16,13 @@ const APP_PUBLIC_CONFIG_ = Object.freeze({
   contactEmail: "khaophangreport@gmail.com"
 });
 
+const APP_CONFIG_ = Object.freeze({
+  ATTACHMENT_ALLOWED_MIME_TYPES: Object.freeze(["image/jpeg", "image/png", "image/webp"]),
+  MAX_IMAGES: 3,
+  MAX_IMAGE_SIZE_BYTES: 1024 * 1024,
+  MAX_IMAGE_DIMENSION: 1600
+});
+
 const CACHE_KEYS_ = Object.freeze({
   PUBLIC_CONFIG: "public.config.v1",
   CATEGORY_LIST: "category.list.v1",

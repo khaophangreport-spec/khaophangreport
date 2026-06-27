@@ -14,6 +14,7 @@
     <script src="assets/js/config.js" defer></script>
     <script src="assets/js/api.js" defer></script>
     <script src="assets/js/utils.js" defer></script>
+    <script src="assets/js/image-compress.js" defer></script>
     <script src="assets/js/public/track.js" defer></script>
   </head>
   <body data-track-page="detail">
@@ -129,11 +130,55 @@
 
         <section class="content-section track-next-action" aria-labelledby="additional-info-title">
           <h2 id="additional-info-title">ต้องการส่งข้อมูลเพิ่ม?</h2>
-          <p>ระบบรับข้อมูลเพิ่มเติมจะเชื่อมต่อในขั้นถัดไป ตอนนี้สามารถติดต่อโครงการพร้อมแจ้งรหัสติดตามนี้ได้</p>
-          <div class="action-row">
-            <a class="button button-primary" href="contact.html">ส่งข้อมูลเพิ่ม</a>
-            <a class="button button-outline" href="track.html">ค้นหารหัสอื่น</a>
+          <p>หากมีรายละเอียดหรือรูปภาพเพิ่ม สามารถส่งให้เจ้าหน้าที่ตรวจสอบก่อนเผยแพร่สู่ Timeline</p>
+          <div class="alert alert-warning" data-add-info-closed hidden role="status">
+            เรื่องนี้ถูกปิดแล้ว จึงไม่รับข้อมูลเพิ่มเติมผ่านหน้านี้
           </div>
+          <form class="add-info-form" data-add-info-form novalidate>
+            <div class="form-group">
+              <label for="add-info-message">ข้อมูลเพิ่มเติม <span aria-hidden="true">*</span></label>
+              <textarea id="add-info-message" name="message" rows="5" maxlength="2000" data-add-info-message aria-describedby="add-info-message-help add-info-message-error"></textarea>
+              <div class="form-help" id="add-info-message-help">กรุณากรอก 5-2,000 ตัวอักษร</div>
+              <div class="field-error" id="add-info-message-error" data-add-info-error="message"></div>
+              <div class="character-count" data-add-info-message-count>0/2000</div>
+            </div>
+
+            <div class="report-two-column">
+              <div class="form-group">
+                <label for="add-info-contact-name">ชื่อผู้ส่งข้อมูล</label>
+                <input id="add-info-contact-name" name="contactName" type="text" maxlength="120" data-add-info-contact-name />
+              </div>
+              <div class="form-group">
+                <label for="add-info-contact-phone">เบอร์โทร</label>
+                <input id="add-info-contact-phone" name="contactPhone" type="tel" inputmode="tel" maxlength="20" data-add-info-contact-phone aria-describedby="add-info-phone-error" />
+                <div class="field-error" id="add-info-phone-error" data-add-info-error="contact.phone"></div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label for="add-info-images">แนบรูปภาพ</label>
+              <div class="report-upload-box">
+                <input id="add-info-images" name="attachments" type="file" accept="image/jpeg,image/png,image/webp" multiple data-add-info-image-input aria-describedby="add-info-images-help add-info-images-error" />
+                <p id="add-info-images-help">สูงสุด 3 รูป JPG, PNG หรือ WebP ระบบจะบีบอัดก่อนส่ง</p>
+              </div>
+              <div class="field-error" id="add-info-images-error" data-add-info-error="attachments"></div>
+              <p class="form-help" data-add-info-image-status></p>
+              <div class="empty-state" data-add-info-image-empty>
+                <p>ยังไม่มีรูปภาพเพิ่ม</p>
+              </div>
+              <div class="report-image-list" data-add-info-image-list hidden></div>
+            </div>
+
+            <div class="alert alert-success" data-add-info-success hidden role="status">
+              ส่งข้อมูลเพิ่มเติมเรียบร้อยแล้ว เจ้าหน้าที่จะตรวจสอบก่อนเผยแพร่
+            </div>
+            <div class="alert alert-danger" data-add-info-error-state hidden role="alert"></div>
+
+            <div class="action-row">
+              <button class="button button-primary" type="submit" data-add-info-submit>ส่งข้อมูลเพิ่ม</button>
+              <a class="button button-outline" href="track.html">ค้นหารหัสอื่น</a>
+            </div>
+          </form>
         </section>
       </article>
     </main>

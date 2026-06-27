@@ -1,12 +1,10 @@
-const ATTACHMENT_ALLOWED_MIME_TYPES_ = Object.freeze(["image/jpeg", "image/png", "image/webp"]);
-
 function AttachmentService_validateCreatePayload_(attachments, fields, settings) {
   const safeAttachments = Array.isArray(attachments) ? attachments : [];
   const safeSettings = settings || {};
-  const maxImages = Number(safeSettings.maxImages || 3);
-  const maxSizeMb = Number(safeSettings.maxImageSizeMb || 1);
-  const maxSizeBytes = maxSizeMb * 1024 * 1024;
-  const maxDimension = Number(safeSettings.maxImageDimension || 1600);
+  const maxImages = Number(safeSettings.maxImages || APP_CONFIG_.MAX_IMAGES);
+  const maxSizeBytes = Number(safeSettings.maxImageSizeBytes || APP_CONFIG_.MAX_IMAGE_SIZE_BYTES);
+  const maxSizeMb = Number(safeSettings.maxImageSizeMb || (maxSizeBytes / 1024 / 1024));
+  const maxDimension = Number(safeSettings.maxImageDimension || APP_CONFIG_.MAX_IMAGE_DIMENSION);
 
   if (!Array.isArray(attachments)) {
     fields.attachments = "รูปภาพต้องอยู่ในรูปแบบรายการ";
@@ -36,7 +34,7 @@ function AttachmentService_validateCreatePayload_(attachments, fields, settings)
       fields[fieldPrefix + ".base64"] = "ไม่พบข้อมูลรูปภาพ";
     }
 
-    if (ATTACHMENT_ALLOWED_MIME_TYPES_.indexOf(mimeType) === -1) {
+    if (APP_CONFIG_.ATTACHMENT_ALLOWED_MIME_TYPES.indexOf(mimeType) === -1) {
       fields[fieldPrefix + ".mimeType"] = "รองรับเฉพาะ JPG, PNG และ WebP";
     }
 
@@ -109,11 +107,65 @@ function AttachmentService_uploadReportAttachments_(reportId, updateId, attachme
   }
 }
 
+function AttachmentService_uploadAdditionalInfoAttachments_(reportId, additionalInfoId, updateId, attachments, createdAt) {
+  const uploadedFiles = [];
+  const records = [];
+
+  try {
+    (attachments || []).forEach(function (attachment) {
+      const uploadResult = AttachmentService_uploadOneForRole_(reportId, attachment, createdAt, "additional");
+
+      uploadedFiles.push(uploadResult.fileId);
+      records.push({
+        attachment_id: Utils_createUuid_(),
+        report_id: reportId,
+        update_id: updateId || "",
+        additional_info_id: additionalInfoId,
+        file_id: uploadResult.fileId,
+        file_name: uploadResult.fileName,
+        original_file_name: attachment.fileName,
+        mime_type: uploadResult.mimeType,
+        file_size: uploadResult.fileSize,
+        width: attachment.width || "",
+        height: attachment.height || "",
+        file_role: "additional",
+        is_public: false,
+        uploaded_by: "public",
+        created_at: createdAt,
+        drive_folder_id: uploadResult.driveFolderId,
+        checksum: uploadResult.checksum,
+        is_deleted: false,
+        deleted_at: "",
+        version: 1
+      });
+    });
+
+    if (records.length > 0) {
+      SheetRepository_batchWrite_("attachments", records, {
+        keyColumnName: "attachment_id",
+        userId: "public"
+      });
+    }
+
+    return {
+      uploadedFileIds: uploadedFiles,
+      records: records
+    };
+  } catch (error) {
+    AttachmentService_compensateUploads_(uploadedFiles);
+    throw error;
+  }
+}
+
 function AttachmentService_uploadOne_(reportId, attachment, createdAt) {
+  return AttachmentService_uploadOneForRole_(reportId, attachment, createdAt, "report");
+}
+
+function AttachmentService_uploadOneForRole_(reportId, attachment, createdAt, fileRole) {
   const decoded = AttachmentService_decodeBase64_(attachment.base64);
   const detectedMimeType = AttachmentService_detectMimeType_(decoded.bytes);
 
-  if (!detectedMimeType || ATTACHMENT_ALLOWED_MIME_TYPES_.indexOf(detectedMimeType) === -1) {
+  if (!detectedMimeType || APP_CONFIG_.ATTACHMENT_ALLOWED_MIME_TYPES.indexOf(detectedMimeType) === -1) {
     throw ApiError_("INVALID_FILE_TYPE", "ประเภทไฟล์รูปภาพไม่รองรับ");
   }
 
@@ -131,7 +183,7 @@ function AttachmentService_uploadOne_(reportId, attachment, createdAt) {
     const blob = Utilities.newBlob(decoded.bytes, detectedMimeType, attachment.fileName);
     const metadata = DriveRepository_saveFile_(blob, {
       reportId: reportId,
-      fileRole: "report",
+      fileRole: fileRole || "report",
       year: createdAt,
       originalFileName: attachment.fileName,
       mimeType: detectedMimeType

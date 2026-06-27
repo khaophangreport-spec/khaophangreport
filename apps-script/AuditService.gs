@@ -58,3 +58,37 @@ function AuditService_logReportCreateFailed_(requestId, code) {
     }
   });
 }
+
+function AuditService_logAdditionalInfoCreated_(report, additionalInfo, attachmentCount, requestId) {
+  return AuditService_log_({
+    userId: "public",
+    roleSnapshot: "public",
+    action: "report.addInfo",
+    entityType: "report_additional_info",
+    entityId: additionalInfo.additional_info_id,
+    requestId: requestId,
+    success: true,
+    detail: {
+      reportId: report.report_id,
+      trackingCode: report.tracking_code,
+      reviewStatus: additionalInfo.review_status,
+      attachmentCount: attachmentCount || 0
+    }
+  });
+}
+
+function AuditService_logAdditionalInfoFailed_(requestId, code) {
+  return AuditService_log_({
+    userId: "public",
+    roleSnapshot: "public",
+    action: "report.addInfo",
+    entityType: "report_additional_info",
+    entityId: "",
+    requestId: requestId,
+    severity: "warning",
+    success: false,
+    detail: {
+      code: code || "INTERNAL_ERROR"
+    }
+  });
+}
