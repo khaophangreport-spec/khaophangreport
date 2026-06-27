@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="คำถามที่พบบ่อยเกี่ยวกับ Khaophang Report" />
+    <meta name="description" content="คำถามที่พบบ่อยเกี่ยวกับการแจ้งปัญหาและติดตามสถานะผ่าน Khaophang Report" />
     <title>คำถามที่พบบ่อย | Khaophang Report</title>
     <link rel="stylesheet" href="assets/css/variables.css" />
     <link rel="stylesheet" href="assets/css/reset.css" />
@@ -26,12 +26,129 @@
         <a href="contact.html">ติดต่อเรา</a>
       </nav>
     </header>
-    <main class="page-shell">
-      <section class="content-section" aria-labelledby="page-title">
+
+    <main class="page-shell info-page">
+      <section class="content-section info-hero" aria-labelledby="page-title">
+        <p class="eyebrow">ศูนย์ช่วยเหลือ</p>
         <h1 id="page-title">คำถามที่พบบ่อย</h1>
-        <p class="placeholder-text">พื้นที่ตั้งต้นสำหรับ FAQ</p>
+        <p>
+          รวมคำตอบสั้น ๆ สำหรับการแจ้งปัญหา ติดตามสถานะ และการใช้ข้อมูลในระบบ
+          Khaophang Report
+        </p>
+      </section>
+
+      <section class="content-section" aria-labelledby="faq-search-title">
+        <div class="section-heading">
+          <h2 id="faq-search-title">ค้นหาคำถาม</h2>
+          <p>พิมพ์คำที่ต้องการ เช่น รหัสติดตาม รูปภาพ ไม่ระบุตัวตน หรือข้อมูลส่วนตัว</p>
+        </div>
+        <form class="faq-search" role="search">
+          <label class="sr-only" for="faq-search-input">ค้นหาคำถามที่พบบ่อย</label>
+          <input
+            id="faq-search-input"
+            class="faq-search__input"
+            name="q"
+            type="search"
+            autocomplete="off"
+            placeholder="ค้นหาคำถาม"
+          />
+          <button class="button button-outline" type="button" data-faq-clear hidden>ล้างคำค้น</button>
+        </form>
+      </section>
+
+      <section class="content-section" aria-labelledby="faq-list-title">
+        <div class="section-heading">
+          <h2 id="faq-list-title">รายการคำถาม</h2>
+          <p id="faq-result-summary" aria-live="polite">แสดงคำถามทั้งหมด</p>
+        </div>
+
+        <div class="faq-list" data-faq-list>
+          <details class="faq-item" open>
+            <summary>ระบบนี้ใช้แจ้งเรื่องอะไรได้บ้าง</summary>
+            <div class="faq-item__body">
+              <p>
+                ใช้แจ้งปัญหาชุมชนในพื้นที่ตำบลเขาพัง เช่น ถนน ไฟส่องสว่าง น้ำประปา
+                ขยะ สิ่งแวดล้อม ความปลอดภัย และข้อเสนอแนะที่เกี่ยวข้องกับชุมชน
+              </p>
+            </div>
+          </details>
+
+          <details class="faq-item">
+            <summary>ต้องสมัครสมาชิกก่อนแจ้งปัญหาหรือไม่</summary>
+            <div class="faq-item__body">
+              <p>ไม่ต้องสมัครสมาชิก ประชาชนสามารถแจ้งปัญหาได้ทันทีผ่านหน้าแจ้งปัญหา</p>
+            </div>
+          </details>
+
+          <details class="faq-item">
+            <summary>แจ้งแบบไม่ระบุตัวตนได้หรือไม่</summary>
+            <div class="faq-item__body">
+              <p>
+                ได้ หากเลือกไม่ระบุตัวตน ระบบจะไม่ส่งชื่อ เบอร์โทร หรืออีเมลไปกับคำขอ
+                แต่เจ้าหน้าที่อาจติดต่อกลับไม่ได้หากต้องการข้อมูลเพิ่มเติม
+              </p>
+            </div>
+          </details>
+
+          <details class="faq-item">
+            <summary>หลังส่งเรื่องแล้วต้องเก็บข้อมูลอะไรไว้</summary>
+            <div class="faq-item__body">
+              <p>
+                ควรเก็บรหัสติดตามที่ระบบออกให้ไว้เสมอ เพราะต้องใช้สำหรับตรวจสอบสถานะ
+                และส่งข้อมูลเพิ่มเติมในภายหลัง
+              </p>
+            </div>
+          </details>
+
+          <details class="faq-item">
+            <summary>แนบรูปภาพได้กี่รูป</summary>
+            <div class="faq-item__body">
+              <p>
+                ระบบรองรับรูปภาพสูงสุด 3 รูปต่อเรื่อง รองรับ JPG, PNG และ WebP
+                โดยระบบจะบีบอัดภาพบนเบราว์เซอร์ก่อนส่ง
+              </p>
+            </div>
+          </details>
+
+          <details class="faq-item">
+            <summary>จำเป็นต้องเปิด GPS หรือไม่</summary>
+            <div class="faq-item__body">
+              <p>
+                ไม่จำเป็น ผู้ใช้สามารถกรอกสถานที่หรือจุดสังเกตเองได้
+                พิกัดช่วยให้เจ้าหน้าที่ระบุตำแหน่งได้แม่นขึ้นเท่านั้น
+              </p>
+            </div>
+          </details>
+
+          <details class="faq-item">
+            <summary>ติดตามสถานะได้จากที่ไหน</summary>
+            <div class="faq-item__body">
+              <p>
+                ไปที่หน้า <a href="track.html">ติดตามสถานะ</a> แล้วกรอกรหัสติดตาม
+                ระบบจะแสดงสถานะล่าสุดและไทม์ไลน์สาธารณะของเรื่อง
+              </p>
+            </div>
+          </details>
+
+          <details class="faq-item">
+            <summary>ระบบนี้ใช้แจ้งเหตุฉุกเฉินได้หรือไม่</summary>
+            <div class="faq-item__body">
+              <p>
+                ไม่ใช่ระบบฉุกเฉิน หากมีเหตุที่เสี่ยงต่อชีวิต ความปลอดภัย หรือทรัพย์สิน
+                กรุณาติดต่อหน่วยงานฉุกเฉินหรือหน่วยงานที่เกี่ยวข้องโดยตรงทันที
+              </p>
+            </div>
+          </details>
+        </div>
+
+        <div class="empty-state faq-empty" data-faq-empty hidden>
+          <h3>ไม่พบคำถามที่ตรงกับคำค้น</h3>
+          <p>ลองใช้คำที่สั้นลง หรือไปที่หน้าติดต่อเราเพื่อส่งคำถามเพิ่มเติม</p>
+          <a class="button button-secondary" href="contact.html">ติดต่อเรา</a>
+        </div>
       </section>
     </main>
+
     <footer class="site-footer">
       <p><strong>Khaophang Report</strong></p>
       <p>อีเมล <a href="mailto:khaophangreport@gmail.com">khaophangreport@gmail.com</a></p>
@@ -41,6 +158,7 @@
       </nav>
       <p>อ่านคำถามที่พบบ่อยก่อนแจ้งเรื่องได้เสมอ</p>
     </footer>
+
     <nav class="mobile-bottom-nav" aria-label="เมนูหลักบนมือถือ">
       <a class="mobile-bottom-nav__item" href="index.html">
         <span aria-hidden="true">⌂</span>
@@ -59,5 +177,7 @@
         <span>ติดต่อ</span>
       </a>
     </nav>
+
+    <script src="assets/js/public/faq.js" defer></script>
   </body>
 </html>
