@@ -1,3 +1,75 @@
+/**
+ * ตรวจสอบว่า Router ลงทะเบียน action กับ handler ที่ถูกต้อง
+ * โดยหลีกเลี่ยงการเปรียบเทียบ Function Object ด้วย ===
+ * เนื่องจาก Google Apps Script อาจสร้าง function reference คนละตัว
+ * แม้ชื่อและ source code จะเป็นฟังก์ชันเดียวกัน
+ */
+function Tests_assertRouterHandler_(action, expectedHandler, expectedHandlerName) {
+  if (typeof ROUTER_ACTIONS_ === "undefined" || !ROUTER_ACTIONS_) {
+    throw new Error("ROUTER_ACTIONS_ is not defined. Check Router.gs was copied and loaded.");
+  }
+
+  if (!Object.prototype.hasOwnProperty.call(ROUTER_ACTIONS_, action)) {
+    throw new Error(action + " is missing from ROUTER_ACTIONS_. Check Router.gs whitelist.");
+  }
+
+  var mappedHandler = ROUTER_ACTIONS_[action];
+
+  if (typeof mappedHandler !== "function") {
+    throw new Error(
+      action +
+      " mapped handler is not a function. Actual type: " +
+      typeof mappedHandler
+    );
+  }
+
+  if (typeof expectedHandler !== "function") {
+    throw new Error(
+      expectedHandlerName +
+      " is not a function. Check the related Service.gs global function."
+    );
+  }
+
+  var mappedName = mappedHandler.name || "";
+  var expectedName = expectedHandler.name || expectedHandlerName || "";
+
+  if (mappedName && expectedName && mappedName !== expectedName) {
+    throw new Error(
+      action +
+      " mapped handler name is " +
+      mappedName +
+      ", expected " +
+      expectedName +
+      "."
+    );
+  }
+
+  /*
+   * บาง runtime อาจไม่คืน function.name
+   * จึงตรวจ source เฉพาะกรณีที่ชื่ออย่างน้อยหนึ่งฝั่งว่าง
+   */
+  if (!mappedName || !expectedName) {
+    var mappedSource = String(mappedHandler);
+    var expectedSource = String(expectedHandler);
+
+    if (mappedSource !== expectedSource) {
+      throw new Error(
+        action +
+        " mapped handler does not match " +
+        expectedHandlerName +
+        "."
+      );
+    }
+  }
+
+  return {
+    action: action,
+    mappedHandlerType: typeof mappedHandler,
+    mappedHandlerName: mappedName || expectedHandlerName,
+    expectedHandlerName: expectedName || expectedHandlerName
+  };
+}
+
 function testValidateSeedData() {
   const result = validateSeedData();
 
@@ -183,9 +255,11 @@ function testAnnouncementListPublic() {
 }
 
 function testRouterAnnouncementList() {
-  if (ROUTER_ACTIONS_["announcement.list"] !== AnnouncementService_listPublic) {
-    throw new Error("announcement.list is not registered to AnnouncementService_listPublic");
-  }
+  Tests_assertRouterHandler_(
+    "announcement.list",
+    AnnouncementService_listPublic,
+    "AnnouncementService_listPublic"
+  );
 
   const response = Router_dispatch_({
     action: "announcement.list",
@@ -372,14 +446,17 @@ function testRouterMissingAction() {
 }
 
 function testReportCreateRouterWhitelist() {
-  if (ROUTER_ACTIONS_["report.create"] !== ReportService_create) {
-    throw new Error("report.create is not registered in Router whitelist");
-  }
+  const registration = Tests_assertRouterHandler_(
+    "report.create",
+    ReportService_create,
+    "ReportService_create"
+  );
 
   console.log("report.create is registered in Router whitelist");
   return {
     ok: true,
-    action: "report.create"
+    action: "report.create",
+    registration: registration
   };
 }
 
@@ -523,14 +600,17 @@ function testReportCreateRateLimitKeyNoRawPii() {
 }
 
 function testReportTrackRouterWhitelist() {
-  if (ROUTER_ACTIONS_["report.track"] !== ReportService_track) {
-    throw new Error("report.track is not registered in Router whitelist");
-  }
+  const registration = Tests_assertRouterHandler_(
+    "report.track",
+    ReportService_track,
+    "ReportService_track"
+  );
 
   console.log("report.track is registered in Router whitelist");
   return {
     ok: true,
-    action: "report.track"
+    action: "report.track",
+    registration: registration
   };
 }
 
@@ -693,14 +773,17 @@ function testReportTrackRateLimitKeyNoRawTrackingCode() {
 }
 
 function testReportAddInfoRouterWhitelist() {
-  if (ROUTER_ACTIONS_["report.addInfo"] !== ReportService_addInfo) {
-    throw new Error("report.addInfo is not registered in Router whitelist");
-  }
+  const registration = Tests_assertRouterHandler_(
+    "report.addInfo",
+    ReportService_addInfo,
+    "ReportService_addInfo"
+  );
 
   console.log("report.addInfo is registered in Router whitelist");
   return {
     ok: true,
-    action: "report.addInfo"
+    action: "report.addInfo",
+    registration: registration
   };
 }
 
@@ -801,22 +884,37 @@ function testReportAddInfoRateLimitKeyNoRawData() {
 
 function testAuthRouterWhitelist() {
   const expected = {
-    "auth.login": AuthService_login,
-    "auth.me": AuthService_me,
-    "auth.logout": AuthService_logout,
-    "auth.changePassword": AuthService_changePassword
+    "auth.login": {
+      handler: AuthService_login,
+      name: "AuthService_login"
+    },
+    "auth.me": {
+      handler: AuthService_me,
+      name: "AuthService_me"
+    },
+    "auth.logout": {
+      handler: AuthService_logout,
+      name: "AuthService_logout"
+    },
+    "auth.changePassword": {
+      handler: AuthService_changePassword,
+      name: "AuthService_changePassword"
+    }
   };
 
-  Object.keys(expected).forEach(function (action) {
-    if (ROUTER_ACTIONS_[action] !== expected[action]) {
-      throw new Error(action + " is not registered in Router whitelist");
-    }
+  const registrations = Object.keys(expected).map(function (action) {
+    return Tests_assertRouterHandler_(
+      action,
+      expected[action].handler,
+      expected[action].name
+    );
   });
 
   console.log("auth actions are registered in Router whitelist");
   return {
     ok: true,
-    actions: Object.keys(expected)
+    actions: Object.keys(expected),
+    registrations: registrations
   };
 }
 
@@ -956,14 +1054,17 @@ function testFirstAdminSetupKeyRequired() {
 }
 
 function testDashboardSummaryRouterWhitelist() {
-  if (ROUTER_ACTIONS_["dashboard.summary"] !== DashboardService_summary) {
-    throw new Error("dashboard.summary is not registered in Router whitelist");
-  }
+  const registration = Tests_assertRouterHandler_(
+    "dashboard.summary",
+    DashboardService_summary,
+    "DashboardService_summary"
+  );
 
   console.log("dashboard.summary is registered in Router whitelist");
   return {
     ok: true,
-    action: "dashboard.summary"
+    action: "dashboard.summary",
+    registration: registration
   };
 }
 
@@ -1104,14 +1205,17 @@ function testDashboardSummaryCacheClearVersion() {
 }
 
 function testAdminReportListRouterWhitelist() {
-  if (ROUTER_ACTIONS_["admin.report.list"] !== ReportService_listAdmin) {
-    throw new Error("admin.report.list is not registered in Router whitelist");
-  }
+  const registration = Tests_assertRouterHandler_(
+    "admin.report.list",
+    ReportService_listAdmin,
+    "ReportService_listAdmin"
+  );
 
   console.log("admin.report.list is registered in Router whitelist");
   return {
     ok: true,
-    action: "admin.report.list"
+    action: "admin.report.list",
+    registration: registration
   };
 }
 
@@ -1312,14 +1416,17 @@ function testAdminReportListViewerReadOnly() {
 }
 
 function testAdminReportDetailRouterWhitelist() {
-  if (ROUTER_ACTIONS_["admin.report.detail"] !== ReportService_detailAdmin) {
-    throw new Error("admin.report.detail is not registered in Router whitelist");
-  }
+  const registration = Tests_assertRouterHandler_(
+    "admin.report.detail",
+    ReportService_detailAdmin,
+    "ReportService_detailAdmin"
+  );
 
   console.log("admin.report.detail is registered in Router whitelist");
   return {
     ok: true,
-    action: "admin.report.detail"
+    action: "admin.report.detail",
+    registration: registration
   };
 }
 
@@ -1509,14 +1616,17 @@ function testAdminReportDetailAttachmentProjectionNoDriveLeak() {
 }
 
 function testAdminReportAssignRouterWhitelist() {
-  if (ROUTER_ACTIONS_["admin.report.assign"] !== AssignmentService_assign) {
-    throw new Error("admin.report.assign is not registered in Router whitelist");
-  }
+  const registration = Tests_assertRouterHandler_(
+    "admin.report.assign",
+    AssignmentService_assign,
+    "AssignmentService_assign"
+  );
 
   console.log("admin.report.assign is registered in Router whitelist");
   return {
     ok: true,
-    action: "admin.report.assign"
+    action: "admin.report.assign",
+    registration: registration
   };
 }
 
@@ -1610,43 +1720,51 @@ function testAdminReportAssignOpenAssignmentDetection() {
   };
 }
 
-function testAdminReportUpdateStatusRouterWhitelist() {
-  try {
-    const action = "admin.report.updateStatus";
+function debugAdminReportUpdateStatusRegistration() {
+  var action = "admin.report.updateStatus";
+  var routerType = typeof ROUTER_ACTIONS_;
+  var handlerType = typeof ReportService_updateStatus;
+  var actionExists = false;
+  var mappedHandlerType = "undefined";
+  var routeKeys = [];
 
-    if (typeof ROUTER_ACTIONS_ === "undefined") {
-      throw new Error("ROUTER_ACTIONS_ is not defined");
-    }
-
-    if (!Object.prototype.hasOwnProperty.call(ROUTER_ACTIONS_, action)) {
-      throw new Error(action + " is missing from Router whitelist");
-    }
-
-    if (typeof ReportService_updateStatus !== "function") {
-      throw new Error("ReportService_updateStatus is not a global function");
-    }
-
-    const handler = ROUTER_ACTIONS_[action];
-
-    if (typeof handler !== "function") {
-      throw new Error(action + " handler is not a function. Actual type: " + typeof handler);
-    }
-
-    if (handler !== ReportService_updateStatus) {
-      throw new Error(action + " is not registered to ReportService_updateStatus");
-    }
-
-    console.log("admin.report.updateStatus is registered in Router whitelist");
-    return {
-      ok: true,
-      testType: "unit",
-      action: action,
-      handlerName: "ReportService_updateStatus"
-    };
-  } catch (error) {
-    Tests_logDiagnosticError_(error);
-    throw error;
+  if (routerType !== "undefined") {
+    actionExists = Object.prototype.hasOwnProperty.call(ROUTER_ACTIONS_, action);
+    mappedHandlerType = typeof ROUTER_ACTIONS_[action];
+    routeKeys = Object.keys(ROUTER_ACTIONS_);
   }
+
+  var result = {
+    ok: true,
+    action: action,
+    reportServiceUpdateStatusType: handlerType,
+    routerActionsType: routerType,
+    actionExists: actionExists,
+    mappedHandlerType: mappedHandlerType,
+    routeKeys: routeKeys
+  };
+
+  console.log(JSON.stringify(result));
+  return result;
+}
+
+function testAdminReportUpdateStatusRouterWhitelist() {
+  var action = "admin.report.updateStatus";
+  var registration = Tests_assertRouterHandler_(
+    action,
+    ReportService_updateStatus,
+    "ReportService_updateStatus"
+  );
+
+  console.log("admin.report.updateStatus is registered in Router whitelist");
+  return {
+    ok: true,
+    testType: "unit",
+    action: action,
+    mappedHandlerType: registration.mappedHandlerType,
+    mappedHandlerName: registration.mappedHandlerName,
+    globalHandlerName: registration.expectedHandlerName
+  };
 }
 
 function testAdminReportUpdateStatusTransitionMatrix() {
@@ -1807,4 +1925,29 @@ function testAdminReportUpdateStatusBuildUpdates() {
 function Tests_logDiagnosticError_(error) {
   console.error(error && error.message ? error.message : String(error));
   console.error(error && error.stack ? error.stack : "No stack available");
+}
+function debugAdminReportUpdateStatusHandlerIdentity() {
+  var action = "admin.report.updateStatus";
+  var mappedHandler = ROUTER_ACTIONS_[action];
+
+  var result = {
+    mappedType: typeof mappedHandler,
+    globalType: typeof ReportService_updateStatus,
+    mappedName: mappedHandler ? mappedHandler.name : null,
+    globalName: ReportService_updateStatus
+      ? ReportService_updateStatus.name
+      : null,
+    sameReference:
+      mappedHandler === ReportService_updateStatus,
+    mappedSource: mappedHandler
+      ? String(mappedHandler).substring(0, 300)
+      : null,
+    globalSource:
+      typeof ReportService_updateStatus === "function"
+        ? String(ReportService_updateStatus).substring(0, 300)
+        : null
+  };
+
+  console.log(JSON.stringify(result));
+  return result;
 }
