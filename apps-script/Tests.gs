@@ -1102,3 +1102,408 @@ function testDashboardSummaryCacheClearVersion() {
     afterVersion: afterVersion
   };
 }
+
+function testAdminReportListRouterWhitelist() {
+  if (ROUTER_ACTIONS_["admin.report.list"] !== ReportService_listAdmin) {
+    throw new Error("admin.report.list is not registered in Router whitelist");
+  }
+
+  console.log("admin.report.list is registered in Router whitelist");
+  return {
+    ok: true,
+    action: "admin.report.list"
+  };
+}
+
+function testAdminReportListOfficerScope() {
+  const query = ReportService_normalizeAdminListQuery_({
+    scope: "global"
+  }, {
+    user: {
+      user_id: "USER-OFFICER",
+      role: "officer"
+    },
+    permissions: UserService_getPermissions_("officer")
+  });
+  const filtered = ReportService_filterAdminReports_([
+    {
+      report_id: "REPORT-MINE",
+      assigned_to: "USER-OFFICER",
+      status: "new",
+      created_at: "2026-06-26T00:00:00.000Z"
+    },
+    {
+      report_id: "REPORT-OTHER",
+      assigned_to: "USER-OTHER",
+      status: "new",
+      created_at: "2026-06-26T00:00:00.000Z"
+    }
+  ], query, {
+    user: {
+      user_id: "USER-OFFICER"
+    }
+  });
+
+  if (query.scope !== "mine" || filtered.length !== 1 || filtered[0].report_id !== "REPORT-MINE") {
+    throw new Error("Officer admin.report.list scope did not default/enforce mine");
+  }
+
+  console.log(JSON.stringify({
+    scope: query.scope,
+    count: filtered.length
+  }));
+  return {
+    ok: true,
+    scope: query.scope,
+    count: filtered.length
+  };
+}
+
+function testAdminReportListFiltersSortPagination() {
+  const query = ReportService_normalizeAdminListQuery_({
+    page: 1,
+    pageSize: 1,
+    keyword: "ไฟดับ",
+    status: "new",
+    categoryId: "CAT-ELECTRIC",
+    priority: "critical",
+    assigneeId: "USER-001",
+    dateFrom: "2026-06-01",
+    dateTo: "2026-06-30",
+    scope: "global",
+    sortBy: "priority",
+    sortDirection: "desc"
+  }, {
+    user: {
+      user_id: "USER-ADMIN",
+      role: "admin"
+    },
+    permissions: UserService_getPermissions_("admin")
+  });
+  const filtered = ReportService_filterAdminReports_([
+    {
+      report_id: "REPORT-001",
+      tracking_code: "KPR-260626-A001",
+      category_id: "CAT-ELECTRIC",
+      title: "ไฟดับหน้าบ้าน",
+      search_text: "ไฟดับหน้าบ้าน",
+      priority: "critical",
+      status: "new",
+      assigned_to: "USER-001",
+      created_at: "2026-06-20T00:00:00.000Z"
+    },
+    {
+      report_id: "REPORT-002",
+      tracking_code: "KPR-260626-A002",
+      category_id: "CAT-ROAD",
+      title: "ถนนชำรุด",
+      search_text: "ถนนชำรุด",
+      priority: "normal",
+      status: "closed",
+      assigned_to: "USER-002",
+      created_at: "2026-06-21T00:00:00.000Z"
+    }
+  ], query, {
+    user: {
+      user_id: "USER-ADMIN"
+    }
+  });
+  const sorted = ReportService_sortAdminReports_(filtered, query.sortBy, query.sortDirection);
+  const page = SheetRepository_paginate_(sorted, query.page, query.pageSize);
+
+  if (filtered.length !== 1 || page.pagination.pageSize !== 1 || page.items[0].report_id !== "REPORT-001") {
+    throw new Error("admin.report.list filters/sort/pagination returned invalid result");
+  }
+
+  console.log(JSON.stringify({
+    total: page.pagination.total,
+    pageSize: page.pagination.pageSize
+  }));
+  return {
+    ok: true,
+    pagination: page.pagination
+  };
+}
+
+function testAdminReportListProjectionNoPii() {
+  const projection = ReportService_projectAdminListReport_({
+    report_id: "REPORT-001",
+    tracking_code: "KPR-260626-A001",
+    request_id: "REQ-SECRET",
+    category_id: "CAT-ROAD",
+    title: "หัวข้อสาธารณะในรายการ",
+    description: "รายละเอียดที่อาจมีข้อมูลส่วนตัว",
+    location_name: "หน้าศาลา",
+    village_no: "3",
+    reporter_name: "Private Name",
+    reporter_phone: "0812345678",
+    reporter_email: "person@example.com",
+    internal_summary: "Internal only",
+    priority_reported: "normal",
+    priority: "high",
+    status: "new",
+    assigned_to: "USER-001",
+    target_due_at: "2026-06-26T00:00:00.000Z",
+    created_at: "2026-06-25T00:00:00.000Z",
+    updated_at: "2026-06-25T00:00:00.000Z",
+    version: 7
+  }, {
+    "CAT-ROAD": {
+      categoryId: "CAT-ROAD",
+      code: "road",
+      name: "ถนน",
+      icon: "road",
+      color: "#287444"
+    }
+  }, {
+    "USER-001": {
+      userId: "USER-001",
+      displayName: "เจ้าหน้าที่",
+      role: "officer",
+      isActive: true
+    }
+  }, new Date("2026-06-27T00:00:00.000Z"));
+
+  const serialized = JSON.stringify(projection);
+  const forbidden = [
+    "REQ-SECRET",
+    "Private Name",
+    "0812345678",
+    "person@example.com",
+    "Internal only",
+    "รายละเอียดที่อาจมีข้อมูลส่วนตัว",
+    "request_id",
+    "reporter_name",
+    "reporter_phone",
+    "reporter_email",
+    "internal_summary",
+    "description"
+  ];
+
+  forbidden.forEach(function (value) {
+    if (serialized.indexOf(value) !== -1) {
+      throw new Error("admin.report.list projection leaked PII/internal data: " + value);
+    }
+  });
+
+  if (projection.version !== 7 || projection.isOverdue !== true || projection.ageHours !== 48) {
+    throw new Error("admin.report.list projection missed version/overdue/age fields");
+  }
+
+  console.log(JSON.stringify(projection));
+  return {
+    ok: true,
+    projection: projection
+  };
+}
+
+function testAdminReportListViewerReadOnly() {
+  const permissions = ReportService_buildAdminListPermissions_(UserService_getPermissions_("viewer"));
+
+  if (!permissions.canRead || permissions.canUpdate || permissions.canAssign) {
+    throw new Error("Viewer permissions should be read-only for admin.report.list");
+  }
+
+  console.log(JSON.stringify(permissions));
+  return {
+    ok: true,
+    permissions: permissions
+  };
+}
+
+function testAdminReportDetailRouterWhitelist() {
+  if (ROUTER_ACTIONS_["admin.report.detail"] !== ReportService_detailAdmin) {
+    throw new Error("admin.report.detail is not registered in Router whitelist");
+  }
+
+  console.log("admin.report.detail is registered in Router whitelist");
+  return {
+    ok: true,
+    action: "admin.report.detail"
+  };
+}
+
+function testAdminReportDetailOfficerScope() {
+  try {
+    ReportService_assertAdminReportAccess_({
+      report_id: "REPORT-OTHER",
+      assigned_to: "USER-OTHER"
+    }, {
+      user: {
+        user_id: "USER-OFFICER",
+        role: "officer"
+      },
+      permissions: UserService_getPermissions_("officer")
+    });
+  } catch (error) {
+    if (error && error.code === "FORBIDDEN") {
+      ReportService_assertAdminReportAccess_({
+        report_id: "REPORT-MINE",
+        assigned_to: "USER-OFFICER"
+      }, {
+        user: {
+          user_id: "USER-OFFICER",
+          role: "officer"
+        },
+        permissions: UserService_getPermissions_("officer")
+      });
+
+      console.log("admin.report.detail officer scope enforced");
+      return {
+        ok: true,
+        code: error.code
+      };
+    }
+
+    throw error;
+  }
+
+  throw new Error("Officer was allowed to view another officer's report detail");
+}
+
+function testAdminReportDetailViewerProjectionMasksPii() {
+  const projection = ReportService_projectAdminDetailReport_({
+    report_id: "REPORT-001",
+    tracking_code: "KPR-260626-A001",
+    request_id: "REQ-SECRET",
+    category_id: "CAT-ROAD",
+    title: "Public title",
+    description: "Public description",
+    incident_date: "2026-06-25",
+    location_name: "Public location",
+    village_no: "3",
+    landmark: "Public landmark",
+    latitude: 8.1,
+    longitude: 98.1,
+    map_url: "https://maps.example.test",
+    is_anonymous: false,
+    reporter_name: "Private Name",
+    reporter_phone: "0812345678",
+    reporter_email: "person@example.com",
+    contact_method: "phone",
+    status: "new",
+    priority_reported: "normal",
+    priority: "high",
+    assigned_to: "USER-001",
+    public_result: "Public result",
+    internal_summary: "Internal summary",
+    rejection_reason: "Internal rejection",
+    source: "web",
+    created_at: "2026-06-26T00:00:00.000Z",
+    updated_at: "2026-06-26T00:00:00.000Z",
+    version: 4,
+    password_hash: "PASSWORD-SECRET",
+    token_hash: "TOKEN-SECRET"
+  }, {
+    "CAT-ROAD": {
+      categoryId: "CAT-ROAD",
+      code: "ROAD",
+      name: "Road",
+      icon: "road",
+      color: "#287444"
+    }
+  }, {
+    "USER-001": {
+      userId: "USER-001",
+      displayName: "Officer One",
+      role: "officer",
+      isActive: true
+    }
+  }, UserService_getPermissions_("viewer"));
+
+  const serialized = JSON.stringify(projection);
+  [
+    "Private Name",
+    "0812345678",
+    "person@example.com",
+    "Internal summary",
+    "Internal rejection",
+    "REQ-SECRET",
+    "PASSWORD-SECRET",
+    "TOKEN-SECRET",
+    "password_hash",
+    "token_hash",
+    "request_id"
+  ].forEach(function (forbidden) {
+    if (serialized.indexOf(forbidden) !== -1) {
+      throw new Error("admin.report.detail viewer projection leaked: " + forbidden);
+    }
+  });
+
+  if (projection.reporter.phone !== "08X-XXX-5678" || projection.internalSummary !== "" || projection.version !== 4) {
+    throw new Error("admin.report.detail viewer projection did not mask expected fields");
+  }
+
+  console.log(JSON.stringify(projection));
+  return {
+    ok: true,
+    projection: projection
+  };
+}
+
+function testAdminReportDetailAdminProjectionCanSeeInternal() {
+  const projection = ReportService_projectAdminDetailReport_({
+    report_id: "REPORT-001",
+    tracking_code: "KPR-260626-A001",
+    category_id: "CAT-ROAD",
+    title: "Public title",
+    description: "Public description",
+    is_anonymous: false,
+    reporter_name: "Private Name",
+    reporter_phone: "0812345678",
+    reporter_email: "person@example.com",
+    contact_method: "phone",
+    internal_summary: "Internal summary",
+    status: "new",
+    priority: "normal",
+    version: 1
+  }, {}, {}, UserService_getPermissions_("admin"));
+
+  if (projection.reporter.name !== "Private Name" ||
+      projection.reporter.phone !== "0812345678" ||
+      projection.internalSummary !== "Internal summary") {
+    throw new Error("admin.report.detail admin projection did not include permitted fields");
+  }
+
+  console.log(JSON.stringify(projection));
+  return {
+    ok: true,
+    projection: projection
+  };
+}
+
+function testAdminReportDetailAttachmentProjectionNoDriveLeak() {
+  const projection = AttachmentService_projectAdmin_({
+    attachment_id: "ATT-001",
+    report_id: "REPORT-001",
+    update_id: "UPD-001",
+    additional_info_id: "",
+    file_id: "DRIVE-SECRET",
+    file_name: "photo.jpg",
+    original_file_name: "original.jpg",
+    mime_type: "image/jpeg",
+    file_size: 100,
+    width: 10,
+    height: 10,
+    file_role: "report",
+    is_public: true,
+    uploaded_by: "public",
+    created_at: "2026-06-26T00:00:00.000Z",
+    drive_folder_id: "FOLDER-SECRET",
+    checksum: "CHECKSUM-SECRET",
+    version: 2
+  });
+  const serialized = JSON.stringify(projection);
+
+  ["DRIVE-SECRET", "FOLDER-SECRET", "CHECKSUM-SECRET", "file_id", "drive_folder_id", "checksum"].forEach(function (forbidden) {
+    if (serialized.indexOf(forbidden) !== -1) {
+      throw new Error("admin.report.detail attachment projection leaked: " + forbidden);
+    }
+  });
+
+  console.log(JSON.stringify(projection));
+  return {
+    ok: true,
+    projection: projection
+  };
+}

@@ -284,3 +284,36 @@ function AttachmentService_projectPublic_(attachment) {
     createdAt: String(attachment.created_at || "")
   };
 }
+
+function AttachmentService_listAdminByReport_(reportId) {
+  return SheetRepository_list_("attachments", {
+    keyColumnName: "attachment_id",
+    page: 1,
+    pageSize: 100
+  }).items.filter(function (attachment) {
+    return String(attachment.report_id || "") === String(reportId || "") &&
+      !Utils_toBoolean_(attachment.is_deleted);
+  }).sort(function (left, right) {
+    return String(left.created_at || "").localeCompare(String(right.created_at || ""));
+  }).map(AttachmentService_projectAdmin_);
+}
+
+function AttachmentService_projectAdmin_(attachment) {
+  return {
+    attachmentId: String(attachment.attachment_id || ""),
+    reportId: String(attachment.report_id || ""),
+    updateId: String(attachment.update_id || ""),
+    additionalInfoId: String(attachment.additional_info_id || ""),
+    fileName: Security_sanitizeText_(attachment.file_name || attachment.original_file_name || ""),
+    originalFileName: Security_sanitizeText_(attachment.original_file_name || ""),
+    mimeType: Security_sanitizeText_(attachment.mime_type || ""),
+    fileSize: Number(attachment.file_size || 0),
+    width: Number(attachment.width || 0),
+    height: Number(attachment.height || 0),
+    fileRole: Security_sanitizeText_(attachment.file_role || ""),
+    isPublic: Utils_toBoolean_(attachment.is_public),
+    uploadedBy: Security_sanitizeText_(attachment.uploaded_by || ""),
+    createdAt: String(attachment.created_at || ""),
+    version: Number(attachment.version || 0)
+  };
+}

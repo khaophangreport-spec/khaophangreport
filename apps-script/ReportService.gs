@@ -12,6 +12,55 @@ const REPORT_ADD_INFO_RATE_LIMIT_ = Object.freeze({
   limit: 10,
   windowSeconds: 10 * 60
 });
+const REPORT_ADMIN_LIST_COLUMNS_ = Object.freeze([
+  "report_id",
+  "tracking_code",
+  "category_id",
+  "title",
+  "incident_date",
+  "location_name",
+  "village_no",
+  "landmark",
+  "priority_reported",
+  "priority",
+  "status",
+  "assigned_to",
+  "target_due_at",
+  "created_at",
+  "updated_at",
+  "resolved_at",
+  "closed_at",
+  "version",
+  "search_text",
+  "is_deleted"
+]);
+const REPORT_ADMIN_LIST_SORT_COLUMNS_ = Object.freeze({
+  created_at: "created_at",
+  updated_at: "updated_at",
+  priority: "priority",
+  status: "status",
+  target_due_at: "target_due_at"
+});
+const REPORT_ADMIN_LIST_STATUS_VALUES_ = Object.freeze([
+  "new",
+  "reviewing",
+  "accepted",
+  "assigned",
+  "in_progress",
+  "waiting",
+  "waiting_info",
+  "resolved",
+  "closed",
+  "rejected",
+  "duplicate"
+]);
+const REPORT_ADMIN_CLOSED_STATUS_VALUES_ = Object.freeze(["resolved", "closed", "rejected", "duplicate"]);
+const REPORT_ADMIN_PRIORITY_ORDER_ = Object.freeze({
+  low: 1,
+  normal: 2,
+  high: 3,
+  critical: 4
+});
 
 function ReportService_create(request) {
   const lock = LockService.getScriptLock();
@@ -178,6 +227,703 @@ function ReportService_addInfo(request) {
   } finally {
     lock.releaseLock();
   }
+}
+
+function ReportService_listAdmin(request) {
+  const context = ReportService_requireAdminListContext_(request);
+  const query = ReportService_normalizeAdminListQuery_(request && request.data, context);
+  const reports = ReportService_readAdminListRows_();
+  const categories = ReportService_readAdminListCategories_();
+  const users = ReportService_readAdminListUsers_();
+  const categoryMap = ReportService_buildAdminCategoryMap_(categories);
+  const userMap = ReportService_buildAdminUserMap_(users);
+  const now = new Date();
+  const filteredReports = ReportService_filterAdminReports_(reports, query, context);
+  const sortedReports = ReportService_sortAdminReports_(filteredReports, query.sortBy, query.sortDirection);
+  const page = SheetRepository_paginate_(sortedReports, query.page, query.pageSize);
+
+  return {
+    data: {
+      items: page.items.map(function (report) {
+        return ReportService_projectAdminListReport_(report, categoryMap, userMap, now);
+      }),
+      pagination: page.pagination,
+      filters: {
+        page: query.page,
+        pageSize: query.pageSize,
+        keyword: query.keyword,
+        status: query.status,
+        categoryId: query.categoryId,
+        priority: query.priority,
+        assigneeId: query.assigneeId,
+        dateFrom: query.dateFrom,
+        dateTo: query.dateTo,
+        scope: query.scope,
+        sortBy: query.sortBy,
+        sortDirection: query.sortDirection
+      },
+      permissions: ReportService_buildAdminListPermissions_(context.permissions)
+    },
+    message: "โหลดรายการเรื่องแจ้งสำเร็จ"
+  };
+}
+
+function ReportService_detailAdmin(request) {
+  const context = ReportService_requireAdminListContext_(request);
+  const data = request && Utils_isPlainObject_(request.data) ? request.data : {};
+  const reportId = Utils_normalizeString_(data.reportId);
+
+  if (!reportId) {
+    throw ApiError_("VALIDATION_ERROR", "กรุณาระบุเรื่องที่ต้องการดู", {
+      reportId: "จำเป็นสำหรับการดูรายละเอียดเรื่องแจ้ง"
+    });
+  }
+
+  const report = SheetRepository_findById_("reports", "report_id", reportId, {
+    keyColumnName: "report_id"
+  });
+
+  if (!report || Utils_toBoolean_(report.is_deleted)) {
+    throw ApiError_("NOT_FOUND", "ไม่พบเรื่องแจ้งนี้");
+  }
+
+  ReportService_assertAdminReportAccess_(report, context);
+
+  const categoryMap = ReportService_buildAdminCategoryMap_(ReportService_readAdminListCategories_());
+  const userMap = ReportService_buildAdminUserMap_(ReportService_readAdminListUsers_());
+  const permissions = ReportService_buildAdminDetailPermissions_(context.permissions);
+  const attachments = AttachmentService_listAdminByReport_(report.report_id);
+  const timeline = ReportService_listAdminTimeline_(report.report_id, attachments, context.permissions);
+  const assignments = AssignmentService_listByReport_(report.report_id, userMap, context.permissions);
+  const additionalInfo = ReportService_listAdminAdditionalInfo_(report.report_id, attachments, context.permissions);
+
+  return {
+    data: {
+      report: ReportService_projectAdminDetailReport_(report, categoryMap, userMap, context.permissions),
+      timeline: timeline,
+      attachments: attachments,
+      assignments: assignments,
+      additionalInfo: additionalInfo,
+      permissions: permissions
+    },
+    message: "โหลดรายละเอียดเรื่องสำเร็จ"
+  };
+}
+
+function ReportService_requireAdminListContext_(request) {
+  const sessionContext = SessionService_require_(request && request.sessionToken, {
+    requestId: request && request.requestId
+  });
+  const user = sessionContext.user;
+  const permissions = UserService_getPermissions_(user.role);
+
+  ReportService_assertPermission_(permissions, "report.read", "ไม่มีสิทธิ์ดูรายการเรื่องแจ้ง");
+
+  return {
+    user: user,
+    permissions: permissions
+  };
+}
+
+function ReportService_hasPermission_(permissions, permission) {
+  const safePermissions = permissions || [];
+
+  return safePermissions.indexOf("admin.full") !== -1 || safePermissions.indexOf(permission) !== -1;
+}
+
+function ReportService_assertPermission_(permissions, permission, message) {
+  if (!ReportService_hasPermission_(permissions, permission)) {
+    throw ApiError_("FORBIDDEN", message || "ไม่มีสิทธิ์ดำเนินการ");
+  }
+}
+
+function ReportService_assertAdminReportAccess_(report, context) {
+  const user = context && context.user ? context.user : {};
+  const role = Utils_normalizeString_(user.role).toLowerCase();
+
+  if (role === "officer" &&
+      !ReportService_hasPermission_(context.permissions, "admin.full") &&
+      String(report.assigned_to || "") !== String(user.user_id || "")) {
+    throw ApiError_("FORBIDDEN", "ไม่มีสิทธิ์ดูรายละเอียดเรื่องนี้");
+  }
+}
+
+function ReportService_canViewReporterPii_(permissions) {
+  return ReportService_hasPermission_(permissions, "report.view_pii") ||
+    ReportService_hasPermission_(permissions, "report.update") ||
+    ReportService_hasPermission_(permissions, "report.assign");
+}
+
+function ReportService_canViewInternalNotes_(permissions) {
+  return ReportService_hasPermission_(permissions, "report.view_internal_notes") ||
+    ReportService_hasPermission_(permissions, "report.update") ||
+    ReportService_hasPermission_(permissions, "report.assign");
+}
+
+function ReportService_normalizeAdminListQuery_(data, context) {
+  const safeData = Utils_isPlainObject_(data) ? data : {};
+  const fields = {};
+  const role = Utils_normalizeString_(context && context.user ? context.user.role : "").toLowerCase();
+  let scope = Utils_normalizeString_(safeData.scope || (role === "officer" ? "mine" : "global")).toLowerCase();
+  let sortBy = Utils_normalizeString_(safeData.sortBy || "created_at").toLowerCase();
+  const sortDirection = Utils_normalizeString_(safeData.sortDirection || "desc").toLowerCase() === "asc" ? "asc" : "desc";
+  const status = Utils_normalizeString_(safeData.status).toLowerCase();
+  const priority = Utils_normalizeString_(safeData.priority).toLowerCase();
+  const keyword = Security_sanitizeUserText_(safeData.keyword, 120).toLowerCase();
+
+  if (scope !== "global" && scope !== "mine") {
+    fields.scope = "รองรับเฉพาะ global หรือ mine";
+  }
+
+  if (role === "officer" && scope === "global" && !ReportService_hasPermission_(context.permissions, "admin.full")) {
+    scope = "mine";
+  }
+
+  if (!REPORT_ADMIN_LIST_SORT_COLUMNS_[sortBy]) {
+    fields.sortBy = "Sort field ไม่อยู่ในรายการที่อนุญาต";
+    sortBy = "created_at";
+  }
+
+  if (status && REPORT_ADMIN_LIST_STATUS_VALUES_.indexOf(status) === -1) {
+    fields.status = "สถานะไม่ถูกต้อง";
+  }
+
+  if (priority && REPORT_PRIORITY_VALUES_.indexOf(priority) === -1) {
+    fields.priority = "ระดับความสำคัญไม่ถูกต้อง";
+  }
+
+  ReportService_validateAdminDateRange_(safeData.dateFrom, safeData.dateTo, fields);
+
+  if (Object.keys(fields).length > 0) {
+    throw ApiError_("VALIDATION_ERROR", "กรุณาตรวจสอบตัวกรอง", fields);
+  }
+
+  return {
+    page: Utils_clampInteger_(safeData.page, 1, 1, 1000000),
+    pageSize: Utils_clampInteger_(safeData.pageSize, 20, 1, 100),
+    keyword: keyword,
+    status: status,
+    categoryId: Utils_normalizeString_(safeData.categoryId),
+    priority: priority,
+    assigneeId: Utils_normalizeString_(safeData.assigneeId),
+    dateFrom: Utils_normalizeString_(safeData.dateFrom),
+    dateTo: Utils_normalizeString_(safeData.dateTo),
+    scope: scope,
+    sortBy: sortBy,
+    sortDirection: sortDirection
+  };
+}
+
+function ReportService_validateAdminDateRange_(dateFrom, dateTo, fields) {
+  const fromText = Utils_normalizeString_(dateFrom);
+  const toText = Utils_normalizeString_(dateTo);
+
+  if (fromText && !/^\d{4}-\d{2}-\d{2}$/.test(fromText)) {
+    fields.dateFrom = "รูปแบบวันที่เริ่มต้นไม่ถูกต้อง";
+  }
+
+  if (toText && !/^\d{4}-\d{2}-\d{2}$/.test(toText)) {
+    fields.dateTo = "รูปแบบวันที่สิ้นสุดไม่ถูกต้อง";
+  }
+
+  if (fromText && toText && !fields.dateFrom && !fields.dateTo && fromText > toText) {
+    fields.dateTo = "วันที่สิ้นสุดต้องไม่ก่อนวันที่เริ่มต้น";
+  }
+}
+
+function ReportService_readAdminListRows_() {
+  return SheetRepository_selectColumns_("reports", REPORT_ADMIN_LIST_COLUMNS_, {
+    keyColumnName: "report_id"
+  }).objects;
+}
+
+function ReportService_readAdminListCategories_() {
+  return SheetRepository_selectColumns_("categories", [
+    "category_id",
+    "code",
+    "name",
+    "icon",
+    "color",
+    "is_deleted"
+  ], {
+    keyColumnName: "category_id"
+  }).objects;
+}
+
+function ReportService_readAdminListUsers_() {
+  return SheetRepository_selectColumns_("users", [
+    "user_id",
+    "display_name",
+    "role",
+    "status",
+    "is_deleted"
+  ], {
+    keyColumnName: "user_id"
+  }).objects;
+}
+
+function ReportService_filterAdminReports_(reports, query, context) {
+  const safeQuery = query || {};
+  const userId = String(context && context.user ? context.user.user_id : "");
+  const keyword = Utils_normalizeString_(safeQuery.keyword).toLowerCase();
+
+  return (reports || []).filter(function (report) {
+    if (Utils_toBoolean_(report.is_deleted)) {
+      return false;
+    }
+
+    if (safeQuery.scope === "mine" && String(report.assigned_to || "") !== userId) {
+      return false;
+    }
+
+    if (safeQuery.status && Utils_normalizeString_(report.status).toLowerCase() !== safeQuery.status) {
+      return false;
+    }
+
+    if (safeQuery.categoryId && String(report.category_id || "") !== String(safeQuery.categoryId)) {
+      return false;
+    }
+
+    if (safeQuery.priority && Utils_normalizeString_(report.priority).toLowerCase() !== safeQuery.priority) {
+      return false;
+    }
+
+    if (safeQuery.assigneeId && String(report.assigned_to || "") !== String(safeQuery.assigneeId)) {
+      return false;
+    }
+
+    if (!ReportService_isAdminReportInDateRange_(report, safeQuery.dateFrom, safeQuery.dateTo)) {
+      return false;
+    }
+
+    if (keyword && !ReportService_adminReportMatchesKeyword_(report, keyword)) {
+      return false;
+    }
+
+    return true;
+  });
+}
+
+function ReportService_adminReportMatchesKeyword_(report, keyword) {
+  const haystack = [
+    report.search_text,
+    report.tracking_code,
+    report.title,
+    report.location_name,
+    report.landmark,
+    report.village_no
+  ].map(function (value) {
+    return Utils_normalizeString_(value).toLowerCase();
+  }).join(" ");
+
+  return haystack.indexOf(keyword) !== -1;
+}
+
+function ReportService_isAdminReportInDateRange_(report, dateFrom, dateTo) {
+  const createdAt = Utils_normalizeString_(report && report.created_at);
+  const createdDate = createdAt ? createdAt.slice(0, 10) : "";
+
+  if (dateFrom && (!createdDate || createdDate < dateFrom)) {
+    return false;
+  }
+
+  if (dateTo && (!createdDate || createdDate > dateTo)) {
+    return false;
+  }
+
+  return true;
+}
+
+function ReportService_sortAdminReports_(reports, sortBy, sortDirection) {
+  const columnName = REPORT_ADMIN_LIST_SORT_COLUMNS_[sortBy] || "created_at";
+  const direction = sortDirection === "asc" ? 1 : -1;
+
+  return (reports || []).slice().sort(function (left, right) {
+    const leftRaw = Utils_normalizeString_(left[columnName]);
+    const rightRaw = Utils_normalizeString_(right[columnName]);
+
+    if (!leftRaw && rightRaw) {
+      return 1;
+    }
+
+    if (leftRaw && !rightRaw) {
+      return -1;
+    }
+
+    const compared = ReportService_compareAdminListValues_(left[columnName], right[columnName], columnName);
+
+    if (compared !== 0) {
+      return compared * direction;
+    }
+
+    return ReportService_compareAdminListValues_(left.created_at, right.created_at, "created_at") * -1;
+  });
+}
+
+function ReportService_compareAdminListValues_(leftValue, rightValue, columnName) {
+  if (columnName === "priority") {
+    return Number(REPORT_ADMIN_PRIORITY_ORDER_[Utils_normalizeString_(leftValue).toLowerCase()] || 0) -
+      Number(REPORT_ADMIN_PRIORITY_ORDER_[Utils_normalizeString_(rightValue).toLowerCase()] || 0);
+  }
+
+  const left = Utils_normalizeString_(leftValue);
+  const right = Utils_normalizeString_(rightValue);
+
+  if (!left && right) {
+    return 1;
+  }
+
+  if (left && !right) {
+    return -1;
+  }
+
+  if (left === right) {
+    return 0;
+  }
+
+  return left > right ? 1 : -1;
+}
+
+function ReportService_buildAdminCategoryMap_(categories) {
+  const map = {};
+
+  (categories || []).forEach(function (category) {
+    map[String(category.category_id || "")] = {
+      categoryId: String(category.category_id || ""),
+      code: Security_sanitizeText_(category.code || ""),
+      name: Security_sanitizeText_(category.name || ""),
+      icon: Security_sanitizeText_(category.icon || "circle"),
+      color: CategoryService_normalizeColor_(category.color || "#287444")
+    };
+  });
+
+  return map;
+}
+
+function ReportService_buildAdminUserMap_(users) {
+  const map = {};
+
+  (users || []).forEach(function (user) {
+    if (Utils_toBoolean_(user.is_deleted)) {
+      return;
+    }
+
+    map[String(user.user_id || "")] = {
+      userId: String(user.user_id || ""),
+      displayName: Security_sanitizeText_(user.display_name || ""),
+      role: Security_sanitizeText_(user.role || ""),
+      isActive: UserService_isActive_(user)
+    };
+  });
+
+  return map;
+}
+
+function ReportService_projectAdminListReport_(report, categoryMap, userMap, now) {
+  const assignedUserId = String(report.assigned_to || "");
+  const assignee = assignedUserId && userMap && userMap[assignedUserId] ? userMap[assignedUserId] : null;
+  const createdAt = String(report.created_at || "");
+
+  return {
+    reportId: String(report.report_id || ""),
+    trackingCode: String(report.tracking_code || ""),
+    category: ReportService_projectAdminCategory_(report.category_id, categoryMap),
+    title: Security_sanitizeText_(report.title || ""),
+    incidentDate: String(report.incident_date || ""),
+    locationName: Security_sanitizeText_(report.location_name || ""),
+    villageNo: Security_sanitizeText_(report.village_no || ""),
+    priorityReported: Security_sanitizeText_(report.priority_reported || ""),
+    priority: Security_sanitizeText_(report.priority || ""),
+    status: Security_sanitizeText_(report.status || ""),
+    assigneeId: assignedUserId,
+    assigneeName: assignee ? assignee.displayName : "",
+    targetDueAt: String(report.target_due_at || ""),
+    createdAt: createdAt,
+    updatedAt: String(report.updated_at || ""),
+    version: Number(report.version || 0),
+    isOverdue: ReportService_isReportOverdue_(report, now),
+    ageHours: ReportService_calculateAgeHours_(createdAt, now)
+  };
+}
+
+function ReportService_projectAdminCategory_(categoryId, categoryMap) {
+  const id = String(categoryId || "");
+  const category = categoryMap && categoryMap[id] ? categoryMap[id] : null;
+
+  return category || {
+    categoryId: id,
+    code: "",
+    name: "",
+    icon: "circle",
+    color: "#287444"
+  };
+}
+
+function ReportService_isReportOverdue_(report, now) {
+  const status = Utils_normalizeString_(report && report.status).toLowerCase();
+  const dueAt = report && report.target_due_at ? new Date(report.target_due_at) : null;
+  const nowDate = now || new Date();
+
+  if (!dueAt || isNaN(dueAt.getTime())) {
+    return false;
+  }
+
+  if (REPORT_ADMIN_CLOSED_STATUS_VALUES_.indexOf(status) !== -1) {
+    return false;
+  }
+
+  return dueAt.getTime() < nowDate.getTime();
+}
+
+function ReportService_calculateAgeHours_(createdAt, now) {
+  const createdDate = createdAt ? new Date(createdAt) : null;
+  const nowDate = now || new Date();
+
+  if (!createdDate || isNaN(createdDate.getTime())) {
+    return 0;
+  }
+
+  const hours = (nowDate.getTime() - createdDate.getTime()) / (60 * 60 * 1000);
+
+  return Math.max(Math.round(hours * 100) / 100, 0);
+}
+
+function ReportService_buildAdminListPermissions_(permissions) {
+  return {
+    canRead: ReportService_hasPermission_(permissions, "report.read"),
+    canUpdate: ReportService_hasPermission_(permissions, "report.update"),
+    canAssign: ReportService_hasPermission_(permissions, "report.assign")
+  };
+}
+
+function ReportService_buildAdminDetailPermissions_(permissions) {
+  return {
+    canRead: ReportService_hasPermission_(permissions, "report.read"),
+    canUpdate: ReportService_hasPermission_(permissions, "report.update"),
+    canAssign: ReportService_hasPermission_(permissions, "report.assign"),
+    canViewReporterPii: ReportService_canViewReporterPii_(permissions),
+    canViewInternalNotes: ReportService_canViewInternalNotes_(permissions)
+  };
+}
+
+function ReportService_projectAdminDetailReport_(report, categoryMap, userMap, permissions) {
+  const assignedUserId = String(report.assigned_to || "");
+  const assignee = assignedUserId && userMap && userMap[assignedUserId] ? userMap[assignedUserId] : null;
+  const canViewReporterPii = ReportService_canViewReporterPii_(permissions);
+  const canViewInternal = ReportService_canViewInternalNotes_(permissions);
+
+  return {
+    reportId: String(report.report_id || ""),
+    trackingCode: String(report.tracking_code || ""),
+    categoryId: String(report.category_id || ""),
+    category: ReportService_projectAdminCategory_(report.category_id, categoryMap),
+    title: Security_sanitizeText_(report.title || ""),
+    description: Security_sanitizeText_(report.description || ""),
+    incidentDate: String(report.incident_date || ""),
+    location: {
+      name: Security_sanitizeText_(report.location_name || ""),
+      villageNo: Security_sanitizeText_(report.village_no || ""),
+      landmark: Security_sanitizeText_(report.landmark || ""),
+      latitude: ReportService_toOptionalNumber_(report.latitude),
+      longitude: ReportService_toOptionalNumber_(report.longitude),
+      mapUrl: Security_sanitizeText_(report.map_url || "")
+    },
+    reporter: ReportService_projectAdminReporter_(report, canViewReporterPii),
+    status: Security_sanitizeText_(report.status || ""),
+    priorityReported: Security_sanitizeText_(report.priority_reported || ""),
+    priority: Security_sanitizeText_(report.priority || ""),
+    assignedTo: assignedUserId,
+    assigneeName: assignee ? assignee.displayName : "",
+    targetDueAt: String(report.target_due_at || ""),
+    publicResult: Security_sanitizeText_(report.public_result || ""),
+    internalSummary: canViewInternal ? Security_sanitizeText_(report.internal_summary || "") : "",
+    resolvedAt: String(report.resolved_at || ""),
+    closedAt: String(report.closed_at || ""),
+    rejectedAt: String(report.rejected_at || ""),
+    rejectionReason: canViewInternal ? Security_sanitizeText_(report.rejection_reason || "") : "",
+    duplicateOfReportId: String(report.duplicate_of_report_id || ""),
+    source: Security_sanitizeText_(report.source || ""),
+    createdAt: String(report.created_at || ""),
+    updatedAt: String(report.updated_at || ""),
+    version: Number(report.version || 0)
+  };
+}
+
+function ReportService_projectAdminReporter_(report, canViewReporterPii) {
+  const isAnonymous = Utils_toBoolean_(report.is_anonymous);
+  const name = Security_sanitizeText_(report.reporter_name || "");
+  const phone = Utils_normalizeString_(report.reporter_phone);
+  const email = Utils_normalizeString_(report.reporter_email);
+
+  if (isAnonymous) {
+    return {
+      isAnonymous: true,
+      name: "",
+      phone: "",
+      email: "",
+      contactMethod: "none"
+    };
+  }
+
+  if (!canViewReporterPii) {
+    return {
+      isAnonymous: false,
+      name: ReportService_maskName_(name),
+      phone: ReportService_maskPhone_(phone),
+      email: ReportService_maskEmail_(email),
+      contactMethod: Security_sanitizeText_(report.contact_method || "")
+    };
+  }
+
+  return {
+    isAnonymous: false,
+    name: name,
+    phone: Security_sanitizeText_(phone),
+    email: Security_sanitizeText_(email),
+    contactMethod: Security_sanitizeText_(report.contact_method || "")
+  };
+}
+
+function ReportService_listAdminTimeline_(reportId, attachments, permissions) {
+  const canViewInternal = ReportService_canViewInternalNotes_(permissions);
+  const attachmentsByUpdateId = {};
+
+  (attachments || []).forEach(function (attachment) {
+    const updateId = String(attachment.updateId || "");
+    if (!updateId) {
+      return;
+    }
+
+    if (!attachmentsByUpdateId[updateId]) {
+      attachmentsByUpdateId[updateId] = [];
+    }
+
+    attachmentsByUpdateId[updateId].push(attachment);
+  });
+
+  return SheetRepository_list_("report_updates", {
+    keyColumnName: "update_id",
+    page: 1,
+    pageSize: 100
+  }).items.filter(function (update) {
+    return String(update.report_id || "") === String(reportId || "") &&
+      !Utils_toBoolean_(update.is_deleted);
+  }).sort(function (left, right) {
+    return String(left.created_at || "").localeCompare(String(right.created_at || ""));
+  }).map(function (update) {
+    const updateId = String(update.update_id || "");
+
+    return {
+      updateId: updateId,
+      reportId: String(update.report_id || ""),
+      type: Security_sanitizeText_(update.update_type || ""),
+      oldStatus: Security_sanitizeText_(update.old_status || ""),
+      newStatus: Security_sanitizeText_(update.new_status || ""),
+      publicMessage: Security_sanitizeText_(update.public_message || ""),
+      internalNote: canViewInternal ? Security_sanitizeText_(update.internal_note || "") : "",
+      isPublic: Utils_toBoolean_(update.is_public),
+      updatedBy: canViewInternal ? Security_sanitizeText_(update.updated_by || "") : "",
+      updatedByName: Security_sanitizeText_(update.updated_by_name_snapshot || ""),
+      updatedByRole: Security_sanitizeText_(update.updated_by_role_snapshot || ""),
+      createdAt: String(update.created_at || ""),
+      attachments: attachmentsByUpdateId[updateId] || [],
+      version: Number(update.version || 0)
+    };
+  });
+}
+
+function ReportService_listAdminAdditionalInfo_(reportId, attachments, permissions) {
+  const canViewReporterPii = ReportService_canViewReporterPii_(permissions);
+  const canViewInternal = ReportService_canViewInternalNotes_(permissions);
+  const attachmentsByAdditionalInfoId = {};
+
+  (attachments || []).forEach(function (attachment) {
+    const additionalInfoId = String(attachment.additionalInfoId || "");
+    if (!additionalInfoId) {
+      return;
+    }
+
+    if (!attachmentsByAdditionalInfoId[additionalInfoId]) {
+      attachmentsByAdditionalInfoId[additionalInfoId] = [];
+    }
+
+    attachmentsByAdditionalInfoId[additionalInfoId].push(attachment);
+  });
+
+  return SheetRepository_list_("report_additional_info", {
+    keyColumnName: "additional_info_id",
+    page: 1,
+    pageSize: 100
+  }).items.filter(function (info) {
+    return String(info.report_id || "") === String(reportId || "") &&
+      !Utils_toBoolean_(info.is_deleted);
+  }).sort(function (left, right) {
+    return String(left.created_at || "").localeCompare(String(right.created_at || ""));
+  }).map(function (info) {
+    const additionalInfoId = String(info.additional_info_id || "");
+    const contactName = Security_sanitizeText_(info.contact_name || "");
+    const contactPhone = Utils_normalizeString_(info.contact_phone);
+
+    return {
+      additionalInfoId: additionalInfoId,
+      reportId: String(info.report_id || ""),
+      message: Security_sanitizeText_(info.message || ""),
+      contactName: canViewReporterPii ? contactName : ReportService_maskName_(contactName),
+      contactPhone: canViewReporterPii ? Security_sanitizeText_(contactPhone) : ReportService_maskPhone_(contactPhone),
+      isPublic: Utils_toBoolean_(info.is_public),
+      reviewStatus: Security_sanitizeText_(info.review_status || ""),
+      reviewedBy: canViewInternal ? Security_sanitizeText_(info.reviewed_by || "") : "",
+      reviewedAt: String(info.reviewed_at || ""),
+      createdAt: String(info.created_at || ""),
+      attachments: attachmentsByAdditionalInfoId[additionalInfoId] || [],
+      version: Number(info.version || 0)
+    };
+  });
+}
+
+function ReportService_toOptionalNumber_(value) {
+  if (value === "" || value === null || value === undefined) {
+    return "";
+  }
+
+  const numberValue = Number(value);
+
+  return isFinite(numberValue) ? numberValue : "";
+}
+
+function ReportService_maskName_(value) {
+  const text = Utils_normalizeString_(value);
+
+  return text ? "ปกปิดข้อมูลผู้แจ้ง" : "";
+}
+
+function ReportService_maskPhone_(value) {
+  const digits = Utils_normalizeString_(value).replace(/\D/g, "");
+
+  if (!digits) {
+    return "";
+  }
+
+  if (digits.length < 6) {
+    return "***";
+  }
+
+  return digits.slice(0, 2) + "X-XXX-" + digits.slice(-4);
+}
+
+function ReportService_maskEmail_(value) {
+  const email = Utils_normalizeString_(value);
+  const atIndex = email.indexOf("@");
+
+  if (!email) {
+    return "";
+  }
+
+  if (atIndex <= 0) {
+    return "***";
+  }
+
+  return email.charAt(0) + "***" + email.slice(atIndex);
 }
 
 function ReportService_validateCreateRequest_(request) {

@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Dashboard ผู้ดูแลระบบ Khaophang Report" />
-    <title>Dashboard | Khaophang Report Admin</title>
+    <meta name="description" content="แดชบอร์ดผู้ดูแลระบบ Khaophang Report" />
+    <title>แดชบอร์ด | Khaophang Report Admin</title>
     <link rel="stylesheet" href="../assets/css/variables.css" />
     <link rel="stylesheet" href="../assets/css/reset.css" />
     <link rel="stylesheet" href="../assets/css/base.css" />
@@ -19,7 +19,7 @@
   </head>
   <body class="admin-app-page admin-auth-pending" data-admin-guard="required" data-admin-page="dashboard">
     <header class="admin-mobile-topbar">
-      <a class="admin-brand" href="dashboard.html" aria-label="ไปหน้า Dashboard">
+      <a class="admin-brand" href="dashboard.html" aria-label="ไปหน้าแดชบอร์ด">
         <span class="admin-logo" aria-hidden="true">KR</span>
         <span>Khaophang Admin</span>
       </a>
@@ -28,6 +28,7 @@
         <span class="sr-only">เปิดเมนูผู้ดูแลระบบ</span>
       </button>
     </header>
+
     <button class="admin-drawer-overlay" type="button" data-admin-drawer-close aria-label="ปิดเมนู" hidden></button>
     <aside class="admin-drawer" id="admin-drawer" aria-labelledby="admin-drawer-title" hidden>
       <div class="admin-drawer__header">
@@ -37,9 +38,9 @@
           <span class="sr-only">ปิดเมนูผู้ดูแลระบบ</span>
         </button>
       </div>
-      <p class="admin-user-summary">ผู้ใช้งาน: ยังไม่เชื่อม Session จริง</p>
+      <p class="admin-user-summary">ผู้ใช้งาน: กำลังตรวจสอบ Session</p>
       <nav class="admin-menu" aria-label="เมนูผู้ดูแลระบบบนมือถือ">
-        <a href="dashboard.html" data-menu-key="dashboard" aria-current="page">Dashboard</a>
+        <a href="dashboard.html" data-menu-key="dashboard" aria-current="page">แดชบอร์ด</a>
         <a href="reports.html" data-menu-key="reports">เรื่องแจ้ง</a>
         <a href="reports.html?scope=assigned" data-menu-key="assigned">งานของฉัน</a>
         <a href="export.html" data-menu-key="export">รายงาน</a>
@@ -51,15 +52,16 @@
         <button type="button" class="admin-menu__button" data-admin-logout>ออกจากระบบ</button>
       </nav>
     </aside>
+
     <div class="admin-app">
       <aside class="admin-sidebar" aria-label="เมนูผู้ดูแลระบบ">
-        <a class="admin-brand" href="dashboard.html" aria-label="ไปหน้า Dashboard">
+        <a class="admin-brand" href="dashboard.html" aria-label="ไปหน้าแดชบอร์ด">
           <span class="admin-logo" aria-hidden="true">KR</span>
           <span>Khaophang Admin</span>
         </a>
-        <p class="admin-user-summary">ผู้ใช้งาน: ยังไม่เชื่อม Session จริง</p>
+        <p class="admin-user-summary">ผู้ใช้งาน: กำลังตรวจสอบ Session</p>
         <nav class="admin-menu">
-          <a href="dashboard.html" data-menu-key="dashboard" aria-current="page">Dashboard</a>
+          <a href="dashboard.html" data-menu-key="dashboard" aria-current="page">แดชบอร์ด</a>
           <a href="reports.html" data-menu-key="reports">เรื่องแจ้ง</a>
           <a href="reports.html?scope=assigned" data-menu-key="assigned">งานของฉัน</a>
           <a href="export.html" data-menu-key="export">รายงาน</a>
@@ -71,11 +73,132 @@
           <button type="button" class="admin-menu__button" data-admin-logout>ออกจากระบบ</button>
         </nav>
       </aside>
+
       <main class="admin-shell">
-        <section class="admin-panel" aria-labelledby="page-title">
-          <p class="eyebrow">ภาพรวมระบบ</p>
-          <h1 id="page-title">Dashboard</h1>
-          <p class="placeholder-text">พื้นที่ตั้งต้นสำหรับข้อมูลสรุป</p>
+        <section class="dashboard-page" aria-labelledby="page-title">
+          <div class="dashboard-hero">
+            <div>
+              <p class="eyebrow">ภาพรวมการดูแลชุมชน</p>
+              <h1 id="page-title">สวัสดี <span data-dashboard-user-name>ผู้ดูแลระบบ</span></h1>
+              <p class="dashboard-hero__text" data-dashboard-scope-text>กำลังโหลดข้อมูลสรุปตามสิทธิ์ของคุณ</p>
+            </div>
+            <div class="dashboard-hero__meta">
+              <span>อัปเดตล่าสุด</span>
+              <strong data-dashboard-updated-at>-</strong>
+              <div class="dashboard-scope" role="group" aria-label="ขอบเขตข้อมูลแดชบอร์ด">
+                <button class="dashboard-scope__button" type="button" data-dashboard-scope="mine">งานของฉัน</button>
+                <button class="dashboard-scope__button" type="button" data-dashboard-scope="global">ทั้งหมด</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="dashboard-state dashboard-state--loading" data-dashboard-loading role="status" aria-live="polite">
+            <div class="dashboard-skeleton dashboard-skeleton--wide"></div>
+            <div class="dashboard-skeleton-grid">
+              <span class="dashboard-skeleton"></span>
+              <span class="dashboard-skeleton"></span>
+              <span class="dashboard-skeleton"></span>
+              <span class="dashboard-skeleton"></span>
+            </div>
+            <div class="dashboard-skeleton dashboard-skeleton--tall"></div>
+          </div>
+
+          <div class="dashboard-state dashboard-state--error" data-dashboard-error hidden role="alert">
+            <h2>โหลดแดชบอร์ดไม่สำเร็จ</h2>
+            <p data-dashboard-error-message>กรุณาลองใหม่อีกครั้ง</p>
+            <button class="button button-primary" type="button" data-dashboard-retry>ลองใหม่</button>
+          </div>
+
+          <div class="dashboard-state dashboard-state--empty" data-dashboard-empty hidden>
+            <h2>ยังไม่มีข้อมูลสำหรับแสดงผล</h2>
+            <p>เมื่อมีเรื่องแจ้งในระบบ ข้อมูลสรุปและกราฟจะปรากฏที่นี่</p>
+          </div>
+
+          <div class="dashboard-content" data-dashboard-content hidden>
+            <section class="dashboard-section" aria-labelledby="summary-title">
+              <div class="dashboard-section__header">
+                <div>
+                  <p class="eyebrow">สรุป</p>
+                  <h2 id="summary-title">ตัวเลขสำคัญ</h2>
+                </div>
+              </div>
+              <div class="dashboard-card-grid" data-dashboard-cards></div>
+            </section>
+
+            <section class="dashboard-highlight-grid" aria-label="งานที่ต้องติดตาม">
+              <article class="dashboard-alert dashboard-alert--urgent">
+                <div>
+                  <p class="eyebrow">เร่งด่วน</p>
+                  <h2>งานเร่งด่วน</h2>
+                </div>
+                <strong data-dashboard-urgent-count>0</strong>
+                <p data-dashboard-urgent-text>ไม่มีงานเร่งด่วนในตอนนี้</p>
+              </article>
+              <article class="dashboard-alert dashboard-alert--overdue">
+                <div>
+                  <p class="eyebrow">เกินกำหนด</p>
+                  <h2>เกินกำหนด</h2>
+                </div>
+                <strong data-dashboard-overdue-count>0</strong>
+                <p data-dashboard-overdue-text>ไม่มีเรื่องเกินกำหนด</p>
+              </article>
+            </section>
+
+            <section class="dashboard-grid-two">
+              <article class="dashboard-chart-card" aria-labelledby="status-chart-title">
+                <div class="dashboard-section__header">
+                  <div>
+                    <p class="eyebrow">สถานะ</p>
+                    <h2 id="status-chart-title">สถานะเรื่องแจ้ง</h2>
+                  </div>
+                </div>
+                <div class="dashboard-bars" data-dashboard-status-chart></div>
+              </article>
+
+              <article class="dashboard-chart-card" aria-labelledby="category-chart-title">
+                <div class="dashboard-section__header">
+                  <div>
+                    <p class="eyebrow">หมวดหมู่</p>
+                    <h2 id="category-chart-title">หมวดที่พบมาก</h2>
+                  </div>
+                </div>
+                <div class="dashboard-bars" data-dashboard-category-chart></div>
+              </article>
+            </section>
+
+            <section class="dashboard-grid-two">
+              <article class="dashboard-chart-card" aria-labelledby="month-chart-title">
+                <div class="dashboard-section__header">
+                  <div>
+                    <p class="eyebrow">รายเดือน</p>
+                    <h2 id="month-chart-title">แนวโน้มรายเดือน</h2>
+                  </div>
+                </div>
+                <div class="dashboard-month-chart" data-dashboard-month-chart></div>
+              </article>
+
+              <article class="dashboard-chart-card" aria-labelledby="village-chart-title">
+                <div class="dashboard-section__header">
+                  <div>
+                    <p class="eyebrow">พื้นที่</p>
+                    <h2 id="village-chart-title">พื้นที่ที่มีเรื่องแจ้ง</h2>
+                  </div>
+                </div>
+                <div class="dashboard-bars" data-dashboard-village-chart></div>
+              </article>
+            </section>
+
+            <section class="dashboard-section" aria-labelledby="recent-title">
+              <div class="dashboard-section__header">
+                <div>
+                  <p class="eyebrow">ล่าสุด</p>
+                  <h2 id="recent-title">เรื่องล่าสุด</h2>
+                </div>
+                <a class="button button-secondary" href="reports.html">ดูเรื่องทั้งหมด</a>
+              </div>
+              <div class="dashboard-recent-list" data-dashboard-recent></div>
+            </section>
+          </div>
         </section>
       </main>
     </div>

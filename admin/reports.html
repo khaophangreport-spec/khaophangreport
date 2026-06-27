@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="รายการเรื่องแจ้งทั้งหมด" />
+    <meta name="description" content="รายการเรื่องแจ้งทั้งหมดสำหรับผู้ดูแลระบบ Khaophang Report" />
     <title>เรื่องแจ้ง | Khaophang Report Admin</title>
     <link rel="stylesheet" href="../assets/css/variables.css" />
     <link rel="stylesheet" href="../assets/css/reset.css" />
@@ -19,30 +19,219 @@
   </head>
   <body class="admin-app-page admin-auth-pending" data-admin-guard="required" data-admin-page="reports">
     <header class="admin-mobile-topbar">
-      <a class="admin-brand" href="dashboard.html" aria-label="ไปหน้า Dashboard"><span class="admin-logo" aria-hidden="true">KR</span><span>Khaophang Admin</span></a>
-      <button class="admin-icon-button" type="button" data-admin-drawer-open aria-controls="admin-drawer" aria-expanded="false"><span aria-hidden="true">☰</span><span class="sr-only">เปิดเมนูผู้ดูแลระบบ</span></button>
+      <a class="admin-brand" href="dashboard.html" aria-label="ไปหน้าแดชบอร์ด">
+        <span class="admin-logo" aria-hidden="true">KR</span>
+        <span>Khaophang Admin</span>
+      </a>
+      <button class="admin-icon-button" type="button" data-admin-drawer-open aria-controls="admin-drawer" aria-expanded="false">
+        <span aria-hidden="true">☰</span>
+        <span class="sr-only">เปิดเมนูผู้ดูแลระบบ</span>
+      </button>
     </header>
+
     <button class="admin-drawer-overlay" type="button" data-admin-drawer-close aria-label="ปิดเมนู" hidden></button>
     <aside class="admin-drawer" id="admin-drawer" aria-labelledby="admin-drawer-title" hidden>
-      <div class="admin-drawer__header"><p id="admin-drawer-title" class="admin-drawer__title">เมนูผู้ดูแลระบบ</p><button class="admin-icon-button" type="button" data-admin-drawer-close><span aria-hidden="true">×</span><span class="sr-only">ปิดเมนูผู้ดูแลระบบ</span></button></div>
-      <p class="admin-user-summary">ผู้ใช้งาน: ยังไม่เชื่อม Session จริง</p>
+      <div class="admin-drawer__header">
+        <p id="admin-drawer-title" class="admin-drawer__title">เมนูผู้ดูแลระบบ</p>
+        <button class="admin-icon-button" type="button" data-admin-drawer-close>
+          <span aria-hidden="true">×</span>
+          <span class="sr-only">ปิดเมนูผู้ดูแลระบบ</span>
+        </button>
+      </div>
+      <p class="admin-user-summary">ผู้ใช้งาน: กำลังตรวจสอบ Session</p>
       <nav class="admin-menu" aria-label="เมนูผู้ดูแลระบบบนมือถือ">
-        <a href="dashboard.html" data-menu-key="dashboard">Dashboard</a><a href="reports.html" data-menu-key="reports" aria-current="page">เรื่องแจ้ง</a><a href="reports.html?scope=assigned" data-menu-key="assigned">งานของฉัน</a><a href="export.html" data-menu-key="export">รายงาน</a><a href="users.html" data-menu-key="users">ผู้ใช้งาน</a><a href="categories.html" data-menu-key="categories">หมวดหมู่</a><a href="announcements.html" data-menu-key="announcements">ประกาศ</a><a href="activity-logs.html" data-menu-key="activity">Activity Logs</a><a href="settings.html" data-menu-key="settings">ตั้งค่า</a><button type="button" class="admin-menu__button" data-admin-logout>ออกจากระบบ</button>
+        <a href="dashboard.html" data-menu-key="dashboard">แดชบอร์ด</a>
+        <a href="reports.html" data-menu-key="reports" aria-current="page">เรื่องแจ้ง</a>
+        <a href="reports.html?scope=mine" data-menu-key="assigned">งานของฉัน</a>
+        <a href="export.html" data-menu-key="export">รายงาน</a>
+        <a href="users.html" data-menu-key="users">ผู้ใช้งาน</a>
+        <a href="categories.html" data-menu-key="categories">หมวดหมู่</a>
+        <a href="announcements.html" data-menu-key="announcements">ประกาศ</a>
+        <a href="activity-logs.html" data-menu-key="activity">Activity Logs</a>
+        <a href="settings.html" data-menu-key="settings">ตั้งค่า</a>
+        <button type="button" class="admin-menu__button" data-admin-logout>ออกจากระบบ</button>
       </nav>
     </aside>
+
     <div class="admin-app">
       <aside class="admin-sidebar" aria-label="เมนูผู้ดูแลระบบ">
-        <a class="admin-brand" href="dashboard.html" aria-label="ไปหน้า Dashboard"><span class="admin-logo" aria-hidden="true">KR</span><span>Khaophang Admin</span></a>
-        <p class="admin-user-summary">ผู้ใช้งาน: ยังไม่เชื่อม Session จริง</p>
+        <a class="admin-brand" href="dashboard.html" aria-label="ไปหน้าแดชบอร์ด">
+          <span class="admin-logo" aria-hidden="true">KR</span>
+          <span>Khaophang Admin</span>
+        </a>
+        <p class="admin-user-summary">ผู้ใช้งาน: กำลังตรวจสอบ Session</p>
         <nav class="admin-menu">
-          <a href="dashboard.html" data-menu-key="dashboard">Dashboard</a><a href="reports.html" data-menu-key="reports" aria-current="page">เรื่องแจ้ง</a><a href="reports.html?scope=assigned" data-menu-key="assigned">งานของฉัน</a><a href="export.html" data-menu-key="export">รายงาน</a><a href="users.html" data-menu-key="users">ผู้ใช้งาน</a><a href="categories.html" data-menu-key="categories">หมวดหมู่</a><a href="announcements.html" data-menu-key="announcements">ประกาศ</a><a href="activity-logs.html" data-menu-key="activity">Activity Logs</a><a href="settings.html" data-menu-key="settings">ตั้งค่า</a><button type="button" class="admin-menu__button" data-admin-logout>ออกจากระบบ</button>
+          <a href="dashboard.html" data-menu-key="dashboard">แดชบอร์ด</a>
+          <a href="reports.html" data-menu-key="reports" aria-current="page">เรื่องแจ้ง</a>
+          <a href="reports.html?scope=mine" data-menu-key="assigned">งานของฉัน</a>
+          <a href="export.html" data-menu-key="export">รายงาน</a>
+          <a href="users.html" data-menu-key="users">ผู้ใช้งาน</a>
+          <a href="categories.html" data-menu-key="categories">หมวดหมู่</a>
+          <a href="announcements.html" data-menu-key="announcements">ประกาศ</a>
+          <a href="activity-logs.html" data-menu-key="activity">Activity Logs</a>
+          <a href="settings.html" data-menu-key="settings">ตั้งค่า</a>
+          <button type="button" class="admin-menu__button" data-admin-logout>ออกจากระบบ</button>
         </nav>
       </aside>
+
       <main class="admin-shell">
-        <section class="admin-panel" aria-labelledby="page-title">
-          <p class="eyebrow">งานรับแจ้ง</p>
-          <h1 id="page-title">เรื่องแจ้ง</h1>
-          <p class="placeholder-text">พื้นที่ตั้งต้นสำหรับรายการ ค้นหา กรอง และ Pagination</p>
+        <section class="reports-page" aria-labelledby="page-title">
+          <div class="reports-hero">
+            <div>
+              <p class="eyebrow">งานรับแจ้ง</p>
+              <h1 id="page-title">เรื่องแจ้ง</h1>
+              <p data-reports-scope-text>ค้นหาและกรองรายการเรื่องแจ้งตามสิทธิ์ของคุณ</p>
+            </div>
+            <div class="reports-hero__meta">
+              <span>อัปเดตล่าสุด</span>
+              <strong data-reports-updated-at>-</strong>
+              <div class="reports-scope" role="group" aria-label="ขอบเขตรายการเรื่องแจ้ง">
+                <button class="reports-scope__button" type="button" data-reports-scope="mine">งานของฉัน</button>
+                <button class="reports-scope__button" type="button" data-reports-scope="global">ทั้งหมด</button>
+              </div>
+            </div>
+          </div>
+
+          <form class="reports-filter" data-reports-filter-form>
+            <div class="reports-filter__search">
+              <label for="reports-keyword">ค้นหา</label>
+              <input class="form-control" id="reports-keyword" name="keyword" type="search" autocomplete="off" placeholder="รหัสติดตาม หัวข้อ สถานที่ หมู่ที่" />
+            </div>
+
+            <div class="reports-filter__grid">
+              <div class="form-field">
+                <label for="reports-status">สถานะ</label>
+                <select class="form-control" id="reports-status" name="status">
+                  <option value="">ทุกสถานะ</option>
+                  <option value="new">รับเรื่องแล้ว</option>
+                  <option value="reviewing">กำลังตรวจสอบ</option>
+                  <option value="accepted">รับดำเนินการ</option>
+                  <option value="assigned">มอบหมายแล้ว</option>
+                  <option value="in_progress">กำลังดำเนินการ</option>
+                  <option value="waiting">รอข้อมูลเพิ่มเติม</option>
+                  <option value="waiting_info">รอข้อมูลเพิ่มเติม</option>
+                  <option value="resolved">ดำเนินการแล้ว</option>
+                  <option value="closed">ปิดเรื่อง</option>
+                  <option value="rejected">ไม่รับดำเนินการ</option>
+                  <option value="duplicate">เรื่องซ้ำ</option>
+                </select>
+              </div>
+
+              <div class="form-field">
+                <label for="reports-category">หมวด</label>
+                <select class="form-control" id="reports-category" name="categoryId">
+                  <option value="">ทุกหมวด</option>
+                </select>
+              </div>
+
+              <div class="form-field">
+                <label for="reports-priority">ความสำคัญ</label>
+                <select class="form-control" id="reports-priority" name="priority">
+                  <option value="">ทุกระดับ</option>
+                  <option value="critical">วิกฤต</option>
+                  <option value="high">สูง</option>
+                  <option value="normal">ปกติ</option>
+                  <option value="low">ต่ำ</option>
+                </select>
+              </div>
+
+              <div class="form-field">
+                <label for="reports-assignee">ผู้รับผิดชอบ</label>
+                <select class="form-control" id="reports-assignee" name="assigneeId">
+                  <option value="">ทุกคน</option>
+                </select>
+              </div>
+
+              <div class="form-field">
+                <label for="reports-date-from">จากวันที่</label>
+                <input class="form-control" id="reports-date-from" name="dateFrom" type="date" />
+              </div>
+
+              <div class="form-field">
+                <label for="reports-date-to">ถึงวันที่</label>
+                <input class="form-control" id="reports-date-to" name="dateTo" type="date" />
+              </div>
+
+              <div class="form-field">
+                <label for="reports-sort-by">เรียงตาม</label>
+                <select class="form-control" id="reports-sort-by" name="sortBy">
+                  <option value="created_at">วันที่รับเรื่อง</option>
+                  <option value="updated_at">วันที่อัปเดต</option>
+                  <option value="priority">ความสำคัญ</option>
+                  <option value="status">สถานะ</option>
+                  <option value="target_due_at">กำหนดเป้าหมาย</option>
+                </select>
+              </div>
+
+              <div class="form-field">
+                <label for="reports-sort-direction">ทิศทาง</label>
+                <select class="form-control" id="reports-sort-direction" name="sortDirection">
+                  <option value="desc">ใหม่ไปเก่า</option>
+                  <option value="asc">เก่าไปใหม่</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="reports-filter__actions">
+              <button class="button button-primary" type="submit" data-reports-apply>ค้นหา</button>
+              <button class="button button-secondary" type="button" data-reports-clear>ล้างตัวกรอง</button>
+            </div>
+          </form>
+
+          <div class="reports-state reports-state--loading" data-reports-loading role="status" aria-live="polite">
+            <span class="reports-skeleton reports-skeleton--toolbar"></span>
+            <span class="reports-skeleton"></span>
+            <span class="reports-skeleton"></span>
+            <span class="reports-skeleton"></span>
+          </div>
+
+          <div class="reports-state reports-state--error" data-reports-error hidden role="alert">
+            <h2>โหลดรายการเรื่องแจ้งไม่สำเร็จ</h2>
+            <p data-reports-error-message>กรุณาลองใหม่อีกครั้ง</p>
+            <button class="button button-primary" type="button" data-reports-retry>ลองใหม่</button>
+          </div>
+
+          <div class="reports-state reports-state--empty" data-reports-empty hidden>
+            <h2>ไม่พบเรื่องแจ้งตามเงื่อนไขนี้</h2>
+            <p>ลองปรับคำค้นหาหรือล้างตัวกรองเพื่อดูรายการอื่น</p>
+            <button class="button button-secondary" type="button" data-reports-empty-clear>ล้างตัวกรอง</button>
+          </div>
+
+          <section class="reports-content" data-reports-content hidden aria-labelledby="reports-result-title">
+            <div class="reports-result-header">
+              <div>
+                <p class="eyebrow">ผลลัพธ์</p>
+                <h2 id="reports-result-title" data-reports-result-title>รายการเรื่องแจ้ง</h2>
+              </div>
+              <p data-reports-pagination-summary>กำลังโหลดข้อมูล</p>
+            </div>
+
+            <div class="reports-table-wrap" data-reports-table-wrap>
+              <table class="reports-table">
+                <thead>
+                  <tr>
+                    <th scope="col">เรื่อง</th>
+                    <th scope="col">หมวด</th>
+                    <th scope="col">สถานะ</th>
+                    <th scope="col">ความสำคัญ</th>
+                    <th scope="col">ผู้รับผิดชอบ</th>
+                    <th scope="col">วันที่รับเรื่อง</th>
+                    <th scope="col">กำหนด</th>
+                    <th scope="col">ดู</th>
+                  </tr>
+                </thead>
+                <tbody data-reports-table-body></tbody>
+              </table>
+            </div>
+
+            <div class="reports-card-list" data-reports-card-list></div>
+
+            <nav class="reports-pagination" aria-label="หน้ารายการเรื่องแจ้ง">
+              <button class="button button-secondary" type="button" data-reports-prev>ก่อนหน้า</button>
+              <span data-reports-page-label>หน้า 1 จาก 1</span>
+              <button class="button button-secondary" type="button" data-reports-next>ถัดไป</button>
+            </nav>
+          </section>
         </section>
       </main>
     </div>

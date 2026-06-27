@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="รายละเอียดเรื่องแจ้งสำหรับเจ้าหน้าที่" />
+    <meta name="description" content="รายละเอียดเรื่องแจ้งสำหรับเจ้าหน้าที่ Khaophang Report" />
     <title>รายละเอียดเรื่อง | Khaophang Report Admin</title>
     <link rel="stylesheet" href="../assets/css/variables.css" />
     <link rel="stylesheet" href="../assets/css/reset.css" />
@@ -19,30 +19,216 @@
   </head>
   <body class="admin-app-page admin-auth-pending" data-admin-guard="required" data-admin-page="reports">
     <header class="admin-mobile-topbar">
-      <a class="admin-brand" href="dashboard.html" aria-label="ไปหน้า Dashboard"><span class="admin-logo" aria-hidden="true">KR</span><span>Khaophang Admin</span></a>
-      <button class="admin-icon-button" type="button" data-admin-drawer-open aria-controls="admin-drawer" aria-expanded="false"><span aria-hidden="true">☰</span><span class="sr-only">เปิดเมนูผู้ดูแลระบบ</span></button>
+      <a class="admin-brand" href="dashboard.html" aria-label="ไปหน้าแดชบอร์ด">
+        <span class="admin-logo" aria-hidden="true">KR</span>
+        <span>Khaophang Admin</span>
+      </a>
+      <button class="admin-icon-button" type="button" data-admin-drawer-open aria-controls="admin-drawer" aria-expanded="false">
+        <span aria-hidden="true">☰</span>
+        <span class="sr-only">เปิดเมนูผู้ดูแลระบบ</span>
+      </button>
     </header>
+
     <button class="admin-drawer-overlay" type="button" data-admin-drawer-close aria-label="ปิดเมนู" hidden></button>
     <aside class="admin-drawer" id="admin-drawer" aria-labelledby="admin-drawer-title" hidden>
-      <div class="admin-drawer__header"><p id="admin-drawer-title" class="admin-drawer__title">เมนูผู้ดูแลระบบ</p><button class="admin-icon-button" type="button" data-admin-drawer-close><span aria-hidden="true">×</span><span class="sr-only">ปิดเมนูผู้ดูแลระบบ</span></button></div>
-      <p class="admin-user-summary">ผู้ใช้งาน: ยังไม่เชื่อม Session จริง</p>
+      <div class="admin-drawer__header">
+        <p id="admin-drawer-title" class="admin-drawer__title">เมนูผู้ดูแลระบบ</p>
+        <button class="admin-icon-button" type="button" data-admin-drawer-close>
+          <span aria-hidden="true">×</span>
+          <span class="sr-only">ปิดเมนูผู้ดูแลระบบ</span>
+        </button>
+      </div>
+      <p class="admin-user-summary">ผู้ใช้งาน: กำลังตรวจสอบ Session</p>
       <nav class="admin-menu" aria-label="เมนูผู้ดูแลระบบบนมือถือ">
-        <a href="dashboard.html" data-menu-key="dashboard">Dashboard</a><a href="reports.html" data-menu-key="reports" aria-current="page">เรื่องแจ้ง</a><a href="reports.html?scope=assigned" data-menu-key="assigned">งานของฉัน</a><a href="export.html" data-menu-key="export">รายงาน</a><a href="users.html" data-menu-key="users">ผู้ใช้งาน</a><a href="categories.html" data-menu-key="categories">หมวดหมู่</a><a href="announcements.html" data-menu-key="announcements">ประกาศ</a><a href="activity-logs.html" data-menu-key="activity">Activity Logs</a><a href="settings.html" data-menu-key="settings">ตั้งค่า</a><button type="button" class="admin-menu__button" data-admin-logout>ออกจากระบบ</button>
+        <a href="dashboard.html" data-menu-key="dashboard">แดชบอร์ด</a>
+        <a href="reports.html" data-menu-key="reports" aria-current="page">เรื่องแจ้ง</a>
+        <a href="reports.html?scope=mine" data-menu-key="assigned">งานของฉัน</a>
+        <a href="export.html" data-menu-key="export">รายงาน</a>
+        <a href="users.html" data-menu-key="users">ผู้ใช้งาน</a>
+        <a href="categories.html" data-menu-key="categories">หมวดหมู่</a>
+        <a href="announcements.html" data-menu-key="announcements">ประกาศ</a>
+        <a href="activity-logs.html" data-menu-key="activity">Activity Logs</a>
+        <a href="settings.html" data-menu-key="settings">ตั้งค่า</a>
+        <button type="button" class="admin-menu__button" data-admin-logout>ออกจากระบบ</button>
       </nav>
     </aside>
+
     <div class="admin-app">
       <aside class="admin-sidebar" aria-label="เมนูผู้ดูแลระบบ">
-        <a class="admin-brand" href="dashboard.html" aria-label="ไปหน้า Dashboard"><span class="admin-logo" aria-hidden="true">KR</span><span>Khaophang Admin</span></a>
-        <p class="admin-user-summary">ผู้ใช้งาน: ยังไม่เชื่อม Session จริง</p>
+        <a class="admin-brand" href="dashboard.html" aria-label="ไปหน้าแดชบอร์ด">
+          <span class="admin-logo" aria-hidden="true">KR</span>
+          <span>Khaophang Admin</span>
+        </a>
+        <p class="admin-user-summary">ผู้ใช้งาน: กำลังตรวจสอบ Session</p>
         <nav class="admin-menu">
-          <a href="dashboard.html" data-menu-key="dashboard">Dashboard</a><a href="reports.html" data-menu-key="reports" aria-current="page">เรื่องแจ้ง</a><a href="reports.html?scope=assigned" data-menu-key="assigned">งานของฉัน</a><a href="export.html" data-menu-key="export">รายงาน</a><a href="users.html" data-menu-key="users">ผู้ใช้งาน</a><a href="categories.html" data-menu-key="categories">หมวดหมู่</a><a href="announcements.html" data-menu-key="announcements">ประกาศ</a><a href="activity-logs.html" data-menu-key="activity">Activity Logs</a><a href="settings.html" data-menu-key="settings">ตั้งค่า</a><button type="button" class="admin-menu__button" data-admin-logout>ออกจากระบบ</button>
+          <a href="dashboard.html" data-menu-key="dashboard">แดชบอร์ด</a>
+          <a href="reports.html" data-menu-key="reports" aria-current="page">เรื่องแจ้ง</a>
+          <a href="reports.html?scope=mine" data-menu-key="assigned">งานของฉัน</a>
+          <a href="export.html" data-menu-key="export">รายงาน</a>
+          <a href="users.html" data-menu-key="users">ผู้ใช้งาน</a>
+          <a href="categories.html" data-menu-key="categories">หมวดหมู่</a>
+          <a href="announcements.html" data-menu-key="announcements">ประกาศ</a>
+          <a href="activity-logs.html" data-menu-key="activity">Activity Logs</a>
+          <a href="settings.html" data-menu-key="settings">ตั้งค่า</a>
+          <button type="button" class="admin-menu__button" data-admin-logout>ออกจากระบบ</button>
         </nav>
       </aside>
+
       <main class="admin-shell">
-        <section class="admin-panel" aria-labelledby="page-title">
-          <p class="eyebrow">เรื่องแจ้ง</p>
-          <h1 id="page-title">รายละเอียดเรื่องแจ้ง</h1>
-          <p class="placeholder-text">พื้นที่ตั้งต้นสำหรับรายละเอียด สถานะ Timeline และหลักฐาน</p>
+        <section class="report-detail-page" aria-labelledby="page-title">
+          <div class="report-detail-hero">
+            <div>
+              <p class="eyebrow">เรื่องแจ้ง</p>
+              <h1 id="page-title">รายละเอียดเรื่องแจ้ง</h1>
+              <p data-detail-subtitle>โหลดข้อมูลล่าสุดจากระบบเพื่อให้เจ้าหน้าที่ตรวจสอบและติดตามงาน</p>
+            </div>
+            <div class="report-detail-hero__actions">
+              <a class="button button-secondary" href="reports.html" data-detail-back>กลับไปรายการ</a>
+              <button class="button button-outline" type="button" data-detail-refresh>โหลดใหม่</button>
+            </div>
+          </div>
+
+          <div class="report-detail-state report-detail-state--loading" data-detail-loading role="status" aria-live="polite">
+            <span class="report-detail-skeleton report-detail-skeleton--wide"></span>
+            <span class="report-detail-skeleton"></span>
+            <span class="report-detail-skeleton"></span>
+            <span class="report-detail-skeleton report-detail-skeleton--tall"></span>
+          </div>
+
+          <div class="report-detail-state report-detail-state--error" data-detail-error hidden role="alert">
+            <h2>โหลดรายละเอียดไม่สำเร็จ</h2>
+            <p data-detail-error-message>กรุณาลองใหม่อีกครั้ง</p>
+            <div class="report-detail-actions">
+              <button class="button button-primary" type="button" data-detail-retry>ลองใหม่</button>
+              <a class="button button-secondary" href="reports.html" data-detail-error-back>กลับไปรายการ</a>
+            </div>
+          </div>
+
+          <div class="report-detail-state report-detail-state--not-found" data-detail-not-found hidden>
+            <h2>ไม่พบเรื่องแจ้งนี้</h2>
+            <p>ลิงก์อาจไม่ถูกต้อง หรือคุณอาจไม่มีสิทธิ์เข้าถึงเรื่องนี้</p>
+            <a class="button button-primary" href="reports.html" data-detail-not-found-back>กลับไปรายการ</a>
+          </div>
+
+          <div class="report-detail-content" data-detail-content hidden>
+            <section class="report-detail-card report-detail-summary" aria-labelledby="detail-summary-title">
+              <div class="report-detail-section-header">
+                <div>
+                  <p class="eyebrow">Summary</p>
+                  <h2 id="detail-summary-title">สรุปเรื่อง</h2>
+                </div>
+                <span class="status-chip" data-detail-status>สถานะ</span>
+              </div>
+              <div class="report-detail-summary__main">
+                <div>
+                  <p class="report-detail-code" data-detail-tracking-code>-</p>
+                  <h3 data-detail-title>-</h3>
+                  <p data-detail-category>-</p>
+                </div>
+                <div class="report-detail-chip-row">
+                  <span class="reports-priority" data-detail-priority>-</span>
+                  <span class="report-detail-version" data-detail-version>Version -</span>
+                </div>
+              </div>
+              <dl class="report-detail-meta-grid">
+                <div><dt>วันที่รับเรื่อง</dt><dd data-detail-created-at>-</dd></div>
+                <div><dt>อัปเดตล่าสุด</dt><dd data-detail-updated-at>-</dd></div>
+                <div><dt>วันที่พบปัญหา</dt><dd data-detail-incident-date>-</dd></div>
+                <div><dt>กำหนดเป้าหมาย</dt><dd data-detail-target-due-at>-</dd></div>
+              </dl>
+            </section>
+
+            <div class="report-detail-grid">
+              <section class="report-detail-card" aria-labelledby="detail-report-title">
+                <div class="report-detail-section-header">
+                  <h2 id="detail-report-title">รายละเอียดปัญหา</h2>
+                </div>
+                <dl class="report-detail-list" data-detail-report></dl>
+              </section>
+
+              <section class="report-detail-card" aria-labelledby="detail-location-title">
+                <div class="report-detail-section-header">
+                  <h2 id="detail-location-title">สถานที่</h2>
+                </div>
+                <dl class="report-detail-list" data-detail-location></dl>
+              </section>
+
+              <section class="report-detail-card" aria-labelledby="detail-reporter-title">
+                <div class="report-detail-section-header">
+                  <h2 id="detail-reporter-title">ผู้แจ้ง</h2>
+                </div>
+                <dl class="report-detail-list" data-detail-reporter></dl>
+              </section>
+
+              <section class="report-detail-card" aria-labelledby="detail-attachments-title">
+                <div class="report-detail-section-header">
+                  <h2 id="detail-attachments-title">ไฟล์แนบ</h2>
+                </div>
+                <div class="report-detail-empty" data-detail-attachments-empty hidden>ยังไม่มีไฟล์แนบ</div>
+                <div class="report-detail-attachment-list" data-detail-attachments></div>
+              </section>
+
+              <section class="report-detail-card" aria-labelledby="detail-status-title">
+                <div class="report-detail-section-header">
+                  <h2 id="detail-status-title">สถานะ</h2>
+                </div>
+                <dl class="report-detail-list" data-detail-status-info></dl>
+              </section>
+
+              <section class="report-detail-card" aria-labelledby="detail-priority-title">
+                <div class="report-detail-section-header">
+                  <h2 id="detail-priority-title">ความสำคัญ</h2>
+                </div>
+                <dl class="report-detail-list" data-detail-priority-info></dl>
+              </section>
+
+              <section class="report-detail-card" aria-labelledby="detail-assignment-title">
+                <div class="report-detail-section-header">
+                  <h2 id="detail-assignment-title">การมอบหมาย</h2>
+                </div>
+                <dl class="report-detail-list" data-detail-assignment></dl>
+              </section>
+
+              <section class="report-detail-card" aria-labelledby="detail-public-result-title">
+                <div class="report-detail-section-header">
+                  <h2 id="detail-public-result-title">ผลดำเนินการสาธารณะ</h2>
+                </div>
+                <p class="report-detail-text" data-detail-public-result>-</p>
+              </section>
+            </div>
+
+            <section class="report-detail-card" aria-labelledby="detail-public-timeline-title">
+              <div class="report-detail-section-header">
+                <h2 id="detail-public-timeline-title">Public Timeline</h2>
+              </div>
+              <div class="report-detail-empty" data-detail-timeline-empty hidden>ยังไม่มี Timeline</div>
+              <ol class="report-detail-timeline" data-detail-timeline></ol>
+            </section>
+
+            <section class="report-detail-card" data-detail-internal-section aria-labelledby="detail-internal-title">
+              <div class="report-detail-section-header">
+                <h2 id="detail-internal-title">Internal Notes</h2>
+              </div>
+              <div class="report-detail-empty" data-detail-internal-empty hidden>ยังไม่มีบันทึกภายใน</div>
+              <div class="report-detail-internal" data-detail-internal-notes></div>
+            </section>
+
+            <section class="report-detail-card" aria-labelledby="detail-additional-title">
+              <div class="report-detail-section-header">
+                <h2 id="detail-additional-title">ข้อมูลเพิ่มเติม</h2>
+              </div>
+              <div class="report-detail-empty" data-detail-additional-empty hidden>ยังไม่มีข้อมูลเพิ่มเติมจากผู้แจ้ง</div>
+              <div class="report-detail-additional" data-detail-additional></div>
+            </section>
+
+            <section class="report-detail-card" aria-labelledby="detail-history-title">
+              <div class="report-detail-section-header">
+                <h2 id="detail-history-title">History</h2>
+              </div>
+              <div class="report-detail-empty" data-detail-history-empty hidden>ยังไม่มีประวัติการมอบหมาย</div>
+              <div class="report-detail-history" data-detail-history></div>
+            </section>
+          </div>
         </section>
       </main>
     </div>
