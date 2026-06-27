@@ -14,6 +14,9 @@
     <script src="../assets/js/config.js" defer></script>
     <script src="../assets/js/api.js" defer></script>
     <script src="../assets/js/auth.js" defer></script>
+    <script src="../assets/js/modal.js" defer></script>
+    <script src="../assets/js/toast.js" defer></script>
+    <script src="../assets/js/admin-login.js" defer></script>
   </head>
   <body class="admin-login-page">
     <main class="admin-auth-shell">
@@ -24,17 +27,39 @@
         </a>
         <p class="eyebrow">สำหรับเจ้าหน้าที่</p>
         <h1 id="page-title">เข้าสู่ระบบ</h1>
-        <p class="placeholder-text">โครงสร้างตั้งต้น ยังไม่เปิดใช้งานการยืนยันตัวตนจริง</p>
-        <form class="admin-login-form" aria-label="ฟอร์มเข้าสู่ระบบตัวอย่าง">
+        <p class="placeholder-text">เข้าสู่ระบบเพื่อจัดการเรื่องแจ้งและข้อมูลชุมชน</p>
+        <form class="admin-login-form" data-admin-login-form aria-label="ฟอร์มเข้าสู่ระบบ" novalidate>
+          <div class="alert alert-danger" data-login-error hidden aria-live="polite"></div>
           <div class="form-field">
             <label class="form-label" for="admin-username">ชื่อผู้ใช้</label>
-            <input class="form-control" id="admin-username" name="username" type="text" autocomplete="username" disabled />
+            <input
+              class="form-control"
+              id="admin-username"
+              name="username"
+              type="text"
+              autocomplete="username"
+              required
+              aria-describedby="admin-username-error"
+            />
+            <p class="form-error" id="admin-username-error" data-field-error="username"></p>
           </div>
           <div class="form-field">
             <label class="form-label" for="admin-password">รหัสผ่าน</label>
-            <input class="form-control" id="admin-password" name="password" type="password" autocomplete="current-password" disabled />
+            <div class="password-field">
+              <input
+                class="form-control"
+                id="admin-password"
+                name="password"
+                type="password"
+                autocomplete="current-password"
+                required
+                aria-describedby="admin-password-error"
+              />
+              <button class="password-toggle" type="button" data-toggle-password aria-controls="admin-password" aria-label="แสดงรหัสผ่าน">แสดง</button>
+            </div>
+            <p class="form-error" id="admin-password-error" data-field-error="password"></p>
           </div>
-          <button class="button button-primary" type="button" disabled>ยังไม่เชื่อมระบบเข้าสู่ระบบ</button>
+          <button class="button button-primary" type="submit" data-login-submit>เข้าสู่ระบบ</button>
         </form>
       </section>
     </main>

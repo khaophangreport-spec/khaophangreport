@@ -179,6 +179,32 @@
   color: var(--color-text-muted);
 }
 
+.password-field {
+  align-items: stretch;
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.password-field .form-control {
+  min-width: 0;
+}
+
+.password-toggle {
+  background: var(--color-primary-100);
+  border: 1px solid var(--color-primary-200);
+  border-radius: var(--radius-sm);
+  color: var(--color-primary-900);
+  cursor: pointer;
+  font-weight: var(--font-weight-bold);
+  min-height: var(--control-height);
+  padding: 0 var(--space-3);
+}
+
+.password-toggle:hover {
+  background: var(--color-primary-200);
+}
+
 .form-help,
 .form-error {
   font-size: var(--font-size-sm);
@@ -290,12 +316,26 @@
 .modal-backdrop {
   align-items: center;
   background: var(--color-overlay);
-  display: flex;
+  display: none;
   inset: 0;
   justify-content: center;
   padding: var(--space-4);
+  pointer-events: none;
   position: fixed;
   z-index: var(--z-modal);
+}
+
+.modal-backdrop.is-visible {
+  display: flex;
+  pointer-events: auto;
+}
+
+.modal-backdrop[hidden],
+.loading-overlay:not(.is-visible),
+.page-loader:not(.is-visible),
+.overlay:not(.is-visible) {
+  display: none;
+  pointer-events: none;
 }
 
 .modal {

@@ -60,6 +60,7 @@
     }
 
     document.removeEventListener("keydown", state.onKeydown);
+    modalElement.classList.remove("is-visible");
 
     if (modalElement.parentNode) {
       modalElement.parentNode.removeChild(modalElement);
@@ -106,6 +107,7 @@
 
     backdrop.className = "modal-backdrop";
     backdrop.setAttribute("data-modal-backdrop", "");
+    backdrop.classList.add("is-visible");
 
     dialog.className = "modal";
     dialog.setAttribute("role", "dialog");

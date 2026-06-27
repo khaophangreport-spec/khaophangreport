@@ -126,6 +126,11 @@
   z-index: calc(var(--z-modal) - 1);
 }
 
+.admin-drawer-overlay[hidden] {
+  display: none;
+  pointer-events: none;
+}
+
 .admin-drawer {
   background: var(--color-surface);
   box-shadow: var(--shadow-lg);
@@ -171,6 +176,13 @@
   max-width: 28rem;
   padding: var(--space-6);
   width: 100%;
+}
+
+.admin-auth-shell::before,
+.admin-auth-shell::after,
+.admin-auth-card::before,
+.admin-auth-card::after {
+  pointer-events: none;
 }
 
 .admin-login-form {
