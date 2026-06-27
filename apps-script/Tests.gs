@@ -1611,49 +1611,83 @@ function testAdminReportAssignOpenAssignmentDetection() {
 }
 
 function testAdminReportUpdateStatusRouterWhitelist() {
-  if (ROUTER_ACTIONS_["admin.report.updateStatus"] !== ReportService_updateStatus) {
-    throw new Error("admin.report.updateStatus is not registered in Router whitelist");
-  }
+  try {
+    const action = "admin.report.updateStatus";
 
-  console.log("admin.report.updateStatus is registered in Router whitelist");
-  return {
-    ok: true,
-    action: "admin.report.updateStatus"
-  };
+    if (typeof ROUTER_ACTIONS_ === "undefined") {
+      throw new Error("ROUTER_ACTIONS_ is not defined");
+    }
+
+    if (!Object.prototype.hasOwnProperty.call(ROUTER_ACTIONS_, action)) {
+      throw new Error(action + " is missing from Router whitelist");
+    }
+
+    if (typeof ReportService_updateStatus !== "function") {
+      throw new Error("ReportService_updateStatus is not a global function");
+    }
+
+    const handler = ROUTER_ACTIONS_[action];
+
+    if (typeof handler !== "function") {
+      throw new Error(action + " handler is not a function. Actual type: " + typeof handler);
+    }
+
+    if (handler !== ReportService_updateStatus) {
+      throw new Error(action + " is not registered to ReportService_updateStatus");
+    }
+
+    console.log("admin.report.updateStatus is registered in Router whitelist");
+    return {
+      ok: true,
+      testType: "unit",
+      action: action,
+      handlerName: "ReportService_updateStatus"
+    };
+  } catch (error) {
+    Tests_logDiagnosticError_(error);
+    throw error;
+  }
 }
 
 function testAdminReportUpdateStatusTransitionMatrix() {
-  const officerPermissions = UserService_getPermissions_("officer");
-  const adminPermissions = UserService_getPermissions_("admin");
+  try {
+    const officerPermissions = UserService_getPermissions_("officer");
+    const adminPermissions = UserService_getPermissions_("admin");
 
-  if (!ReportService_isStatusTransitionAllowed_("new", "reviewing", officerPermissions)) {
-    throw new Error("Expected new -> reviewing to be allowed");
+    if (!ReportService_isStatusTransitionAllowed_("new", "reviewing", officerPermissions)) {
+      throw new Error("Expected new -> reviewing to be allowed");
+    }
+
+    if (!ReportService_isStatusTransitionAllowed_("resolved", "in_progress", officerPermissions)) {
+      throw new Error("Expected resolved -> in_progress reopen to be allowed");
+    }
+
+    if (ReportService_isStatusTransitionAllowed_("closed", "in_progress", adminPermissions)) {
+      throw new Error("Expected closed -> in_progress to be blocked");
+    }
+
+    if (ReportService_isStatusTransitionAllowed_("rejected", "reviewing", officerPermissions)) {
+      throw new Error("Expected officer rejected -> reviewing to be blocked");
+    }
+
+    if (!ReportService_isStatusTransitionAllowed_("rejected", "reviewing", adminPermissions)) {
+      throw new Error("Expected admin rejected -> reviewing to be allowed");
+    }
+
+    return {
+      ok: true,
+      testType: "unit",
+      checked: 5
+    };
+  } catch (error) {
+    Tests_logDiagnosticError_(error);
+    throw error;
   }
-
-  if (!ReportService_isStatusTransitionAllowed_("resolved", "in_progress", officerPermissions)) {
-    throw new Error("Expected resolved -> in_progress reopen to be allowed");
-  }
-
-  if (ReportService_isStatusTransitionAllowed_("closed", "in_progress", adminPermissions)) {
-    throw new Error("Expected closed -> in_progress to be blocked");
-  }
-
-  if (ReportService_isStatusTransitionAllowed_("rejected", "reviewing", officerPermissions)) {
-    throw new Error("Expected officer rejected -> reviewing to be blocked");
-  }
-
-  if (!ReportService_isStatusTransitionAllowed_("rejected", "reviewing", adminPermissions)) {
-    throw new Error("Expected admin rejected -> reviewing to be allowed");
-  }
-
-  return {
-    ok: true,
-    checked: 5
-  };
 }
 
 function testAdminReportUpdateStatusRequiredFields() {
-  const fields = {};
+  try {
+    const fields = {};
 
   ReportService_validateStatusRequiredFields_("assigned", {
     newStatus: "resolved",
@@ -1715,46 +1749,62 @@ function testAdminReportUpdateStatusRequiredFields() {
     confirmed: false
   }, fields);
 
-  if (!fields.result || !fields.publicMessage || !fields.rejectionReason || !fields.duplicate || !fields.reason || !fields.confirmed) {
-    throw new Error("admin.report.updateStatus required fields were not detected");
-  }
+    if (!fields.result || !fields.publicMessage || !fields.rejectionReason || !fields.duplicate || !fields.reason || !fields.confirmed) {
+      throw new Error("admin.report.updateStatus required fields were not detected");
+    }
 
-  console.log(JSON.stringify(fields));
-  return {
-    ok: true,
-    fields: fields
-  };
+    console.log(JSON.stringify(fields));
+    return {
+      ok: true,
+      testType: "unit",
+      fields: fields
+    };
+  } catch (error) {
+    Tests_logDiagnosticError_(error);
+    throw error;
+  }
 }
 
 function testAdminReportUpdateStatusBuildUpdates() {
-  const updates = ReportService_buildStatusUpdateFields_({
-    report_id: "REPORT-001",
-    status: "assigned",
-    version: 3
-  }, {
-    newStatus: "resolved",
-    result: "ดำเนินการซ่อมแซมเรียบร้อย",
-    publicMessage: "",
-    internalNote: "",
-    rejectionReason: "",
-    duplicateOfReportId: "",
-    duplicateReason: "",
-    reason: "",
-    confirmed: false
-  }, {
-    user_id: "USER-001"
-  }, "2026-06-26T00:00:00.000Z");
+  try {
+    const updates = ReportService_buildStatusUpdateFields_({
+      report_id: "REPORT-001",
+      status: "assigned",
+      version: 3
+    }, {
+      newStatus: "resolved",
+      result: "ดำเนินการซ่อมแซมเรียบร้อย",
+      publicMessage: "",
+      internalNote: "",
+      rejectionReason: "",
+      duplicateOfReportId: "",
+      duplicateReason: "",
+      reason: "",
+      confirmed: false
+    }, {
+      user_id: "USER-001"
+    }, "2026-06-26T00:00:00.000Z");
 
-  if (updates.status !== "resolved" ||
-      updates.public_result !== "ดำเนินการซ่อมแซมเรียบร้อย" ||
-      updates.resolved_at !== "2026-06-26T00:00:00.000Z" ||
-      updates.updated_by !== "USER-001") {
-    throw new Error("admin.report.updateStatus build updates failed");
+    if (updates.status !== "resolved" ||
+        updates.public_result !== "ดำเนินการซ่อมแซมเรียบร้อย" ||
+        updates.resolved_at !== "2026-06-26T00:00:00.000Z" ||
+        updates.updated_by !== "USER-001") {
+      throw new Error("admin.report.updateStatus build updates failed");
+    }
+
+    console.log(JSON.stringify(updates));
+    return {
+      ok: true,
+      testType: "unit",
+      updates: updates
+    };
+  } catch (error) {
+    Tests_logDiagnosticError_(error);
+    throw error;
   }
+}
 
-  console.log(JSON.stringify(updates));
-  return {
-    ok: true,
-    updates: updates
-  };
+function Tests_logDiagnosticError_(error) {
+  console.error(error && error.message ? error.message : String(error));
+  console.error(error && error.stack ? error.stack : "No stack available");
 }
