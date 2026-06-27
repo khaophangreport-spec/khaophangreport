@@ -92,3 +92,105 @@ function AuditService_logAdditionalInfoFailed_(requestId, code) {
     }
   });
 }
+
+function AuditService_logAuthLoginSuccess_(user, sessionId, requestId) {
+  return AuditService_log_({
+    userId: user.user_id,
+    userNameSnapshot: user.display_name || user.username || "",
+    roleSnapshot: user.role || "",
+    action: "auth.login.success",
+    entityType: "session",
+    entityId: sessionId || "",
+    requestId: requestId || "",
+    success: true,
+    detail: {
+      userId: user.user_id,
+      role: user.role || ""
+    }
+  });
+}
+
+function AuditService_logAuthLoginFailed_(user, username, requestId, reason) {
+  return AuditService_log_({
+    userId: user && user.user_id ? user.user_id : "anonymous",
+    userNameSnapshot: user && user.display_name ? user.display_name : "",
+    roleSnapshot: user && user.role ? user.role : "",
+    action: "auth.login.failed",
+    entityType: "user",
+    entityId: user && user.user_id ? user.user_id : "",
+    requestId: requestId || "",
+    severity: "warning",
+    success: false,
+    detail: {
+      usernameHash: Security_hashSha256_(UserService_normalizeUsername_(username), "auth-log"),
+      reason: reason || "unknown"
+    }
+  });
+}
+
+function AuditService_logAuthLogout_(user, sessionId, requestId) {
+  return AuditService_log_({
+    userId: user.user_id,
+    userNameSnapshot: user.display_name || user.username || "",
+    roleSnapshot: user.role || "",
+    action: "auth.logout",
+    entityType: "session",
+    entityId: sessionId || "",
+    requestId: requestId || "",
+    success: true,
+    detail: {
+      reason: "user_logout"
+    }
+  });
+}
+
+function AuditService_logAuthPasswordChanged_(user, requestId) {
+  return AuditService_log_({
+    userId: user.user_id,
+    userNameSnapshot: user.display_name || user.username || "",
+    roleSnapshot: user.role || "",
+    action: "auth.changePassword",
+    entityType: "user",
+    entityId: user.user_id,
+    requestId: requestId || "",
+    success: true,
+    detail: {
+      sessionsRevoked: true,
+      passwordVersion: user.password_version
+    }
+  });
+}
+
+function AuditService_logAuthPasswordChangeFailed_(user, requestId, reason) {
+  return AuditService_log_({
+    userId: user && user.user_id ? user.user_id : "anonymous",
+    userNameSnapshot: user && user.display_name ? user.display_name : "",
+    roleSnapshot: user && user.role ? user.role : "",
+    action: "auth.changePassword.failed",
+    entityType: "user",
+    entityId: user && user.user_id ? user.user_id : "",
+    requestId: requestId || "",
+    severity: "warning",
+    success: false,
+    detail: {
+      reason: reason || "unknown"
+    }
+  });
+}
+
+function AuditService_logFirstAdminCreated_(user, requestId) {
+  return AuditService_log_({
+    userId: user.user_id,
+    userNameSnapshot: user.display_name || user.username || "",
+    roleSnapshot: user.role || "",
+    action: "auth.firstAdmin.created",
+    entityType: "user",
+    entityId: user.user_id,
+    requestId: requestId || "",
+    success: true,
+    detail: {
+      role: user.role,
+      mustChangePassword: Utils_toBoolean_(user.must_change_password)
+    }
+  });
+}

@@ -798,3 +798,159 @@ function testReportAddInfoRateLimitKeyNoRawData() {
     rateKey: rateKey
   };
 }
+
+function testAuthRouterWhitelist() {
+  const expected = {
+    "auth.login": AuthService_login,
+    "auth.me": AuthService_me,
+    "auth.logout": AuthService_logout,
+    "auth.changePassword": AuthService_changePassword
+  };
+
+  Object.keys(expected).forEach(function (action) {
+    if (ROUTER_ACTIONS_[action] !== expected[action]) {
+      throw new Error(action + " is not registered in Router whitelist");
+    }
+  });
+
+  console.log("auth actions are registered in Router whitelist");
+  return {
+    ok: true,
+    actions: Object.keys(expected)
+  };
+}
+
+function testAuthPasswordHashNoPlainText() {
+  const password = "StrongPass123";
+  const salt = Security_generateSalt_();
+  const hash = Security_hashPassword_(password, salt);
+
+  if (!hash || hash === password || hash.indexOf(password) !== -1 || hash === salt) {
+    throw new Error("Password hash contains plain password or salt");
+  }
+
+  if (!Security_constantTimeEquals_(hash, Security_hashPassword_(password, salt))) {
+    throw new Error("Password hash verification helper is inconsistent");
+  }
+
+  console.log(JSON.stringify({
+    ok: true,
+    hashLength: hash.length
+  }));
+  return {
+    ok: true,
+    hashLength: hash.length
+  };
+}
+
+function testAuthSessionTokenHashNoRawToken() {
+  const token = Security_generateSessionToken_();
+  const tokenHash = Security_hashSessionToken_(token);
+
+  if (!token || !tokenHash || tokenHash === token || tokenHash.indexOf(token) !== -1) {
+    throw new Error("Session token hash contains raw token");
+  }
+
+  console.log(JSON.stringify({
+    ok: true,
+    tokenHashLength: tokenHash.length
+  }));
+  return {
+    ok: true,
+    tokenHashLength: tokenHash.length
+  };
+}
+
+function testAuthUserProjectionNoSecrets() {
+  const user = {
+    user_id: "USER-001",
+    username: "admin",
+    password_hash: "HASH-SECRET",
+    password_salt: "SALT-SECRET",
+    display_name: "Admin",
+    email: "admin@example.com",
+    phone: "0812345678",
+    role: "admin",
+    must_change_password: true
+  };
+  const projection = UserService_projectMe_(user);
+  const serialized = JSON.stringify(projection);
+
+  ["password_hash", "passwordHash", "password_salt", "passwordSalt", "HASH-SECRET", "SALT-SECRET"].forEach(function (forbidden) {
+    if (serialized.indexOf(forbidden) !== -1) {
+      throw new Error("Auth user projection leaked secret: " + forbidden);
+    }
+  });
+
+  if (!projection.userId || !projection.permissions || projection.permissions.length < 1) {
+    throw new Error("Auth user projection missed public auth fields");
+  }
+
+  console.log(JSON.stringify(projection));
+  return {
+    ok: true,
+    projection: projection
+  };
+}
+
+function testAuthWeakPasswordValidation() {
+  const fields = {};
+
+  UserService_validatePassword_("12345678", "password", fields);
+
+  if (!fields.password) {
+    throw new Error("Weak password validation did not reject weak value");
+  }
+
+  console.log(JSON.stringify(fields));
+  return {
+    ok: true,
+    fields: fields
+  };
+}
+
+function testAuthLoginGenericError() {
+  const testUsername = "missing-user-" + Utils_createUuid_();
+
+  try {
+    AuthService_login({
+      action: "auth.login",
+      requestId: "REQ-TEST-AUTH-LOGIN",
+      data: {
+        username: testUsername,
+        password: "StrongPass123",
+        deviceKey: "test-device"
+      }
+    });
+  } catch (error) {
+    if (error && error.code === "INVALID_CREDENTIALS" && error.message === AUTH_GENERIC_LOGIN_MESSAGE_) {
+      console.log("auth.login returned generic error");
+      return {
+        ok: true,
+        code: error.code
+      };
+    }
+
+    throw error;
+  }
+
+  throw new Error("auth.login did not reject missing user");
+}
+
+function testFirstAdminSetupKeyRequired() {
+  try {
+    Setup_validateFirstAdminSetupKey_("wrong-key");
+  } catch (error) {
+    if (error && (error.code === "FORBIDDEN" || error.code === "SETUP_KEY_MISSING")) {
+      console.log("first admin setup key validation rejected invalid key");
+      return {
+        ok: true,
+        code: error.code
+      };
+    }
+
+    throw error;
+  }
+
+  throw new Error("Setup_validateFirstAdminSetupKey_ did not reject invalid key");
+}

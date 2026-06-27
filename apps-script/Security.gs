@@ -24,6 +24,48 @@ function Security_hashBytesSha256_(bytes) {
   return Security_bytesToHex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, bytes || []));
 }
 
+function Security_generateSalt_() {
+  return Security_hashSha256_([
+    Utilities.getUuid(),
+    Utilities.getUuid(),
+    String(new Date().getTime())
+  ].join("|"), "salt");
+}
+
+function Security_generateSessionToken_() {
+  return [
+    Utilities.getUuid(),
+    Utilities.getUuid(),
+    Utilities.getUuid(),
+    Security_generateSalt_()
+  ].join(".");
+}
+
+function Security_hashPassword_(password, salt) {
+  if (!salt) {
+    throw ApiError_("INTERNAL_ERROR", "ไม่พบ Salt สำหรับรหัสผ่าน");
+  }
+
+  return Security_hashWithSecret_(String(salt) + "|" + String(password || ""), CONFIG_KEYS_.APP_SECRET);
+}
+
+function Security_hashSessionToken_(sessionToken) {
+  return Security_hashWithSecret_(String(sessionToken || ""), CONFIG_KEYS_.SESSION_SECRET);
+}
+
+function Security_constantTimeEquals_(left, right) {
+  const leftText = String(left || "");
+  const rightText = String(right || "");
+  let diff = leftText.length ^ rightText.length;
+  const maxLength = Math.max(leftText.length, rightText.length);
+
+  for (let index = 0; index < maxLength; index += 1) {
+    diff |= (leftText.charCodeAt(index) || 0) ^ (rightText.charCodeAt(index) || 0);
+  }
+
+  return diff === 0;
+}
+
 function Security_bytesToHex_(bytes) {
   return bytes.map(function (byte) {
     const normalized = byte < 0 ? byte + 256 : byte;

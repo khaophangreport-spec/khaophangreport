@@ -1010,6 +1010,59 @@ function Setup_getKeyAtRow_(sheet, keyColumnName, rowIndex) {
   return String(sheet.getRange(rowIndex, keyColumn, 1, 1).getValue() || "");
 }
 
+function setupFirstAdmin(input) {
+  const lock = LockService.getScriptLock();
+  const payload = Utils_isPlainObject_(input) ? input : {};
+  const requestId = Utils_createRequestId_();
+
+  lock.waitLock(30000);
+
+  try {
+    Setup_validateFirstAdminSetupKey_(payload.setupKey);
+
+    if (UserService_hasAnyUser_()) {
+      throw ApiError_("SETUP_ALREADY_COMPLETED", "มีผู้ใช้งานในระบบแล้ว");
+    }
+
+    const user = UserService_createUser_({
+      username: payload.username,
+      password: payload.temporaryPassword || payload.password,
+      displayName: payload.displayName || "ผู้ดูแลระบบ",
+      email: payload.email || "",
+      phone: payload.phone || "",
+      role: "super_admin",
+      mustChangePassword: true
+    }, {
+      createdBy: "setup"
+    });
+
+    AuditService_logFirstAdminCreated_(user, requestId);
+
+    return {
+      ok: true,
+      user: UserService_projectAuthUser_(user),
+      mustChangePassword: true
+    };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function Setup_validateFirstAdminSetupKey_(setupKey) {
+  const expectedKey = Config_getProperty_(CONFIG_KEYS_.ADMIN_SETUP_KEY, "");
+  const providedKey = Utils_normalizeString_(setupKey);
+
+  if (!expectedKey) {
+    throw ApiError_("SETUP_KEY_MISSING", "ยังไม่ได้ตั้งค่า ADMIN_SETUP_KEY ใน Script Properties");
+  }
+
+  if (!providedKey || !Security_constantTimeEquals_(providedKey, expectedKey)) {
+    throw ApiError_("FORBIDDEN", "Setup Key ไม่ถูกต้อง");
+  }
+
+  return true;
+}
+
 function Setup_getCategorySeed_() {
   return [
     { category_id: "CAT-001", code: "ROAD", name: "ถนน ทางเท้า และสะพาน", description: "ปัญหาถนนชำรุด ทางเท้า หรือสะพาน", icon: "road", color: "#287444", target_days: 14, sort_order: 1 },
