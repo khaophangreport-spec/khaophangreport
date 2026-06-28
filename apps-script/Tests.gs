@@ -1351,6 +1351,132 @@ function testDashboardSummaryDemoSeedPlanBuilds() {
   };
 }
 
+function testDashboardSummaryResponseFlowDemoSeedGlobalAndMine() {
+  const plan = DemoSeed_buildPlanForTest_();
+  const originalReadReports = DashboardService_readReportSummaryRows_;
+  const originalReadCategories = DashboardService_readCategorySummaryRows_;
+  const user = {
+    user_id: "USER-DEMO-OFFICER",
+    role: "officer"
+  };
+
+  DashboardService_readReportSummaryRows_ = function (context) {
+    if (context.scope !== "mine") {
+      return plan.reports;
+    }
+
+    return plan.reports.filter(function (report) {
+      return report.assigned_to === user.user_id;
+    });
+  };
+  DashboardService_readCategorySummaryRows_ = function () {
+    return DemoSeed_getTestCategories_().map(function (category, index) {
+      return Object.assign({}, category, {
+        code: "CAT" + index,
+        name: "Category " + index,
+        icon: "circle",
+        color: "#287444",
+        sort_order: index + 1
+      });
+    });
+  };
+
+  try {
+    const globalResponse = DashboardService_buildSummaryResponse_({
+      user: {
+        user_id: "USER-DEMO-ADMIN",
+        role: "super_admin"
+      },
+      permissions: UserService_getPermissions_("super_admin"),
+      scope: "global"
+    }, DashboardService_createDiagnostics_({
+      requestId: "REQ-TEST-DASHBOARD-GLOBAL",
+      action: "dashboard.summary"
+    }), {
+      useCache: false,
+      writeCache: false
+    });
+    const mineResponse = DashboardService_buildSummaryResponse_({
+      user: user,
+      permissions: UserService_getPermissions_("officer"),
+      scope: "mine"
+    }, DashboardService_createDiagnostics_({
+      requestId: "REQ-TEST-DASHBOARD-MINE",
+      action: "dashboard.summary"
+    }), {
+      useCache: false,
+      writeCache: false
+    });
+
+    if (globalResponse.data.cards.total !== 37 || mineResponse.data.cards.total < 1 ||
+        mineResponse.data.cards.total > globalResponse.data.cards.total ||
+        !globalResponse.data.byStatus || !mineResponse.data.byStatus) {
+      throw new Error("dashboard.summary actual response flow failed for global/mine scopes");
+    }
+
+    return {
+      ok: true,
+      testType: "unit",
+      globalTotal: globalResponse.data.cards.total,
+      mineTotal: mineResponse.data.cards.total
+    };
+  } finally {
+    DashboardService_readReportSummaryRows_ = originalReadReports;
+    DashboardService_readCategorySummaryRows_ = originalReadCategories;
+  }
+}
+
+function testDashboardSummaryResponseSerializationSafe() {
+  const plan = DemoSeed_buildPlanForTest_();
+  const categories = DemoSeed_getTestCategories_().map(function (category, index) {
+    return Object.assign({}, category, {
+      code: "CAT" + index,
+      name: "Category " + index,
+      icon: "circle",
+      color: "#287444",
+      sort_order: index + 1
+    });
+  });
+  const summary = DashboardService_buildSummary_(plan.reports, categories, {
+    scope: "global"
+  }, new Date("2026-06-29T00:00:00.000Z"));
+  const issues = DashboardService_findSerializationIssues_(summary);
+  const serialized = JSON.stringify(summary);
+
+  if (issues.length > 0 || serialized.indexOf("undefined") !== -1 || serialized.indexOf("NaN") !== -1 || serialized.indexOf("Infinity") !== -1) {
+    throw new Error("dashboard.summary response contains unsafe serialized values");
+  }
+
+  return {
+    ok: true,
+    testType: "unit",
+    bytes: serialized.length
+  };
+}
+
+function testDashboardKnownAuthErrorKeepsCode() {
+  try {
+    DashboardService_requireContext_({
+      action: "dashboard.summary",
+      requestId: "REQ-TEST-DASHBOARD-AUTH",
+      sessionToken: "",
+      data: {}
+    });
+  } catch (error) {
+    if (error && error.code === "UNAUTHORIZED") {
+      return {
+        ok: true,
+        testType: "unit",
+        code: error.code
+      };
+    }
+
+    throw error;
+  }
+
+  throw new Error("dashboard.summary auth error did not keep expected code");
+}
+
 function testDashboardSummaryCacheClearVersion() {
   const beforeVersion = DashboardService_getCacheVersion_();
   const result = DashboardService_clearCache_();
@@ -3767,6 +3893,9 @@ function runKhaophangCoreTestSuite() {
     { group: "dashboard", name: "current status mapping", fn: testDashboardSummaryStatusMappingCurrentValues },
     { group: "dashboard", name: "invalid date row safe", fn: testDashboardSummaryInvalidDateRowSafe },
     { group: "dashboard", name: "demo seed summary builds", fn: testDashboardSummaryDemoSeedPlanBuilds },
+    { group: "dashboard", name: "actual response flow global/mine", fn: testDashboardSummaryResponseFlowDemoSeedGlobalAndMine },
+    { group: "dashboard", name: "response serialization safe", fn: testDashboardSummaryResponseSerializationSafe },
+    { group: "dashboard", name: "known auth error keeps code", fn: testDashboardKnownAuthErrorKeepsCode },
     { group: "permission", name: "viewer report list read only", fn: testAdminReportListViewerReadOnly },
     { group: "list", name: "admin report list filters", fn: testAdminReportListFiltersSortPagination },
     { group: "list", name: "admin user list pagination", fn: testAdminUserListPagination },

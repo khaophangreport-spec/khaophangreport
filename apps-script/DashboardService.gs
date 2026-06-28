@@ -37,27 +37,182 @@ const DASHBOARD_STATUS_ORDER_ = Object.freeze([
 ]);
 
 function DashboardService_summary(request) {
-  const context = DashboardService_requireContext_(request);
-  const cacheKey = DashboardService_buildCacheKey_(context);
-  const cachedData = SettingsService_getCachedJson_(cacheKey);
+  const diagnostics = DashboardService_createDiagnostics_(request);
 
-  if (cachedData) {
-    return {
-      data: cachedData,
-      message: "โหลดข้อมูล Dashboard สำเร็จ"
-    };
+  try {
+    diagnostics.log("DASHBOARD_STEP_01_AUTH_START", {});
+
+    const context = DashboardService_requireContext_(request);
+
+    diagnostics.log("DASHBOARD_STEP_02_AUTH_OK", {
+      role: context.user && context.user.role ? context.user.role : "",
+      scope: context.scope
+    });
+
+    return DashboardService_buildSummaryResponse_(context, diagnostics, {
+      useCache: true,
+      writeCache: true
+    });
+  } catch (error) {
+    diagnostics.fail(error);
+    throw error;
+  }
+}
+
+function DashboardService_buildSummaryResponse_(context, diagnostics, options) {
+  const safeOptions = options || {};
+  const safeDiagnostics = diagnostics || DashboardService_createDiagnostics_({});
+  const cacheKey = DashboardService_buildCacheKey_(context);
+
+  safeDiagnostics.log("DASHBOARD_STEP_03_SCOPE_OK", {
+    scope: context.scope,
+    cacheKeyLength: cacheKey.length
+  });
+
+  if (safeOptions.useCache !== false) {
+    const cachedData = DashboardService_getCachedSummarySafe_(cacheKey, safeDiagnostics);
+
+    if (cachedData) {
+      safeDiagnostics.log("DASHBOARD_STEP_08_RESPONSE_OK", {
+        source: "cache",
+        total: cachedData.cards && cachedData.cards.total ? cachedData.cards.total : 0
+      });
+
+      return {
+        data: cachedData,
+        message: "โหลดข้อมูล Dashboard สำเร็จ"
+      };
+    }
   }
 
   const reports = DashboardService_readReportSummaryRows_(context);
-  const categories = DashboardService_readCategorySummaryRows_();
-  const data = DashboardService_buildSummary_(reports, categories, context, new Date());
 
-  SettingsService_putCachedJson_(cacheKey, data, DASHBOARD_CACHE_TTL_SECONDS_);
+  safeDiagnostics.log("DASHBOARD_STEP_04_REPORT_SUMMARY_OK", {
+    reportCount: reports.length,
+    scope: context.scope
+  });
+
+  safeDiagnostics.log("DASHBOARD_STEP_05_MY_WORK_OK", {
+    reportCount: reports.length,
+    scope: context.scope
+  });
+
+  safeDiagnostics.log("DASHBOARD_STEP_06_USERS_OK", {
+    userCount: context && context.user ? 1 : 0
+  });
+
+  const categories = DashboardService_readCategorySummaryRows_();
+
+  safeDiagnostics.log("DASHBOARD_STEP_07_CATEGORIES_OK", {
+    categoryCount: categories.length
+  });
+
+  const data = DashboardService_buildSummary_(reports, categories, context, new Date());
+  const serializationIssues = DashboardService_findSerializationIssues_(data);
+
+  if (serializationIssues.length > 0) {
+    throw ApiError_("INTERNAL_ERROR", "Dashboard response contains non-serializable values", {
+      serializationIssues: serializationIssues.slice(0, 10)
+    });
+  }
+
+  if (safeOptions.writeCache !== false) {
+    DashboardService_putCachedSummarySafe_(cacheKey, data, safeDiagnostics);
+  }
+
+  safeDiagnostics.log("DASHBOARD_STEP_08_RESPONSE_OK", {
+    source: "fresh",
+    total: data.cards.total,
+    open: data.cards.open,
+    resolved: data.cards.resolved
+  });
 
   return {
     data: data,
     message: "โหลดข้อมูล Dashboard สำเร็จ"
   };
+}
+
+function runDiagnoseActualAdminDashboardForDevOnly() {
+  DashboardService_assertDevelopmentOnly_();
+
+  const user = DashboardService_findDiagnosticAdminUser_();
+  const permissions = UserService_getPermissions_(user.role);
+  const results = {};
+
+  ["global", "mine"].forEach(function (scope) {
+    const requestId = "REQ-DIAG-DASHBOARD-" + scope.toUpperCase();
+    const diagnostics = DashboardService_createDiagnostics_({
+      action: "dashboard.summary",
+      requestId: requestId,
+      data: {
+        scope: scope
+      }
+    });
+
+    try {
+      diagnostics.log("DASHBOARD_STEP_01_AUTH_START", {
+        diagnostic: true
+      });
+      DashboardService_assertPermission_(permissions, "report.read");
+
+      const resolvedScope = DashboardService_resolveScope_({
+        scope: scope
+      }, user, permissions);
+      const context = {
+        user: user,
+        permissions: permissions,
+        scope: resolvedScope
+      };
+      const response = DashboardService_buildSummaryResponse_(context, diagnostics, {
+        useCache: true,
+        writeCache: false
+      });
+
+      results[scope] = {
+        ok: true,
+        requestId: requestId,
+        scope: response.data.scope,
+        total: response.data.cards.total,
+        open: response.data.cards.open,
+        resolved: response.data.cards.resolved,
+        closed: response.data.cards.closed,
+        overdue: response.data.cards.overdue,
+        months: response.data.byMonth.map(function (item) {
+          return item.yearMonth;
+        }),
+        statuses: response.data.byStatus.filter(function (item) {
+          return item.total > 0;
+        }),
+        steps: diagnostics.steps
+      };
+    } catch (error) {
+      diagnostics.fail(error);
+      results[scope] = {
+        ok: false,
+        requestId: requestId,
+        code: error && error.code ? error.code : "INTERNAL_ERROR",
+        name: error && error.name ? error.name : "Error",
+        message: error && error.message ? error.message : String(error),
+        stack: error && error.stack ? error.stack : "",
+        steps: diagnostics.steps
+      };
+    }
+  });
+
+  const result = {
+    ok: results.global && results.global.ok === true && results.mine && results.mine.ok === true,
+    readOnly: true,
+    diagnosticType: "actual-dashboard-flow",
+    user: {
+      userId: user.user_id,
+      role: user.role
+    },
+    results: results
+  };
+
+  console.log(JSON.stringify(result));
+  return result;
 }
 
 function DashboardService_requireContext_(request) {
@@ -464,4 +619,217 @@ function DashboardService_clearCache_() {
     ok: true,
     version: nextVersion
   };
+}
+
+function DashboardService_getCachedSummarySafe_(cacheKey, diagnostics) {
+  try {
+    return SettingsService_getCachedJson_(cacheKey);
+  } catch (error) {
+    DashboardService_logStep_("DASHBOARD_CACHE_READ_FAILED", diagnostics, {
+      code: error && error.code ? error.code : "INTERNAL_ERROR",
+      name: error && error.name ? error.name : "Error",
+      message: error && error.message ? error.message : String(error)
+    });
+    return null;
+  }
+}
+
+function DashboardService_putCachedSummarySafe_(cacheKey, data, diagnostics) {
+  try {
+    SettingsService_putCachedJson_(cacheKey, data, DASHBOARD_CACHE_TTL_SECONDS_);
+    return true;
+  } catch (error) {
+    DashboardService_logStep_("DASHBOARD_CACHE_WRITE_FAILED", diagnostics, {
+      code: error && error.code ? error.code : "INTERNAL_ERROR",
+      name: error && error.name ? error.name : "Error",
+      message: error && error.message ? error.message : String(error),
+      payloadBytes: JSON.stringify(data || {}).length
+    });
+    return false;
+  }
+}
+
+function DashboardService_createDiagnostics_(request) {
+  const safeRequest = request || {};
+  const diagnostics = {
+    enabled: DashboardService_isDevelopment_(),
+    requestId: safeRequest.requestId || "",
+    action: safeRequest.action || "dashboard.summary",
+    startedMs: new Date().getTime(),
+    lastStep: "",
+    steps: []
+  };
+
+  diagnostics.log = function (step, detail) {
+    diagnostics.lastStep = step;
+    const entry = {
+      step: step,
+      elapsedMs: new Date().getTime() - diagnostics.startedMs,
+      detail: DashboardService_projectDiagnosticDetail_(detail || {})
+    };
+
+    diagnostics.steps.push(entry);
+    DashboardService_logStep_(step, diagnostics, entry.detail);
+  };
+
+  diagnostics.fail = function (error) {
+    DashboardService_logStep_("DASHBOARD_STEP_FAILED", diagnostics, {
+      lastStep: diagnostics.lastStep,
+      code: error && error.code ? error.code : "INTERNAL_ERROR",
+      name: error && error.name ? error.name : "Error",
+      message: error && error.message ? error.message : String(error),
+      stack: error && error.stack ? error.stack : ""
+    });
+  };
+
+  return diagnostics;
+}
+
+function DashboardService_logStep_(step, diagnostics, detail) {
+  const safeDiagnostics = diagnostics || {};
+
+  if (!safeDiagnostics.enabled) {
+    return;
+  }
+
+  Security_safeLog_("DASHBOARD_FLOW", {
+    requestId: safeDiagnostics.requestId || "",
+    action: safeDiagnostics.action || "dashboard.summary",
+    step: step,
+    elapsedMs: new Date().getTime() - Number(safeDiagnostics.startedMs || new Date().getTime()),
+    detail: DashboardService_projectDiagnosticDetail_(detail || {})
+  });
+}
+
+function DashboardService_projectDiagnosticDetail_(detail) {
+  const safeDetail = detail || {};
+  const output = {};
+
+  Object.keys(safeDetail).forEach(function (key) {
+    const value = safeDetail[key];
+
+    if (key.toLowerCase().indexOf("token") !== -1 ||
+        key.toLowerCase().indexOf("email") !== -1 ||
+        key.toLowerCase().indexOf("phone") !== -1) {
+      output[key] = "REDACTED";
+      return;
+    }
+
+    if (value === undefined) {
+      output[key] = "";
+      return;
+    }
+
+    output[key] = value;
+  });
+
+  return output;
+}
+
+function DashboardService_findSerializationIssues_(value) {
+  const issues = [];
+  const stack = [];
+
+  DashboardService_walkSerializable_(value, "$", stack, issues);
+  return issues;
+}
+
+function DashboardService_walkSerializable_(value, path, stack, issues) {
+  if (issues.length >= 50) {
+    return;
+  }
+
+  if (value === undefined) {
+    issues.push({
+      path: path,
+      reason: "undefined"
+    });
+    return;
+  }
+
+  if (typeof value === "number" && !isFinite(value)) {
+    issues.push({
+      path: path,
+      reason: "non-finite-number"
+    });
+    return;
+  }
+
+  if (value === null || typeof value !== "object") {
+    return;
+  }
+
+  if (value instanceof Date) {
+    if (isNaN(value.getTime())) {
+      issues.push({
+        path: path,
+        reason: "invalid-date"
+      });
+    }
+    return;
+  }
+
+  if (stack.indexOf(value) !== -1) {
+    issues.push({
+      path: path,
+      reason: "circular"
+    });
+    return;
+  }
+
+  stack.push(value);
+
+  if (Array.isArray(value)) {
+    value.forEach(function (item, index) {
+      DashboardService_walkSerializable_(item, path + "[" + index + "]", stack, issues);
+    });
+  } else if (Utils_isPlainObject_(value)) {
+    Object.keys(value).forEach(function (key) {
+      DashboardService_walkSerializable_(value[key], path + "." + key, stack, issues);
+    });
+  } else {
+    issues.push({
+      path: path,
+      reason: "non-plain-object"
+    });
+  }
+
+  stack.pop();
+}
+
+function DashboardService_findDiagnosticAdminUser_() {
+  const users = SheetRepository_readRows_("users", {
+    keyColumnName: "user_id",
+    includeDeleted: false
+  }).rows.map(function (entry) {
+    return entry.object;
+  }).filter(function (user) {
+    return user && user.user_id &&
+      !Utils_toBoolean_(user.is_deleted) &&
+      UserService_isActive_(user) &&
+      DashboardService_hasPermission_(UserService_getPermissions_(user.role), "report.read");
+  });
+  const preferred = users.filter(function (user) {
+    return Utils_normalizeString_(user.role).toLowerCase() === "super_admin";
+  })[0];
+
+  if (!preferred && users.length === 0) {
+    throw ApiError_("VALIDATION_ERROR", "No active admin user found for dashboard diagnostic.");
+  }
+
+  return preferred || users[0];
+}
+
+function DashboardService_assertDevelopmentOnly_() {
+  if (!DashboardService_isDevelopment_()) {
+    throw ApiError_("FORBIDDEN", "Dashboard diagnostic is available only outside production.");
+  }
+}
+
+function DashboardService_isDevelopment_() {
+  const environment = typeof Config_getEnvironment_ === "function" ?
+    Utils_normalizeString_(Config_getEnvironment_()).toLowerCase() :
+    "development";
+
+  return environment !== "production";
 }

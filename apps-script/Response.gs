@@ -28,6 +28,15 @@ function Response_error_(code, message, fields, meta) {
 }
 
 function Response_fromException_(error, meta) {
+  Security_safeLog_("API_EXCEPTION", {
+    requestId: meta && meta.requestId ? meta.requestId : "",
+    action: meta && meta.action ? meta.action : "",
+    code: error && error.code ? error.code : "INTERNAL_ERROR",
+    name: error && error.name ? error.name : "Error",
+    message: error && error.message ? error.message : String(error),
+    stack: error && error.stack ? error.stack : ""
+  });
+
   Security_safeLog_("API_ERROR", {
     requestId: meta && meta.requestId ? meta.requestId : "",
     action: meta && meta.action ? meta.action : "",

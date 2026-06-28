@@ -156,13 +156,24 @@
     const message = window.KPR_API && typeof window.KPR_API.getErrorMessage === "function"
       ? window.KPR_API.getErrorMessage(error)
       : "ไม่สามารถเชื่อมต่อระบบได้";
+    const code = error && error.code ? error.code : "";
+    const requestId = error && error.meta && error.meta.requestId ? error.meta.requestId : "";
+    const detailParts = [];
+
+    if (code) {
+      detailParts.push("รหัส: " + code);
+    }
+
+    if (requestId) {
+      detailParts.push("Request ID: " + requestId);
+    }
 
     state.isLoading = false;
     setHidden("[data-dashboard-loading]", true);
     setHidden("[data-dashboard-content]", true);
     setHidden("[data-dashboard-empty]", true);
     setHidden("[data-dashboard-error]", false);
-    setText("[data-dashboard-error-message]", message);
+    setText("[data-dashboard-error-message]", detailParts.length > 0 ? message + " (" + detailParts.join(" | ") + ")" : message);
     setControlsDisabled(false);
     updateScopeButtons();
   }
