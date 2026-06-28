@@ -2,7 +2,7 @@
 
 ระบบรับแจ้งและติดตามปัญหาชุมชนตำบลเขาพัง
 
-[![Status](https://img.shields.io/badge/status-planning-287444)](#สถานะโครงการ)
+[![Status](https://img.shields.io/badge/status-active%20development-287444)](#สถานะโครงการ)
 [![Frontend](https://img.shields.io/badge/frontend-HTML%20%2B%20CSS%20%2B%20JavaScript-174A2B)](#เทคโนโลยี)
 [![Backend](https://img.shields.io/badge/backend-Google%20Apps%20Script-287444)](#เทคโนโลยี)
 [![Hosting](https://img.shields.io/badge/hosting-Cloudflare%20Pages-F7A31B)](#การ-deploy)
@@ -256,9 +256,41 @@ Google Sheets + Google Drive
 │
 ├── assets/
 │   ├── css/
+│   │   ├── variables.css
+│   │   ├── reset.css
+│   │   ├── base.css
+│   │   ├── components.css
+│   │   ├── utilities.css
+│   │   ├── public.css
+│   │   └── admin.css
 │   ├── js/
-│   ├── images/
-│   └── icons/
+│   │   ├── config.js
+│   │   ├── api.js
+│   │   ├── auth.js
+│   │   ├── utils.js
+│   │   ├── validation.js
+│   │   ├── image-compress.js
+│   │   ├── location.js
+│   │   ├── toast.js
+│   │   ├── modal.js
+│   │   ├── admin-login.js
+│   │   ├── public/
+│   │   │   ├── home.js
+│   │   │   ├── report.js
+│   │   │   ├── report-success.js
+│   │   │   ├── track.js
+│   │   │   └── faq.js
+│   │   └── admin/
+│   │       ├── layout.js
+│   │       ├── dashboard.js
+│   │       ├── reports.js
+│   │       ├── report-detail.js
+│   │       ├── users.js
+│   │       ├── categories.js
+│   │       ├── announcements.js
+│   │       ├── settings.js
+│   │       ├── activity-logs.js
+│   │       └── export.js
 │
 ├── apps-script/
 │   ├── Code.gs
@@ -291,11 +323,11 @@ Google Sheets + Google Drive
 │   ├── UI_FLOW.md
 │   ├── DATA_SCHEMA.md
 │   ├── API_SPEC.md
-│   └── DEVELOPMENT_RULES.md
+│   ├── DEVELOPMENT_RULES.md
+│   ├── CODEX_PROMPT_PACK.md
+│   └── TEST_CHECKLIST.md
 │
-├── .gitignore
-├── README.md
-└── LICENSE
+└── README.md
 ```
 
 ---
@@ -312,6 +344,8 @@ Google Sheets + Google Drive
 | [`DATA_SCHEMA.md`](docs/DATA_SCHEMA.md) | กำหนดโครงสร้าง Google Sheets และข้อมูล |
 | [`API_SPEC.md`](docs/API_SPEC.md) | กำหนด Request, Response, Action และ Permission |
 | [`DEVELOPMENT_RULES.md`](docs/DEVELOPMENT_RULES.md) | กำหนดมาตรฐานการพัฒนา ทดสอบ Git และ Deploy |
+| [`CODEX_PROMPT_PACK.md`](docs/CODEX_PROMPT_PACK.md) | ชุด prompt และขั้นตอนปฏิบัติงานสำหรับพัฒนาแบบมี guardrail |
+| [`TEST_CHECKLIST.md`](docs/TEST_CHECKLIST.md) | Checklist ทดสอบ Manual, Backup, Restore และ Production Smoke Test |
 
 ### ลำดับที่ต้องอ่านก่อนพัฒนา
 
@@ -325,7 +359,7 @@ Google Sheets + Google Drive
 
 ---
 
-## การเริ่มต้นโปรเจ็กต์
+## Setup และการเริ่มต้นโปรเจ็กต์
 
 ### 1. Clone Repository
 
@@ -340,25 +374,23 @@ cd khaophangreport
 git checkout -b feature/project-foundation
 ```
 
-### 3. สร้างโครงสร้างไฟล์
+### 3. เปิด Frontend แบบ Static
 
-สร้างไฟล์และโฟลเดอร์ตามหัวข้อ “โครงสร้างโปรเจ็กต์”
+Frontend เป็น HTML, CSS และ Vanilla JavaScript เท่านั้น ไม่มี build step และไม่มี framework
 
-### 4. จัดวางเอกสาร
-
-นำเอกสารต่อไปนี้ไว้ใน `docs/`
-
-```text
-docs/
-├── KHAOPHANG_REPORT_MASTER_SPEC.md
-├── APP_SPEC.md
-├── UI_FLOW.md
-├── DATA_SCHEMA.md
-├── API_SPEC.md
-└── DEVELOPMENT_RULES.md
+```bash
+python -m http.server 8080
 ```
 
-### 5. สร้าง Frontend Config
+จากนั้นเปิด:
+
+```text
+http://localhost:8080
+```
+
+หรือใช้ static server อื่นได้ แต่ห้ามเพิ่ม framework/library ขนาดใหญ่โดยไม่ได้รับอนุญาต
+
+### 4. ตรวจ Frontend Config
 
 ไฟล์:
 
@@ -383,7 +415,7 @@ window.APP_CONFIG = {
 };
 ```
 
-ห้ามเก็บ Secret ในไฟล์นี้
+`API_URL` ต้องเป็น URL ของ Google Apps Script Web App เท่านั้น และห้ามเก็บ Secret, Spreadsheet ID, Folder ID หรือ Session Secret ในไฟล์นี้
 
 ---
 
@@ -459,14 +491,62 @@ ENVIRONMENT
 2. เพิ่มไฟล์ตามโครงสร้าง `apps-script/`
 3. ตั้ง Script Properties
 4. รัน `setupSystem()`
-5. ตรวจสอบ Sheets
-6. ตรวจสอบ Google Drive Folder
-7. สร้าง Super Admin แรก
-8. Deploy เป็น Web App
-9. บันทึก Deployment URL
-10. ใส่ URL ใน `assets/js/config.js`
-11. ทดสอบ `health.check`
-12. ทดสอบ Public API และ Admin API
+5. รัน `validateSeedData()`
+6. รัน `validatePhysicalSeedPlacement()`
+7. ตรวจสอบ Google Drive Folder
+8. สร้าง Super Admin แรกด้วย setup key ที่เก็บใน Script Properties
+9. Deploy เป็น Web App
+10. บันทึก Deployment URL ไว้นอก repository
+11. ใส่ URL ใน `assets/js/config.js`
+12. ทดสอบ `health.check`
+13. ทดสอบ Public API และ Admin API
+
+ไฟล์ Backend หลัก:
+
+- `Code.gs` รับ `doGet()` และ `doPost()`
+- `Router.gs` เป็น whitelist ของ API Action
+- `Response.gs` สร้าง response envelope
+- `*Service.gs` เก็บ business logic
+- `SheetRepository.gs` อ่าน/เขียน Google Sheets
+- `DriveRepository.gs` จัดการไฟล์ใน Google Drive
+- `Security.gs` จัดการ hash, session token, sanitization และข้อมูลอ่อนไหว
+- `Setup.gs` สร้าง/ตรวจโครงสร้าง Sheets, seed data และ setup admin แรก
+- `Tests.gs` รวม test functions และ core test suite
+
+Action ที่อยู่ใน Router ล่าสุดครอบคลุม:
+
+```text
+health.check
+public.config
+category.list
+announcement.list
+report.create
+report.track
+report.addInfo
+auth.login
+auth.me
+auth.logout
+auth.changePassword
+dashboard.summary
+admin.report.list
+admin.report.detail
+admin.report.assign
+admin.report.updateStatus
+admin.report.updatePriority
+admin.report.addUpdate
+admin.category.list
+admin.category.save
+admin.user.list
+admin.user.save
+admin.user.resetPassword
+admin.user.revokeSessions
+admin.announcement.list
+admin.announcement.save
+admin.settings.get
+admin.settings.update
+admin.activity.list
+admin.export.csv
+```
 
 ---
 
@@ -496,6 +576,8 @@ ENVIRONMENT
 - Admin Login
 - API Connection
 - Privacy และ Terms
+
+ก่อน Deploy ต้องยืนยันว่า Google Apps Script deployment URL ใน `assets/js/config.js` ชี้ไปยัง deployment ที่มี backend version ล่าสุดแล้ว
 
 ---
 
@@ -606,6 +688,21 @@ ENVIRONMENT
 รายละเอียดทั้งหมดให้ยึด `docs/DEVELOPMENT_RULES.md`
 
 ---
+
+## Development Workflow
+
+1. อ่านเอกสารตามลำดับก่อนเริ่มงาน
+2. ตรวจ `git status` เพื่อดูงานค้างหรือไฟล์ที่ผู้อื่นแก้ไว้
+3. จำกัดขอบเขตไฟล์ที่แก้ให้ตรงกับงาน
+4. เรียก API ผ่าน `assets/js/api.js` เท่านั้น
+5. ตรวจ Loading, Empty, Error และ Success State ของหน้าที่แตะ API
+6. ตรวจ Session และ Permission ที่ Backend สำหรับ Admin API ทุกครั้ง
+7. ใช้ Test Data สำหรับการทดสอบ ห้ามใช้ Production Data เป็นพื้นที่ทดลอง
+8. Cleanup Test Data หลังทดสอบ
+9. ตรวจ syntax และ flow ที่เกี่ยวข้อง
+10. สรุปไฟล์ที่แก้ วิธีทดสอบ และข้อจำกัด
+
+ห้าม Commit, Push หรือ Deploy ถ้ายังไม่ได้รับคำสั่งชัดเจน
 
 ## Git Workflow
 
@@ -742,6 +839,30 @@ Prompt ควรระบุ:
 
 ## การทดสอบขั้นต่ำ
 
+### Static และ Syntax
+
+- เปิดหน้าที่แก้ผ่าน static server
+- ตรวจ Console Error ใน Browser DevTools
+- ตรวจ JavaScript ที่แก้ด้วย `node --check` เมื่อไฟล์ไม่มี dependency ของ browser global ที่ทำให้ตรวจไม่ได้
+- ตรวจว่าไม่มี Secret หรือ ID จริงหลุดเข้า repository
+- ตรวจ `git diff --check`
+
+### Apps Script Tests
+
+รันจาก Google Apps Script Editor หรือ Apps Script runtime ที่เชื่อมกับ Spreadsheet/Drive สำหรับทดสอบ:
+
+```text
+testValidateSeedData()
+testValidatePhysicalSeedPlacement()
+testPublicReadApiRouter()
+testGetHealthCheckRouter()
+runKhaophangCoreTestSuite()
+```
+
+`runKhaophangCoreTestSuite()` ครอบคลุม setup validation, public config, category list, report create, anonymous report, invalid payload, duplicate request, report track, no PII, addInfo, auth login, session, permission, list/detail/assign, status transition, version conflict และ export sanitization
+
+ใช้ Test Data เท่านั้น และตรวจว่า cleanup ทำงานหลัง suite จบ
+
 ### Public
 
 - ส่งเรื่องปกติ
@@ -814,7 +935,7 @@ Prompt ควรระบุ:
 สถานะปัจจุบัน:
 
 ```text
-Planning and Documentation
+Active Development
 ```
 
 เอกสารที่จัดทำแล้ว:
@@ -825,13 +946,15 @@ Planning and Documentation
 - [x] DATA_SCHEMA.md
 - [x] API_SPEC.md
 - [x] DEVELOPMENT_RULES.md
+- [x] CODEX_PROMPT_PACK.md
+- [x] TEST_CHECKLIST.md
 - [x] README.md
-- [ ] Frontend Foundation
-- [ ] Google Sheets Setup
-- [ ] Apps Script Backend
-- [ ] Public MVP
-- [ ] Admin MVP
-- [ ] Testing
+- [x] Frontend Foundation
+- [x] Apps Script Backend
+- [x] Public MVP
+- [x] Admin MVP
+- [x] Testing Suite
+- [ ] Google Sheets/Drive Production Setup
 - [ ] Production Launch
 
 ---
@@ -854,6 +977,16 @@ Planning and Documentation
 - Data Retention
 - Session Lifetime
 - Backup Schedule
+
+## Known Limitations
+
+- Frontend เป็น static site จึงต้องอาศัย Google Apps Script Web App deployment ที่อัปเดตแล้วเสมอ หากแก้ `apps-script/Router.gs` หรือ Service ใหม่ ต้อง deploy Apps Script version ใหม่ก่อน Cloudflare Pages จะเรียก action ล่าสุดได้
+- Admin End-to-End Test ต้องมีบัญชีทดสอบตาม role ได้แก่ `super_admin`, `admin`, `officer` และ `viewer`
+- Production Data ห้ามใช้เป็นพื้นที่ทดสอบโดยตรง ควรมี Spreadsheet และ Drive Folder สำหรับ development/test แยกจาก production
+- การทดสอบไฟล์แนบจริงต้องใช้ Google Drive quota และ permission ของบัญชีเจ้าของ Apps Script
+- Browser บนมือถือจริงยังต้องทดสอบก่อนเปิด production โดยเฉพาะ camera upload, geolocation, copy tracking code และ admin table/card layout
+- Backup/Restore ต้องทดสอบกับสำเนา Spreadsheet และ Drive Folder ก่อนใช้กับ production
+- ค่าติดต่อ, หมายเลขฉุกเฉิน, Privacy Policy, Terms, Consent Text, Data Retention และ Backup Schedule ต้องยืนยันกับผู้ดูแลโครงการก่อนเปิดใช้งานจริง
 
 ---
 
