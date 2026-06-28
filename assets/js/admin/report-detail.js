@@ -50,6 +50,14 @@
     critical: "วิกฤต"
   });
 
+  const PRIORITY_VALUES = Object.freeze(["low", "normal", "high", "critical"]);
+  const PRIORITY_ORDER = Object.freeze({
+    low: 1,
+    normal: 2,
+    high: 3,
+    critical: 4
+  });
+
   const CONTACT_METHOD_LABELS = Object.freeze({
     phone: "โทรศัพท์",
     email: "อีเมล",
@@ -65,6 +73,7 @@
     isLoading: false,
     isAssigning: false,
     isUpdatingStatus: false,
+    isUpdatingPriority: false,
     isAddingUpdate: false,
     updateAttachments: []
   };
@@ -232,6 +241,7 @@
     setRefreshEnabled(true);
     renderAssignmentAction();
     renderStatusAction();
+    renderPriorityAction();
     renderUpdateAction();
   }
 
@@ -435,6 +445,19 @@
     clearElement(list);
     appendDefinitionNode(list, "ความสำคัญปัจจุบัน", createPriorityChip(report.priority));
     appendDefinitionNode(list, "ความเร่งด่วนที่ผู้แจ้งเลือก", createPriorityChip(report.priorityReported));
+    renderPriorityAction();
+  }
+
+  function renderPriorityAction() {
+    const button = $("[data-detail-priority-open]");
+    const canUpdatePriority = (hasPermission("canUpdatePriority") || hasPermission("canUpdate")) && !state.isLoading;
+
+    if (!button) {
+      return;
+    }
+
+    button.hidden = !canUpdatePriority;
+    button.disabled = !canUpdatePriority;
   }
 
   function renderAssignment(report) {
@@ -772,6 +795,228 @@
       setStatusError(getStatusErrorMessage(error), error && error.fields ? error.fields : {});
     } finally {
       setUpdatingStatus(false);
+    }
+  }
+
+  function getPriorityRank(priority) {
+    return Number(PRIORITY_ORDER[String(priority || "").toLowerCase()] || 0);
+  }
+
+  function getCurrentPriority() {
+    const report = state.data && state.data.report ? state.data.report : {};
+    return String(report.priority || "normal").toLowerCase();
+  }
+
+  function isPriorityIncreaseToHighCritical(priority) {
+    const newPriority = String(priority || "").toLowerCase();
+
+    return (newPriority === "high" || newPriority === "critical") &&
+      getPriorityRank(newPriority) > getPriorityRank(getCurrentPriority());
+  }
+
+  function populatePriorityOptions() {
+    const select = $("[data-priority-new-priority]");
+
+    clearElement(select);
+
+    if (!select) {
+      return;
+    }
+
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = "เลือกระดับความสำคัญใหม่";
+    select.appendChild(placeholder);
+
+    PRIORITY_VALUES.forEach(function (priority) {
+      const option = document.createElement("option");
+      option.value = priority;
+      option.textContent = getPriorityLabel(priority);
+      select.appendChild(option);
+    });
+
+    select.value = getCurrentPriority();
+  }
+
+  function setPriorityModalOpen(open) {
+    const modal = $("[data-priority-modal]");
+    const button = $("[data-detail-priority-open]");
+    const select = $("[data-priority-new-priority]");
+
+    if (!modal) {
+      return;
+    }
+
+    modal.hidden = !open;
+    document.body.classList.toggle("is-report-detail-modal-open", !!open || !!($("[data-status-modal]") && !$("[data-status-modal]").hidden) || !!($("[data-assign-modal]") && !$("[data-assign-modal]").hidden));
+
+    if (open) {
+      populatePriorityOptions();
+      resetPriorityForm();
+      updatePriorityNoteVisibility();
+      window.setTimeout(function () {
+        if (select) {
+          select.focus();
+        }
+      }, 0);
+      return;
+    }
+
+    if (button) {
+      button.focus();
+    }
+  }
+
+  function resetPriorityForm() {
+    const note = $("[data-priority-note]");
+
+    setPriorityError("");
+    setPrioritySuccess("");
+    if (note) {
+      note.value = "";
+    }
+  }
+
+  function setPriorityError(message, fields) {
+    const alert = $("[data-priority-error]");
+
+    if (alert) {
+      alert.hidden = !message;
+      alert.textContent = message || "";
+    }
+
+    $all("[data-priority-field-error]").forEach(function (element) {
+      const key = element.getAttribute("data-priority-field-error");
+      element.textContent = fields && fields[key] ? fields[key] : "";
+    });
+  }
+
+  function setPrioritySuccess(message) {
+    const alert = $("[data-priority-success]");
+
+    if (alert) {
+      alert.hidden = !message;
+      alert.textContent = message || "";
+    }
+  }
+
+  function updatePriorityNoteVisibility() {
+    const select = $("[data-priority-new-priority]");
+    const noteRow = $("[data-priority-note-row]");
+    const note = $("[data-priority-note]");
+    const needsNote = isPriorityIncreaseToHighCritical(select ? select.value : "");
+
+    if (noteRow) {
+      noteRow.hidden = !needsNote;
+    }
+
+    if (note) {
+      note.required = needsNote;
+    }
+  }
+
+  function buildPriorityPayload() {
+    const select = $("[data-priority-new-priority]");
+    const note = $("[data-priority-note]");
+
+    return {
+      reportId: state.reportId,
+      version: state.version,
+      priority: select ? select.value : "",
+      note: note ? note.value.trim() : ""
+    };
+  }
+
+  function validatePriorityPayload(payload) {
+    const fields = {};
+
+    if (!payload.priority || PRIORITY_VALUES.indexOf(payload.priority) === -1) {
+      fields.priority = "กรุณาเลือกระดับความสำคัญ";
+    }
+
+    if (payload.priority === getCurrentPriority()) {
+      fields.priority = "ระดับความสำคัญยังเป็นค่าเดิม";
+    }
+
+    if (isPriorityIncreaseToHighCritical(payload.priority) && !payload.note) {
+      fields.note = "กรุณาระบุหมายเหตุเมื่อปรับขึ้นเป็นสูงหรือวิกฤต";
+    }
+
+    return fields;
+  }
+
+  function setUpdatingPriority(updating) {
+    const elements = [
+      $("[data-priority-submit]"),
+      $("[data-priority-cancel]"),
+      $("[data-priority-close]"),
+      $("[data-priority-new-priority]"),
+      $("[data-priority-note]")
+    ];
+    const submitText = $("[data-priority-submit-text]");
+
+    state.isUpdatingPriority = !!updating;
+    elements.forEach(function (element) {
+      if (element) {
+        element.disabled = state.isUpdatingPriority;
+      }
+    });
+
+    if (submitText) {
+      submitText.textContent = state.isUpdatingPriority ? "กำลังบันทึก..." : "บันทึกความสำคัญ";
+    }
+  }
+
+  function getPriorityErrorMessage(error) {
+    if (!error) {
+      return "ไม่สามารถปรับความสำคัญได้ กรุณาลองใหม่";
+    }
+
+    if (error.code === "VERSION_CONFLICT") {
+      return "ข้อมูลเรื่องนี้ถูกอัปเดตแล้ว กรุณาโหลดใหม่ก่อนปรับความสำคัญ";
+    }
+
+    if (error.code === "FORBIDDEN") {
+      return "คุณไม่มีสิทธิ์ปรับความสำคัญเรื่องนี้";
+    }
+
+    if (error.code === "SESSION_EXPIRED" || error.code === "UNAUTHORIZED") {
+      return "เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่";
+    }
+
+    return error.message || "ไม่สามารถปรับความสำคัญได้ กรุณาลองใหม่";
+  }
+
+  async function submitPriorityUpdate(event) {
+    event.preventDefault();
+
+    if (state.isUpdatingPriority || !window.KPR_API) {
+      return;
+    }
+
+    const payload = buildPriorityPayload();
+    const fields = validatePriorityPayload(payload);
+
+    if (Object.keys(fields).length > 0) {
+      setPriorityError("กรุณาตรวจสอบข้อมูลก่อนบันทึก", fields);
+      return;
+    }
+
+    setUpdatingPriority(true);
+    setPriorityError("");
+    setPrioritySuccess("");
+
+    try {
+      await window.KPR_API.write("admin.report.updatePriority", payload, {
+        withSession: true
+      });
+      setPrioritySuccess("บันทึกความสำคัญเรียบร้อยแล้ว");
+      setPriorityModalOpen(false);
+      await loadDetail();
+    } catch (error) {
+      setPriorityError(getPriorityErrorMessage(error), error && error.fields ? error.fields : {});
+    } finally {
+      setUpdatingPriority(false);
     }
   }
 
@@ -1483,6 +1728,11 @@
     const statusModal = $("[data-status-modal]");
     const statusCloseButtons = $all("[data-status-close], [data-status-cancel]");
     const statusInputs = $all("[data-status-new-status], [data-status-public-message], [data-status-result], [data-status-rejection-reason], [data-status-duplicate-ref], [data-status-duplicate-reason], [data-status-reason]");
+    const priorityOpen = $("[data-detail-priority-open]");
+    const priorityForm = $("[data-priority-form]");
+    const priorityModal = $("[data-priority-modal]");
+    const priorityCloseButtons = $all("[data-priority-close], [data-priority-cancel]");
+    const priorityInputs = $all("[data-priority-new-priority], [data-priority-note]");
     const assignOpen = $("[data-detail-assign-open]");
     const assignForm = $("[data-assign-form]");
     const assignModal = $("[data-assign-modal]");
@@ -1527,6 +1777,37 @@
       statusModal.addEventListener("click", function (event) {
         if (event.target === statusModal && !state.isUpdatingStatus) {
           setStatusModalOpen(false);
+        }
+      });
+    }
+
+    if (priorityOpen) {
+      priorityOpen.addEventListener("click", function () {
+        setPriorityModalOpen(true);
+      });
+    }
+
+    if (priorityForm) {
+      priorityForm.addEventListener("submit", submitPriorityUpdate);
+    }
+
+    priorityCloseButtons.forEach(function (button) {
+      button.addEventListener("click", function () {
+        if (!state.isUpdatingPriority) {
+          setPriorityModalOpen(false);
+        }
+      });
+    });
+
+    priorityInputs.forEach(function (input) {
+      input.addEventListener("input", updatePriorityNoteVisibility);
+      input.addEventListener("change", updatePriorityNoteVisibility);
+    });
+
+    if (priorityModal) {
+      priorityModal.addEventListener("click", function (event) {
+        if (event.target === priorityModal && !state.isUpdatingPriority) {
+          setPriorityModalOpen(false);
         }
       });
     }
@@ -1582,6 +1863,11 @@
 
       if (event.key === "Escape" && assignModal && !assignModal.hidden && !state.isAssigning) {
         setAssignModalOpen(false);
+        return;
+      }
+
+      if (event.key === "Escape" && priorityModal && !priorityModal.hidden && !state.isUpdatingPriority) {
+        setPriorityModalOpen(false);
       }
     });
   }

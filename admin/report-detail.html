@@ -182,6 +182,9 @@
               <section class="report-detail-card" aria-labelledby="detail-priority-title">
                 <div class="report-detail-section-header">
                   <h2 id="detail-priority-title">ความสำคัญ</h2>
+                  <button class="button button-primary" type="button" data-detail-priority-open hidden>
+                    ปรับความสำคัญ
+                  </button>
                 </div>
                 <dl class="report-detail-list" data-detail-priority-info></dl>
               </section>
@@ -369,6 +372,46 @@
             <button class="button button-secondary" type="button" data-status-cancel>ยกเลิก</button>
             <button class="button button-primary" type="submit" data-status-submit>
               <span data-status-submit-text>บันทึกสถานะ</span>
+            </button>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <div class="report-detail-modal-backdrop" data-priority-modal hidden>
+      <section class="report-detail-modal" role="dialog" aria-modal="true" aria-labelledby="priority-modal-title">
+        <form class="report-detail-modal-panel" data-priority-form novalidate>
+          <div class="report-detail-modal-header">
+            <div>
+              <p class="admin-eyebrow">Priority</p>
+              <h2 id="priority-modal-title">ปรับความสำคัญเรื่องแจ้ง</h2>
+            </div>
+            <button class="admin-icon-button" type="button" data-priority-close aria-label="ปิดหน้าต่างปรับความสำคัญ">
+              ×
+            </button>
+          </div>
+
+          <div class="report-detail-modal-body">
+            <div class="report-detail-modal-alert" data-priority-error role="alert" hidden></div>
+            <div class="report-detail-success" data-priority-success role="status" aria-live="polite" hidden></div>
+
+            <label class="report-detail-field" for="priority-new-priority">
+              <span>ระดับความสำคัญใหม่</span>
+              <select id="priority-new-priority" data-priority-new-priority required></select>
+              <small data-priority-field-error="priority"></small>
+            </label>
+
+            <label class="report-detail-field" data-priority-note-row for="priority-note" hidden>
+              <span>หมายเหตุภายใน</span>
+              <textarea id="priority-note" data-priority-note rows="4" maxlength="1000"></textarea>
+              <small data-priority-field-error="note"></small>
+            </label>
+          </div>
+
+          <div class="report-detail-modal-actions">
+            <button class="button button-secondary" type="button" data-priority-cancel>ยกเลิก</button>
+            <button class="button button-primary" type="submit" data-priority-submit>
+              <span data-priority-submit-text>บันทึกความสำคัญ</span>
             </button>
           </div>
         </form>

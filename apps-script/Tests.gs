@@ -1823,6 +1823,131 @@ function testAdminReportAddUpdatePrivateAttachmentDefault() {
   };
 }
 
+function testAdminReportUpdatePriorityRouterWhitelist() {
+  var action = "admin.report.updatePriority";
+  var registration = Tests_assertRouterHandler_(
+    action,
+    ReportService_updatePriority,
+    "ReportService_updatePriority"
+  );
+
+  console.log("admin.report.updatePriority is registered in Router whitelist");
+  return {
+    ok: true,
+    testType: "unit",
+    action: action,
+    mappedHandlerType: registration.mappedHandlerType,
+    mappedHandlerName: registration.mappedHandlerName,
+    globalHandlerName: registration.expectedHandlerName
+  };
+}
+
+function testAdminReportUpdatePriorityRequiresNoteForIncreaseHighCritical() {
+  try {
+    ReportService_validatePriorityChange_({
+      report_id: "REPORT-001",
+      priority: "normal"
+    }, {
+      reportId: "REPORT-001",
+      version: 2,
+      priority: "high",
+      note: ""
+    });
+  } catch (error) {
+    if (error && error.code === "VALIDATION_ERROR" && error.fields && error.fields.note) {
+      console.log("admin.report.updatePriority rejected high increase without note");
+      return {
+        ok: true,
+        testType: "unit",
+        code: error.code,
+        fields: error.fields
+      };
+    }
+
+    throw error;
+  }
+
+  throw new Error("admin.report.updatePriority did not require note when increasing to high");
+}
+
+function testAdminReportUpdatePriorityAllowsDecreaseWithoutNote() {
+  ReportService_validatePriorityChange_({
+    report_id: "REPORT-001",
+    priority: "critical"
+  }, {
+    reportId: "REPORT-001",
+    version: 2,
+    priority: "normal",
+    note: ""
+  });
+
+  return {
+    ok: true,
+    testType: "unit"
+  };
+}
+
+function testAdminReportUpdatePriorityPermissionFlag() {
+  const adminPermissions = ReportService_buildAdminDetailPermissions_(UserService_getPermissions_("admin"));
+  const viewerPermissions = ReportService_buildAdminDetailPermissions_(UserService_getPermissions_("viewer"));
+
+  if (!adminPermissions.canUpdatePriority || viewerPermissions.canUpdatePriority) {
+    throw new Error("admin.report.detail priority permission flag is incorrect");
+  }
+
+  return {
+    ok: true,
+    testType: "unit",
+    adminCanUpdatePriority: adminPermissions.canUpdatePriority,
+    viewerCanUpdatePriority: viewerPermissions.canUpdatePriority
+  };
+}
+
+function testAdminReportUpdatePriorityAuditDetailNoNoteLeak() {
+  const originalLog = AuditService_log_;
+  let captured = null;
+
+  AuditService_log_ = function (entry) {
+    captured = entry;
+    return entry;
+  };
+
+  try {
+    AuditService_logReportPriorityUpdated_({
+      report_id: "REPORT-001",
+      priority: "normal"
+    }, {
+      report_id: "REPORT-001",
+      priority: "critical",
+      version: 5
+    }, {
+      note: "รายละเอียดภายใน"
+    }, {
+      user_id: "USER-001",
+      display_name: "Admin",
+      role: "admin"
+    }, "REQ-TEST-PRIORITY");
+  } finally {
+    AuditService_log_ = originalLog;
+  }
+
+  const serialized = JSON.stringify(captured);
+
+  if (!captured || captured.action !== "admin.report.updatePriority" ||
+      captured.detail.oldPriority !== "normal" ||
+      captured.detail.newPriority !== "critical" ||
+      captured.detail.hasNote !== true ||
+      serialized.indexOf("รายละเอียดภายใน") !== -1) {
+    throw new Error("admin.report.updatePriority audit detail is invalid or leaked note text");
+  }
+
+  return {
+    ok: true,
+    testType: "unit",
+    detail: captured.detail
+  };
+}
+
 function testAdminReportUpdateStatusTransitionMatrix() {
   try {
     const officerPermissions = UserService_getPermissions_("officer");

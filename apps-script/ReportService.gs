@@ -371,6 +371,56 @@ function ReportService_updateStatus(request) {
   }
 }
 
+function ReportService_updatePriority(request) {
+  const lock = LockService.getScriptLock();
+  const context = ReportService_requireAdminListContext_(request);
+  const requestId = Utils_normalizeString_(request && request.requestId);
+
+  ReportService_assertPermission_(context.permissions, "report.update", "ไม่มีสิทธิ์ปรับความสำคัญเรื่องแจ้ง");
+  lock.waitLock(30000);
+
+  try {
+    const payload = ReportService_normalizeUpdatePriorityPayload_(request && request.data);
+    const report = SheetRepository_findById_("reports", "report_id", payload.reportId, {
+      keyColumnName: "report_id"
+    });
+
+    if (!report || Utils_toBoolean_(report.is_deleted)) {
+      throw ApiError_("NOT_FOUND", "ไม่พบเรื่องแจ้งนี้");
+    }
+
+    ReportService_assertAdminReportAccess_(report, context);
+    ReportService_validatePriorityChange_(report, payload);
+
+    const now = Utils_nowIso_();
+    const updatedReport = SheetRepository_updateById_("reports", "report_id", report.report_id, {
+      priority: payload.priority,
+      updated_at: now,
+      updated_by: context.user.user_id
+    }, {
+      userId: context.user.user_id,
+      expectedVersion: payload.version
+    });
+
+    ReportService_createPriorityTimeline_(report, updatedReport, payload, context.user, now);
+    AuditService_logReportPriorityUpdated_(report, updatedReport, payload, context.user, requestId);
+    ReportService_clearDashboardCacheSafe_("admin.report.updatePriority", requestId);
+
+    return {
+      data: {
+        reportId: String(updatedReport.report_id || ""),
+        oldPriority: String(report.priority || ""),
+        newPriority: String(updatedReport.priority || ""),
+        updatedAt: now,
+        version: Number(updatedReport.version || 0)
+      },
+      message: "ปรับความสำคัญเรื่องแจ้งสำเร็จ"
+    };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 function ReportService_addUpdate(request) {
   const lock = LockService.getScriptLock();
   const context = ReportService_requireAdminListContext_(request);
@@ -517,6 +567,35 @@ function ReportService_normalizeUpdateStatusPayload_(data) {
   return payload;
 }
 
+function ReportService_normalizeUpdatePriorityPayload_(data) {
+  const safeData = Utils_isPlainObject_(data) ? data : {};
+  const fields = {};
+  const payload = {
+    reportId: Utils_normalizeString_(safeData.reportId),
+    version: safeData.version,
+    priority: Utils_normalizeString_(safeData.priority || safeData.newPriority).toLowerCase(),
+    note: Security_sanitizeUserText_(safeData.note || safeData.internalNote, 1000)
+  };
+
+  if (!payload.reportId) {
+    fields.reportId = "กรุณาระบุเรื่องแจ้ง";
+  }
+
+  if (payload.version === undefined || payload.version === null || payload.version === "") {
+    fields.version = "กรุณาระบุ Version ปัจจุบัน";
+  }
+
+  if (!payload.priority || REPORT_PRIORITY_VALUES_.indexOf(payload.priority) === -1) {
+    fields.priority = "ระดับความสำคัญไม่ถูกต้อง";
+  }
+
+  if (Object.keys(fields).length > 0) {
+    throw ApiError_("VALIDATION_ERROR", "กรุณาตรวจสอบข้อมูลการปรับความสำคัญ", fields);
+  }
+
+  return payload;
+}
+
 function ReportService_normalizeAddUpdatePayload_(data) {
   const safeData = Utils_isPlainObject_(data) ? data : {};
   const fields = {};
@@ -587,6 +666,34 @@ function ReportService_validateStatusTransition_(report, payload, permissions) {
   if (Object.keys(fields).length > 0) {
     throw ApiError_("VALIDATION_ERROR", "กรุณากรอกข้อมูลที่จำเป็นสำหรับสถานะนี้", fields);
   }
+}
+
+function ReportService_validatePriorityChange_(report, payload) {
+  const fields = {};
+  const oldPriority = Utils_normalizeString_(report && report.priority).toLowerCase() || "normal";
+
+  if (oldPriority === payload.priority) {
+    fields.priority = "ระดับความสำคัญยังเป็นค่าเดิม";
+  }
+
+  if (ReportService_requiresPriorityIncreaseNote_(oldPriority, payload.priority) && !payload.note) {
+    fields.note = "กรุณาระบุหมายเหตุเมื่อปรับความสำคัญขึ้นเป็นสูงหรือวิกฤต";
+  }
+
+  if (Object.keys(fields).length > 0) {
+    throw ApiError_("VALIDATION_ERROR", "กรุณาตรวจสอบข้อมูลการปรับความสำคัญ", fields);
+  }
+}
+
+function ReportService_requiresPriorityIncreaseNote_(oldPriority, newPriority) {
+  const oldRank = ReportService_getPriorityRank_(oldPriority);
+  const newRank = ReportService_getPriorityRank_(newPriority);
+
+  return (newPriority === "high" || newPriority === "critical") && newRank > oldRank;
+}
+
+function ReportService_getPriorityRank_(priority) {
+  return Number(REPORT_ADMIN_PRIORITY_ORDER_[Utils_normalizeString_(priority).toLowerCase()] || 0);
 }
 
 function ReportService_isStatusTransitionAllowed_(oldStatus, newStatus, permissions) {
@@ -1040,6 +1147,7 @@ function ReportService_buildAdminDetailPermissions_(permissions) {
   return {
     canRead: ReportService_hasPermission_(permissions, "report.read"),
     canUpdate: ReportService_hasPermission_(permissions, "report.update"),
+    canUpdatePriority: ReportService_hasPermission_(permissions, "report.update"),
     canAssign: ReportService_hasPermission_(permissions, "report.assign"),
     canViewReporterPii: ReportService_canViewReporterPii_(permissions),
     canViewInternalNotes: ReportService_canViewInternalNotes_(permissions)
@@ -1718,6 +1826,36 @@ function ReportService_createAdminUpdateTimeline_(report, updateId, payload, act
   });
 
   return updateRecord;
+}
+
+function ReportService_createPriorityTimeline_(oldReport, updatedReport, payload, actor, createdAt) {
+  const actorName = Security_sanitizeText_(actor && (actor.display_name || actor.username) ? actor.display_name || actor.username : "");
+  const oldPriority = Utils_normalizeString_(oldReport && oldReport.priority).toLowerCase() || "normal";
+  const newPriority = Utils_normalizeString_(updatedReport && updatedReport.priority).toLowerCase() || payload.priority;
+  const internalNote = [
+    "ปรับความสำคัญจาก " + oldPriority + " เป็น " + newPriority,
+    payload.note ? "หมายเหตุ: " + payload.note : ""
+  ].filter(Boolean).join("\n");
+
+  return SheetRepository_append_("report_updates", {
+    update_id: Utils_createUuid_(),
+    report_id: updatedReport.report_id,
+    update_type: "note",
+    old_status: updatedReport.status || oldReport.status || "",
+    new_status: updatedReport.status || oldReport.status || "",
+    public_message: "",
+    internal_note: internalNote,
+    is_public: false,
+    updated_by: actor && actor.user_id ? actor.user_id : "",
+    updated_by_name_snapshot: actorName,
+    updated_by_role_snapshot: actor && actor.role ? actor.role : "",
+    created_at: createdAt,
+    is_deleted: false,
+    version: 1
+  }, {
+    keyColumnName: "update_id",
+    userId: actor && actor.user_id ? actor.user_id : "system"
+  });
 }
 
 function ReportService_resolveStatusUpdateType_(newStatus) {

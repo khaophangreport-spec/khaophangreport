@@ -239,6 +239,25 @@ function AuditService_logReportStatusUpdated_(oldReport, updatedReport, payload,
   });
 }
 
+function AuditService_logReportPriorityUpdated_(oldReport, updatedReport, payload, actor, requestId) {
+  return AuditService_log_({
+    userId: actor && actor.user_id ? actor.user_id : "system",
+    userNameSnapshot: actor && (actor.display_name || actor.username) ? actor.display_name || actor.username : "",
+    roleSnapshot: actor && actor.role ? actor.role : "",
+    action: "admin.report.updatePriority",
+    entityType: "report",
+    entityId: updatedReport && updatedReport.report_id ? updatedReport.report_id : "",
+    requestId: requestId || "",
+    success: true,
+    detail: {
+      oldPriority: oldReport && oldReport.priority ? oldReport.priority : "",
+      newPriority: updatedReport && updatedReport.priority ? updatedReport.priority : "",
+      version: updatedReport && updatedReport.version ? Number(updatedReport.version) : 0,
+      hasNote: !!(payload && payload.note)
+    }
+  });
+}
+
 function AuditService_logReportUpdateAdded_(report, update, attachmentCount, actor, requestId) {
   return AuditService_log_({
     userId: actor && actor.user_id ? actor.user_id : "system",
