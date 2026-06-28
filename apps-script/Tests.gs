@@ -3468,6 +3468,129 @@ function testAdminReportUpdateStatusBuildUpdates() {
   }
 }
 
+function testDemoReportSeedPlanValidation() {
+  const plan = DemoSeed_buildPlanForTest_();
+  const validation = DemoSeed_validatePlan_(
+    plan,
+    DemoSeed_getTestCategories_(),
+    DemoSeed_getTestAdminUsers_()
+  );
+  const june = plan.months["2026-06"];
+  const july = plan.months["2026-07"];
+
+  if (!validation.ok || plan.reports.length !== 37) {
+    throw new Error("Demo seed plan validation failed");
+  }
+
+  ["2026-03", "2026-04", "2026-05"].forEach(function (month) {
+    const monthReports = plan.reports.filter(function (report) {
+      return report.year_month === month;
+    });
+
+    if (monthReports.length < 5 || monthReports.length > 10) {
+      throw new Error("Demo seed month count is invalid: " + month);
+    }
+
+    monthReports.forEach(function (report) {
+      if (report.status !== "resolved" || !report.resolved_at) {
+        throw new Error("Demo seed historical report is not completed: " + report.report_id);
+      }
+    });
+  });
+
+  if (!june || june.completed < 1 || june.processing < 1) {
+    throw new Error("Demo seed June data must include completed and processing reports");
+  }
+
+  if (!july || july.completed !== 0 || july.processing !== july.reports || july.futureTestData !== true) {
+    throw new Error("Demo seed July future data must be processing only");
+  }
+
+  return {
+    ok: true,
+    testType: "unit",
+    reportCount: plan.reports.length,
+    updateCount: plan.updates.length
+  };
+}
+
+function testDemoReportSeedTimelineChronology() {
+  const plan = DemoSeed_buildPlanForTest_();
+  const updatesByReportId = {};
+
+  plan.updates.forEach(function (update) {
+    updatesByReportId[update.report_id] = updatesByReportId[update.report_id] || [];
+    updatesByReportId[update.report_id].push(update);
+  });
+
+  plan.reports.forEach(function (report) {
+    const updates = (updatesByReportId[report.report_id] || []).sort(function (left, right) {
+      return left.created_at > right.created_at ? 1 : -1;
+    });
+    const latest = updates[updates.length - 1];
+    const received = DemoSeed_findUpdateStatus_(updates, "reviewing");
+    const processing = DemoSeed_findUpdateStatus_(updates, "in_progress");
+    const resolved = DemoSeed_findUpdateStatus_(updates, "resolved");
+
+    if (!latest || latest.new_status !== report.status) {
+      throw new Error("Demo seed latest timeline status mismatch: " + report.report_id);
+    }
+
+    if (!received || !processing || received.created_at < report.created_at || processing.created_at < received.created_at) {
+      throw new Error("Demo seed timeline order failed: " + report.report_id);
+    }
+
+    if (report.status === "resolved" && (!resolved || resolved.created_at < processing.created_at || report.resolved_at < processing.created_at)) {
+      throw new Error("Demo seed resolved timeline order failed: " + report.report_id);
+    }
+
+    if (report.year_month === "2026-07" && report.resolved_at) {
+      throw new Error("Demo seed July report has resolved_at: " + report.report_id);
+    }
+  });
+
+  return {
+    ok: true,
+    testType: "unit",
+    checked: plan.reports.length
+  };
+}
+
+function testDemoReportSeedCleanupMatcherOnlySeedRows() {
+  const seedReport = {
+    report_id: DEMO_REPORT_SEED_REPORT_PREFIX_ + "202603-01",
+    request_id: DEMO_REPORT_SEED_REQUEST_PREFIX_ + "202603-01"
+  };
+  const productionReport = {
+    report_id: "REPORT-PRODUCTION-001",
+    request_id: "REQ-PRODUCTION-001"
+  };
+  const seedLog = {
+    entity_id: seedReport.report_id,
+    detail: JSON.stringify({
+      seedBatchId: DEMO_REPORT_SEED_BATCH_ID_
+    })
+  };
+
+  if (!DemoSeed_isSeedRow_(seedReport, ["report_id", "request_id"])) {
+    throw new Error("Demo seed matcher did not detect seed report");
+  }
+
+  if (!DemoSeed_isSeedRow_(seedLog, ["entity_id", "detail"])) {
+    throw new Error("Demo seed matcher did not detect seed activity log");
+  }
+
+  if (DemoSeed_isSeedRow_(productionReport, ["report_id", "request_id"])) {
+    throw new Error("Demo seed matcher matched production report");
+  }
+
+  return {
+    ok: true,
+    testType: "unit",
+    checked: 3
+  };
+}
+
 const TEST_SUITE_DATA_PREFIX_ = "TEST-SUITE-";
 const TEST_SUITE_REQUEST_PREFIX_ = "REQ-TEST-SUITE-";
 
@@ -3509,7 +3632,10 @@ function runKhaophangCoreTestSuite() {
     { group: "status transition", name: "required fields", fn: testAdminReportUpdateStatusRequiredFields },
     { group: "version conflict", name: "repository version conflict", fn: testRepositoryVersionConflictDetection },
     { group: "export sanitization", name: "csv formula injection", fn: testAdminExportCsvFormulaInjectionProtection },
-    { group: "export sanitization", name: "default export rows no pii", fn: testAdminExportReportRowsNoPiiByDefault }
+    { group: "export sanitization", name: "default export rows no pii", fn: testAdminExportReportRowsNoPiiByDefault },
+    { group: "demo seed", name: "plan validation", fn: testDemoReportSeedPlanValidation },
+    { group: "demo seed", name: "timeline chronology", fn: testDemoReportSeedTimelineChronology },
+    { group: "demo seed", name: "cleanup matcher", fn: testDemoReportSeedCleanupMatcherOnlySeedRows }
   ]);
 }
 
