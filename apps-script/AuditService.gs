@@ -259,6 +259,30 @@ function AuditService_logAdminUserSessionsRevoked_(user, actor, requestId, revok
   });
 }
 
+function AuditService_logAdminCategorySaved_(oldCategory, updatedCategory, actor, requestId, isCreated) {
+  return AuditService_log_({
+    userId: actor && actor.user_id ? actor.user_id : "system",
+    userNameSnapshot: actor && (actor.display_name || actor.username) ? actor.display_name || actor.username : "",
+    roleSnapshot: actor && actor.role ? actor.role : "",
+    action: "admin.category.save",
+    entityType: "category",
+    entityId: updatedCategory && updatedCategory.category_id ? updatedCategory.category_id : "",
+    requestId: requestId || "",
+    success: true,
+    detail: {
+      operation: isCreated ? "create" : "update",
+      code: updatedCategory && updatedCategory.code ? updatedCategory.code : "",
+      oldIsActive: oldCategory ? Utils_toBoolean_(oldCategory.is_active) : "",
+      newIsActive: updatedCategory ? Utils_toBoolean_(updatedCategory.is_active) : "",
+      oldSortOrder: oldCategory && oldCategory.sort_order !== undefined ? Number(oldCategory.sort_order || 0) : "",
+      newSortOrder: updatedCategory && updatedCategory.sort_order !== undefined ? Number(updatedCategory.sort_order || 0) : "",
+      targetDays: updatedCategory && updatedCategory.target_days !== undefined ? Number(updatedCategory.target_days || 0) : 0,
+      hasDefaultAssignee: !!(updatedCategory && updatedCategory.default_assignee),
+      version: updatedCategory && updatedCategory.version ? Number(updatedCategory.version) : 0
+    }
+  });
+}
+
 function AuditService_logReportAssigned_(oldReport, updatedReport, assignment, officer, actor, requestId, oldAssigneeId) {
   return AuditService_log_({
     userId: actor && actor.user_id ? actor.user_id : "system",

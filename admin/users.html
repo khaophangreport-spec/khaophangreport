@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="จัดการผู้ใช้งาน Khaophang Report" />
+    <meta name="description" content="จัดการบัญชีผู้ใช้งานและสิทธิ์ของระบบ Khaophang Report" />
     <title>ผู้ใช้งาน | Khaophang Report Admin</title>
     <link rel="stylesheet" href="../assets/css/variables.css" />
     <link rel="stylesheet" href="../assets/css/reset.css" />
@@ -19,32 +19,254 @@
   </head>
   <body class="admin-app-page admin-auth-pending" data-admin-guard="required" data-admin-page="users">
     <header class="admin-mobile-topbar">
-      <a class="admin-brand" href="dashboard.html" aria-label="ไปหน้า Dashboard"><span class="admin-logo" aria-hidden="true">KR</span><span>Khaophang Admin</span></a>
-      <button class="admin-icon-button" type="button" data-admin-drawer-open aria-controls="admin-drawer" aria-expanded="false"><span aria-hidden="true">☰</span><span class="sr-only">เปิดเมนูผู้ดูแลระบบ</span></button>
+      <a class="admin-brand" href="dashboard.html" aria-label="ไปหน้าแดชบอร์ด">
+        <span class="admin-logo" aria-hidden="true">KR</span>
+        <span>Khaophang Admin</span>
+      </a>
+      <button class="admin-icon-button" type="button" data-admin-drawer-open aria-controls="admin-drawer" aria-expanded="false">
+        <span aria-hidden="true">☰</span>
+        <span class="sr-only">เปิดเมนูผู้ดูแลระบบ</span>
+      </button>
     </header>
+
     <button class="admin-drawer-overlay" type="button" data-admin-drawer-close aria-label="ปิดเมนู" hidden></button>
     <aside class="admin-drawer" id="admin-drawer" aria-labelledby="admin-drawer-title" hidden>
-      <div class="admin-drawer__header"><p id="admin-drawer-title" class="admin-drawer__title">เมนูผู้ดูแลระบบ</p><button class="admin-icon-button" type="button" data-admin-drawer-close><span aria-hidden="true">×</span><span class="sr-only">ปิดเมนูผู้ดูแลระบบ</span></button></div>
-      <p class="admin-user-summary">ผู้ใช้งาน: ยังไม่เชื่อม Session จริง</p>
+      <div class="admin-drawer__header">
+        <p id="admin-drawer-title" class="admin-drawer__title">เมนูผู้ดูแลระบบ</p>
+        <button class="admin-icon-button" type="button" data-admin-drawer-close>
+          <span aria-hidden="true">×</span>
+          <span class="sr-only">ปิดเมนูผู้ดูแลระบบ</span>
+        </button>
+      </div>
+      <p class="admin-user-summary">ผู้ใช้งาน: กำลังตรวจสอบ Session</p>
       <nav class="admin-menu" aria-label="เมนูผู้ดูแลระบบบนมือถือ">
-        <a href="dashboard.html" data-menu-key="dashboard">Dashboard</a><a href="reports.html" data-menu-key="reports">เรื่องแจ้ง</a><a href="reports.html?scope=assigned" data-menu-key="assigned">งานของฉัน</a><a href="export.html" data-menu-key="export">รายงาน</a><a href="users.html" data-menu-key="users" aria-current="page">ผู้ใช้งาน</a><a href="categories.html" data-menu-key="categories">หมวดหมู่</a><a href="announcements.html" data-menu-key="announcements">ประกาศ</a><a href="activity-logs.html" data-menu-key="activity">Activity Logs</a><a href="settings.html" data-menu-key="settings">ตั้งค่า</a><button type="button" class="admin-menu__button" data-admin-logout>ออกจากระบบ</button>
+        <a href="dashboard.html" data-menu-key="dashboard">แดชบอร์ด</a>
+        <a href="reports.html" data-menu-key="reports">เรื่องแจ้ง</a>
+        <a href="reports.html?scope=mine" data-menu-key="assigned">งานของฉัน</a>
+        <a href="export.html" data-menu-key="export">รายงาน</a>
+        <a href="users.html" data-menu-key="users" aria-current="page">ผู้ใช้งาน</a>
+        <a href="categories.html" data-menu-key="categories">หมวดหมู่</a>
+        <a href="announcements.html" data-menu-key="announcements">ประกาศ</a>
+        <a href="activity-logs.html" data-menu-key="activity">Activity Logs</a>
+        <a href="settings.html" data-menu-key="settings">ตั้งค่า</a>
+        <button type="button" class="admin-menu__button" data-admin-logout>ออกจากระบบ</button>
       </nav>
     </aside>
+
     <div class="admin-app">
       <aside class="admin-sidebar" aria-label="เมนูผู้ดูแลระบบ">
-        <a class="admin-brand" href="dashboard.html" aria-label="ไปหน้า Dashboard"><span class="admin-logo" aria-hidden="true">KR</span><span>Khaophang Admin</span></a>
-        <p class="admin-user-summary">ผู้ใช้งาน: ยังไม่เชื่อม Session จริง</p>
+        <a class="admin-brand" href="dashboard.html" aria-label="ไปหน้าแดชบอร์ด">
+          <span class="admin-logo" aria-hidden="true">KR</span>
+          <span>Khaophang Admin</span>
+        </a>
+        <p class="admin-user-summary">ผู้ใช้งาน: กำลังตรวจสอบ Session</p>
         <nav class="admin-menu">
-          <a href="dashboard.html" data-menu-key="dashboard">Dashboard</a><a href="reports.html" data-menu-key="reports">เรื่องแจ้ง</a><a href="reports.html?scope=assigned" data-menu-key="assigned">งานของฉัน</a><a href="export.html" data-menu-key="export">รายงาน</a><a href="users.html" data-menu-key="users" aria-current="page">ผู้ใช้งาน</a><a href="categories.html" data-menu-key="categories">หมวดหมู่</a><a href="announcements.html" data-menu-key="announcements">ประกาศ</a><a href="activity-logs.html" data-menu-key="activity">Activity Logs</a><a href="settings.html" data-menu-key="settings">ตั้งค่า</a><button type="button" class="admin-menu__button" data-admin-logout>ออกจากระบบ</button>
+          <a href="dashboard.html" data-menu-key="dashboard">แดชบอร์ด</a>
+          <a href="reports.html" data-menu-key="reports">เรื่องแจ้ง</a>
+          <a href="reports.html?scope=mine" data-menu-key="assigned">งานของฉัน</a>
+          <a href="export.html" data-menu-key="export">รายงาน</a>
+          <a href="users.html" data-menu-key="users" aria-current="page">ผู้ใช้งาน</a>
+          <a href="categories.html" data-menu-key="categories">หมวดหมู่</a>
+          <a href="announcements.html" data-menu-key="announcements">ประกาศ</a>
+          <a href="activity-logs.html" data-menu-key="activity">Activity Logs</a>
+          <a href="settings.html" data-menu-key="settings">ตั้งค่า</a>
+          <button type="button" class="admin-menu__button" data-admin-logout>ออกจากระบบ</button>
         </nav>
       </aside>
+
       <main class="admin-shell">
-        <section class="admin-panel" aria-labelledby="page-title">
-          <p class="eyebrow">จัดการระบบ</p>
-          <h1 id="page-title">ผู้ใช้งาน</h1>
-          <p class="placeholder-text">พื้นที่ตั้งต้นสำหรับจัดการบัญชีผู้ใช้งาน</p>
+        <section class="users-page" aria-labelledby="page-title">
+          <div class="users-hero">
+            <div>
+              <p class="eyebrow">จัดการระบบ</p>
+              <h1 id="page-title">ผู้ใช้งาน</h1>
+              <p>ค้นหา กรอง และจัดการบัญชีเจ้าหน้าที่โดยไม่แสดงรหัสผ่านเดิม</p>
+            </div>
+            <div class="users-hero__actions">
+              <span>อัปเดตล่าสุด</span>
+              <strong data-users-updated-at>-</strong>
+              <button class="button button-primary" type="button" data-users-create>เพิ่มผู้ใช้งาน</button>
+            </div>
+          </div>
+
+          <section class="users-permission" data-users-forbidden hidden role="alert">
+            <h2>ไม่มีสิทธิ์จัดการผู้ใช้งาน</h2>
+            <p>บัญชีนี้ไม่มีสิทธิ์จัดการผู้ใช้งาน กรุณาติดต่อผู้ดูแลระบบสูงสุด</p>
+          </section>
+
+          <form class="users-filter" data-users-filter-form>
+            <div class="users-filter__search">
+              <label for="users-keyword">ค้นหา</label>
+              <input class="form-control" id="users-keyword" name="keyword" type="search" autocomplete="off" placeholder="ชื่อผู้ใช้ ชื่อแสดง เบอร์โทร หรืออีเมล" />
+            </div>
+            <div class="users-filter__grid">
+              <div class="form-field">
+                <label for="users-role">บทบาท</label>
+                <select class="form-control" id="users-role" name="role">
+                  <option value="">ทุกบทบาท</option>
+                  <option value="super_admin">Super Admin</option>
+                  <option value="admin">Admin</option>
+                  <option value="officer">เจ้าหน้าที่</option>
+                  <option value="viewer">ผู้ดูข้อมูล</option>
+                </select>
+              </div>
+              <div class="form-field">
+                <label for="users-status">สถานะ</label>
+                <select class="form-control" id="users-status" name="status">
+                  <option value="">ทุกสถานะ</option>
+                  <option value="active">ใช้งาน</option>
+                  <option value="inactive">ปิดใช้งาน</option>
+                </select>
+              </div>
+              <div class="users-filter__actions">
+                <button class="button button-primary" type="submit">ค้นหา</button>
+                <button class="button button-secondary" type="button" data-users-clear>ล้างตัวกรอง</button>
+              </div>
+            </div>
+          </form>
+
+          <div class="users-state users-state--loading" data-users-loading role="status" aria-live="polite">
+            <span class="users-skeleton users-skeleton--toolbar"></span>
+            <span class="users-skeleton"></span>
+            <span class="users-skeleton"></span>
+            <span class="users-skeleton"></span>
+          </div>
+
+          <div class="users-state users-state--error" data-users-error hidden role="alert">
+            <h2>โหลดรายชื่อผู้ใช้งานไม่สำเร็จ</h2>
+            <p data-users-error-message>กรุณาลองใหม่อีกครั้ง</p>
+            <button class="button button-primary" type="button" data-users-retry>ลองใหม่</button>
+          </div>
+
+          <div class="users-state users-state--empty" data-users-empty hidden>
+            <h2>ไม่พบผู้ใช้งานตามเงื่อนไขนี้</h2>
+            <p>ลองปรับคำค้นหาหรือล้างตัวกรองเพื่อดูรายการอื่น</p>
+            <button class="button button-secondary" type="button" data-users-empty-clear>ล้างตัวกรอง</button>
+          </div>
+
+          <section class="users-content" data-users-content hidden aria-labelledby="users-result-title">
+            <div class="users-result-header">
+              <div>
+                <p class="eyebrow">ผลลัพธ์</p>
+                <h2 id="users-result-title">รายชื่อผู้ใช้งาน</h2>
+              </div>
+              <p data-users-pagination-summary>กำลังโหลดข้อมูล</p>
+            </div>
+
+            <div class="users-table-wrap">
+              <table class="users-table">
+                <thead>
+                  <tr>
+                    <th scope="col">ผู้ใช้งาน</th>
+                    <th scope="col">บทบาท</th>
+                    <th scope="col">สถานะ</th>
+                    <th scope="col">เข้าสู่ระบบล่าสุด</th>
+                    <th scope="col">บังคับเปลี่ยนรหัส</th>
+                    <th scope="col">การจัดการ</th>
+                  </tr>
+                </thead>
+                <tbody data-users-table-body></tbody>
+              </table>
+            </div>
+
+            <div class="users-card-list" data-users-card-list></div>
+
+            <nav class="users-pagination" aria-label="หน้ารายชื่อผู้ใช้งาน">
+              <button class="button button-secondary" type="button" data-users-prev>ก่อนหน้า</button>
+              <span data-users-page-label>หน้า 1 จาก 1</span>
+              <button class="button button-secondary" type="button" data-users-next>ถัดไป</button>
+            </nav>
+          </section>
         </section>
       </main>
+    </div>
+
+    <div class="users-modal-backdrop" data-users-editor hidden>
+      <section class="users-modal" role="dialog" aria-modal="true" aria-labelledby="users-editor-title">
+        <div class="users-modal__header">
+          <h2 id="users-editor-title" data-users-editor-title>เพิ่มผู้ใช้งาน</h2>
+          <button class="admin-icon-button" type="button" data-users-editor-close aria-label="ปิดหน้าต่าง">×</button>
+        </div>
+        <form class="users-form" data-users-form novalidate>
+          <input type="hidden" name="userId" />
+          <input type="hidden" name="version" />
+
+          <div class="users-form__grid">
+            <div class="users-field">
+              <label for="user-username">ชื่อผู้ใช้</label>
+              <input class="form-control" id="user-username" name="username" type="text" autocomplete="off" maxlength="40" required aria-describedby="user-username-error" />
+              <small id="user-username-error" data-field-error="username"></small>
+            </div>
+            <div class="users-field">
+              <label for="user-display-name">ชื่อแสดง</label>
+              <input class="form-control" id="user-display-name" name="displayName" type="text" maxlength="120" required aria-describedby="user-display-name-error" />
+              <small id="user-display-name-error" data-field-error="displayName"></small>
+            </div>
+            <div class="users-field">
+              <label for="user-email">อีเมล</label>
+              <input class="form-control" id="user-email" name="email" type="email" maxlength="120" aria-describedby="user-email-error" />
+              <small id="user-email-error" data-field-error="email"></small>
+            </div>
+            <div class="users-field">
+              <label for="user-phone">เบอร์โทร</label>
+              <input class="form-control" id="user-phone" name="phone" type="tel" maxlength="30" aria-describedby="user-phone-error" />
+              <small id="user-phone-error" data-field-error="phone"></small>
+            </div>
+            <div class="users-field">
+              <label for="user-role">บทบาท</label>
+              <select class="form-control" id="user-role" name="role" required aria-describedby="user-role-error">
+                <option value="viewer">ผู้ดูข้อมูล</option>
+                <option value="officer">เจ้าหน้าที่</option>
+                <option value="admin">Admin</option>
+                <option value="super_admin">Super Admin</option>
+              </select>
+              <small id="user-role-error" data-field-error="role"></small>
+            </div>
+            <div class="users-field">
+              <label for="user-status">สถานะ</label>
+              <select class="form-control" id="user-status" name="status" required aria-describedby="user-status-error">
+                <option value="active">ใช้งาน</option>
+                <option value="inactive">ปิดใช้งาน</option>
+              </select>
+              <small id="user-status-error" data-field-error="status"></small>
+            </div>
+          </div>
+
+          <div class="users-field" data-temp-password-field>
+            <label for="user-temporary-password">รหัสผ่านชั่วคราว</label>
+            <input class="form-control" id="user-temporary-password" name="temporaryPassword" type="text" autocomplete="off" aria-describedby="user-temporary-password-error user-temporary-password-help" />
+            <small id="user-temporary-password-help">เว้นว่างได้ ระบบจะสร้างรหัสชั่วคราวให้และแสดงเพียงครั้งเดียวหลังบันทึก</small>
+            <small id="user-temporary-password-error" data-field-error="temporaryPassword"></small>
+          </div>
+
+          <label class="users-check">
+            <input type="checkbox" name="mustChangePassword" checked />
+            <span>บังคับเปลี่ยนรหัสผ่านเมื่อเข้าสู่ระบบครั้งถัดไป</span>
+          </label>
+
+          <div class="users-alert" data-users-form-error hidden role="alert"></div>
+          <div class="users-success" data-users-form-success hidden role="status" aria-live="polite"></div>
+
+          <div class="users-modal__actions">
+            <button class="button button-secondary" type="button" data-users-editor-cancel>ยกเลิก</button>
+            <button class="button button-primary" type="submit" data-users-save>บันทึก</button>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <div class="users-modal-backdrop" data-users-confirm hidden>
+      <section class="users-modal users-modal--small" role="dialog" aria-modal="true" aria-labelledby="users-confirm-title">
+        <div class="users-modal__header">
+          <h2 id="users-confirm-title" data-users-confirm-title>ยืนยันการดำเนินการ</h2>
+          <button class="admin-icon-button" type="button" data-users-confirm-cancel aria-label="ปิดหน้าต่าง">×</button>
+        </div>
+        <p data-users-confirm-message></p>
+        <div class="users-modal__actions">
+          <button class="button button-secondary" type="button" data-users-confirm-back>ยกเลิก</button>
+          <button class="button button-danger" type="button" data-users-confirm-ok>ยืนยัน</button>
+        </div>
+      </section>
     </div>
   </body>
 </html>

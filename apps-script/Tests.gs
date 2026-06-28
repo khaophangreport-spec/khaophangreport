@@ -2225,6 +2225,204 @@ function testAdminUserRevokeSessionsRequiresVersion() {
   throw new Error("admin.user.revokeSessions did not require version");
 }
 
+function testAdminCategoryRouterWhitelist() {
+  const expected = {
+    "admin.category.list": {
+      handler: CategoryService_listAdmin,
+      name: "CategoryService_listAdmin"
+    },
+    "admin.category.save": {
+      handler: CategoryService_saveAdmin,
+      name: "CategoryService_saveAdmin"
+    }
+  };
+  const registrations = Object.keys(expected).map(function (action) {
+    return Tests_assertRouterHandler_(
+      action,
+      expected[action].handler,
+      expected[action].name
+    );
+  });
+
+  return {
+    ok: true,
+    testType: "unit",
+    actions: Object.keys(expected),
+    registrations: registrations
+  };
+}
+
+function testAdminCategoryProjectionIncludesAdminFields() {
+  const projection = CategoryService_projectAdmin_({
+    category_id: "CAT-001",
+    code: "ROAD",
+    name: "Road",
+    description: "Road issues",
+    icon: "road",
+    color: "#287444",
+    default_assignee: "USER-001",
+    target_days: 7,
+    sort_order: 10,
+    is_active: true,
+    created_at: "2026-06-28T00:00:00.000Z",
+    updated_at: "2026-06-28T00:00:00.000Z",
+    version: 4
+  });
+
+  if (projection.categoryId !== "CAT-001" ||
+      projection.defaultAssignee !== "USER-001" ||
+      projection.targetDays !== 7 ||
+      projection.sortOrder !== 10 ||
+      projection.isActive !== true ||
+      projection.version !== 4) {
+    throw new Error("admin.category projection missed expected fields");
+  }
+
+  return {
+    ok: true,
+    testType: "unit",
+    projection: projection
+  };
+}
+
+function testAdminCategorySaveRequiresVersionOnUpdate() {
+  try {
+    CategoryService_normalizeAdminSavePayload_({
+      categoryId: "CAT-001",
+      code: "ROAD",
+      name: "Road",
+      icon: "road",
+      color: "#287444",
+      targetDays: 7,
+      sortOrder: 10,
+      isActive: true
+    });
+  } catch (error) {
+    if (error && error.code === "VALIDATION_ERROR" && error.fields && error.fields.version) {
+      return {
+        ok: true,
+        testType: "unit",
+        fields: error.fields
+      };
+    }
+
+    throw error;
+  }
+
+  throw new Error("admin.category.save did not require version on update");
+}
+
+function testAdminCategoryCodeUniqueHelper() {
+  const duplicate = CategoryService_findDuplicateCode_([{
+    category_id: "CAT-001",
+    code: "ROAD"
+  }, {
+    category_id: "CAT-002",
+    code: "WATER"
+  }], "road", "CAT-002");
+  const sameRecord = CategoryService_findDuplicateCode_([{
+    category_id: "CAT-001",
+    code: "ROAD"
+  }], "ROAD", "CAT-001");
+
+  if (!duplicate || duplicate.category_id !== "CAT-001" || sameRecord) {
+    throw new Error("admin.category code uniqueness helper returned invalid result");
+  }
+
+  return {
+    ok: true,
+    testType: "unit",
+    duplicateId: duplicate.category_id
+  };
+}
+
+function testAdminCategoryIncludeInactiveFilter() {
+  const activeOnly = CategoryService_filterAdminCategories_([{
+    category_id: "CAT-A",
+    code: "ACTIVE",
+    is_active: true
+  }, {
+    category_id: "CAT-I",
+    code: "INACTIVE",
+    is_active: false
+  }], {
+    keyword: "",
+    includeInactive: false
+  });
+  const includeInactive = CategoryService_filterAdminCategories_([{
+    category_id: "CAT-A",
+    code: "ACTIVE",
+    is_active: true
+  }, {
+    category_id: "CAT-I",
+    code: "INACTIVE",
+    is_active: false
+  }], {
+    keyword: "",
+    includeInactive: true
+  });
+
+  if (activeOnly.length !== 1 || includeInactive.length !== 2) {
+    throw new Error("admin.category includeInactive filter returned invalid result");
+  }
+
+  return {
+    ok: true,
+    testType: "unit",
+    activeOnly: activeOnly.length,
+    includeInactive: includeInactive.length
+  };
+}
+
+function testAdminCategoryAuditNoAssigneeLeak() {
+  const originalLog = AuditService_log_;
+  let captured = null;
+
+  AuditService_log_ = function (entry) {
+    captured = entry;
+    return entry;
+  };
+
+  try {
+    AuditService_logAdminCategorySaved_({
+      category_id: "CAT-001",
+      code: "ROAD",
+      is_active: true,
+      sort_order: 1
+    }, {
+      category_id: "CAT-001",
+      code: "ROAD",
+      is_active: false,
+      sort_order: 2,
+      default_assignee: "USER-SECRET",
+      target_days: 7,
+      version: 3
+    }, {
+      user_id: "USER-SUPER",
+      username: "super",
+      display_name: "Super Admin",
+      role: "super_admin"
+    }, "REQ-TEST-CATEGORY", false);
+  } finally {
+    AuditService_log_ = originalLog;
+  }
+
+  const serialized = JSON.stringify(captured);
+
+  if (!captured || captured.action !== "admin.category.save" ||
+      captured.detail.operation !== "update" ||
+      captured.detail.hasDefaultAssignee !== true ||
+      serialized.indexOf("USER-SECRET") !== -1) {
+    throw new Error("admin.category audit detail is invalid or leaked default assignee id");
+  }
+
+  return {
+    ok: true,
+    testType: "unit",
+    detail: captured.detail
+  };
+}
+
 function testAdminReportUpdateStatusTransitionMatrix() {
   try {
     const officerPermissions = UserService_getPermissions_("officer");

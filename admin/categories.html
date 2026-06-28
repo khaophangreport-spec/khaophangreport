@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="จัดการหมวดหมู่ปัญหา" />
+    <meta name="description" content="จัดการหมวดหมู่ปัญหาของระบบ Khaophang Report" />
     <title>หมวดหมู่ | Khaophang Report Admin</title>
     <link rel="stylesheet" href="../assets/css/variables.css" />
     <link rel="stylesheet" href="../assets/css/reset.css" />
@@ -15,35 +15,243 @@
     <script src="../assets/js/api.js" defer></script>
     <script src="../assets/js/auth.js" defer></script>
     <script src="../assets/js/admin/layout.js" defer></script>
+    <script src="../assets/js/admin/categories.js" defer></script>
   </head>
   <body class="admin-app-page admin-auth-pending" data-admin-guard="required" data-admin-page="categories">
     <header class="admin-mobile-topbar">
-      <a class="admin-brand" href="dashboard.html" aria-label="ไปหน้า Dashboard"><span class="admin-logo" aria-hidden="true">KR</span><span>Khaophang Admin</span></a>
-      <button class="admin-icon-button" type="button" data-admin-drawer-open aria-controls="admin-drawer" aria-expanded="false"><span aria-hidden="true">☰</span><span class="sr-only">เปิดเมนูผู้ดูแลระบบ</span></button>
+      <a class="admin-brand" href="dashboard.html" aria-label="ไปหน้าแดชบอร์ด">
+        <span class="admin-logo" aria-hidden="true">KR</span>
+        <span>Khaophang Admin</span>
+      </a>
+      <button class="admin-icon-button" type="button" data-admin-drawer-open aria-controls="admin-drawer" aria-expanded="false">
+        <span aria-hidden="true">☰</span>
+        <span class="sr-only">เปิดเมนูผู้ดูแลระบบ</span>
+      </button>
     </header>
+
     <button class="admin-drawer-overlay" type="button" data-admin-drawer-close aria-label="ปิดเมนู" hidden></button>
     <aside class="admin-drawer" id="admin-drawer" aria-labelledby="admin-drawer-title" hidden>
-      <div class="admin-drawer__header"><p id="admin-drawer-title" class="admin-drawer__title">เมนูผู้ดูแลระบบ</p><button class="admin-icon-button" type="button" data-admin-drawer-close><span aria-hidden="true">×</span><span class="sr-only">ปิดเมนูผู้ดูแลระบบ</span></button></div>
-      <p class="admin-user-summary">ผู้ใช้งาน: ยังไม่เชื่อม Session จริง</p>
+      <div class="admin-drawer__header">
+        <p id="admin-drawer-title" class="admin-drawer__title">เมนูผู้ดูแลระบบ</p>
+        <button class="admin-icon-button" type="button" data-admin-drawer-close>
+          <span aria-hidden="true">×</span>
+          <span class="sr-only">ปิดเมนูผู้ดูแลระบบ</span>
+        </button>
+      </div>
+      <p class="admin-user-summary">ผู้ใช้งาน: กำลังตรวจสอบ Session</p>
       <nav class="admin-menu" aria-label="เมนูผู้ดูแลระบบบนมือถือ">
-        <a href="dashboard.html" data-menu-key="dashboard">Dashboard</a><a href="reports.html" data-menu-key="reports">เรื่องแจ้ง</a><a href="reports.html?scope=assigned" data-menu-key="assigned">งานของฉัน</a><a href="export.html" data-menu-key="export">รายงาน</a><a href="users.html" data-menu-key="users">ผู้ใช้งาน</a><a href="categories.html" data-menu-key="categories" aria-current="page">หมวดหมู่</a><a href="announcements.html" data-menu-key="announcements">ประกาศ</a><a href="activity-logs.html" data-menu-key="activity">Activity Logs</a><a href="settings.html" data-menu-key="settings">ตั้งค่า</a><button type="button" class="admin-menu__button" data-admin-logout>ออกจากระบบ</button>
+        <a href="dashboard.html" data-menu-key="dashboard">แดชบอร์ด</a>
+        <a href="reports.html" data-menu-key="reports">เรื่องแจ้ง</a>
+        <a href="reports.html?scope=mine" data-menu-key="assigned">งานของฉัน</a>
+        <a href="export.html" data-menu-key="export">รายงาน</a>
+        <a href="users.html" data-menu-key="users">ผู้ใช้งาน</a>
+        <a href="categories.html" data-menu-key="categories" aria-current="page">หมวดหมู่</a>
+        <a href="announcements.html" data-menu-key="announcements">ประกาศ</a>
+        <a href="activity-logs.html" data-menu-key="activity">Activity Logs</a>
+        <a href="settings.html" data-menu-key="settings">ตั้งค่า</a>
+        <button type="button" class="admin-menu__button" data-admin-logout>ออกจากระบบ</button>
       </nav>
     </aside>
+
     <div class="admin-app">
       <aside class="admin-sidebar" aria-label="เมนูผู้ดูแลระบบ">
-        <a class="admin-brand" href="dashboard.html" aria-label="ไปหน้า Dashboard"><span class="admin-logo" aria-hidden="true">KR</span><span>Khaophang Admin</span></a>
-        <p class="admin-user-summary">ผู้ใช้งาน: ยังไม่เชื่อม Session จริง</p>
+        <a class="admin-brand" href="dashboard.html" aria-label="ไปหน้าแดชบอร์ด">
+          <span class="admin-logo" aria-hidden="true">KR</span>
+          <span>Khaophang Admin</span>
+        </a>
+        <p class="admin-user-summary">ผู้ใช้งาน: กำลังตรวจสอบ Session</p>
         <nav class="admin-menu">
-          <a href="dashboard.html" data-menu-key="dashboard">Dashboard</a><a href="reports.html" data-menu-key="reports">เรื่องแจ้ง</a><a href="reports.html?scope=assigned" data-menu-key="assigned">งานของฉัน</a><a href="export.html" data-menu-key="export">รายงาน</a><a href="users.html" data-menu-key="users">ผู้ใช้งาน</a><a href="categories.html" data-menu-key="categories" aria-current="page">หมวดหมู่</a><a href="announcements.html" data-menu-key="announcements">ประกาศ</a><a href="activity-logs.html" data-menu-key="activity">Activity Logs</a><a href="settings.html" data-menu-key="settings">ตั้งค่า</a><button type="button" class="admin-menu__button" data-admin-logout>ออกจากระบบ</button>
+          <a href="dashboard.html" data-menu-key="dashboard">แดชบอร์ด</a>
+          <a href="reports.html" data-menu-key="reports">เรื่องแจ้ง</a>
+          <a href="reports.html?scope=mine" data-menu-key="assigned">งานของฉัน</a>
+          <a href="export.html" data-menu-key="export">รายงาน</a>
+          <a href="users.html" data-menu-key="users">ผู้ใช้งาน</a>
+          <a href="categories.html" data-menu-key="categories" aria-current="page">หมวดหมู่</a>
+          <a href="announcements.html" data-menu-key="announcements">ประกาศ</a>
+          <a href="activity-logs.html" data-menu-key="activity">Activity Logs</a>
+          <a href="settings.html" data-menu-key="settings">ตั้งค่า</a>
+          <button type="button" class="admin-menu__button" data-admin-logout>ออกจากระบบ</button>
         </nav>
       </aside>
+
       <main class="admin-shell">
-        <section class="admin-panel" aria-labelledby="page-title">
-          <p class="eyebrow">จัดการระบบ</p>
-          <h1 id="page-title">หมวดหมู่</h1>
-          <p class="placeholder-text">พื้นที่ตั้งต้นสำหรับจัดการหมวดปัญหา</p>
+        <section class="categories-page" aria-labelledby="page-title">
+          <div class="categories-hero">
+            <div>
+              <p class="eyebrow">จัดการระบบ</p>
+              <h1 id="page-title">หมวดหมู่ปัญหา</h1>
+              <p>จัดลำดับ เปิดปิด และกำหนดข้อมูลหมวดหมู่ที่ประชาชนใช้แจ้งปัญหา</p>
+            </div>
+            <div class="categories-hero__actions">
+              <span>อัปเดตล่าสุด</span>
+              <strong data-categories-updated-at>-</strong>
+              <button class="button button-primary" type="button" data-categories-create>เพิ่มหมวดหมู่</button>
+            </div>
+          </div>
+
+          <section class="categories-permission" data-categories-forbidden hidden role="alert">
+            <h2>ไม่มีสิทธิ์จัดการหมวดหมู่</h2>
+            <p>บัญชีนี้ไม่มีสิทธิ์ตั้งค่าระบบ กรุณาติดต่อผู้ดูแลระบบสูงสุด</p>
+          </section>
+
+          <form class="categories-filter" data-categories-filter-form>
+            <div class="categories-filter__search">
+              <label for="categories-keyword">ค้นหา</label>
+              <input class="form-control" id="categories-keyword" name="keyword" type="search" autocomplete="off" placeholder="รหัส ชื่อ คำอธิบาย หรือผู้รับผิดชอบเริ่มต้น" />
+            </div>
+            <div class="categories-filter__grid">
+              <label class="categories-check">
+                <input type="checkbox" name="includeInactive" />
+                <span>แสดงหมวดหมู่ที่ปิดใช้งาน</span>
+              </label>
+              <div class="categories-filter__actions">
+                <button class="button button-primary" type="submit">ค้นหา</button>
+                <button class="button button-secondary" type="button" data-categories-clear>ล้างตัวกรอง</button>
+              </div>
+            </div>
+          </form>
+
+          <div class="categories-state categories-state--loading" data-categories-loading role="status" aria-live="polite">
+            <span class="categories-skeleton categories-skeleton--toolbar"></span>
+            <span class="categories-skeleton"></span>
+            <span class="categories-skeleton"></span>
+            <span class="categories-skeleton"></span>
+          </div>
+
+          <div class="categories-state categories-state--error" data-categories-error hidden role="alert">
+            <h2>โหลดหมวดหมู่ไม่สำเร็จ</h2>
+            <p data-categories-error-message>กรุณาลองใหม่อีกครั้ง</p>
+            <button class="button button-primary" type="button" data-categories-retry>ลองใหม่</button>
+          </div>
+
+          <div class="categories-state categories-state--empty" data-categories-empty hidden>
+            <h2>ไม่พบหมวดหมู่ตามเงื่อนไขนี้</h2>
+            <p>ลองปรับคำค้นหาหรือแสดงหมวดหมู่ที่ปิดใช้งาน</p>
+            <button class="button button-secondary" type="button" data-categories-empty-clear>ล้างตัวกรอง</button>
+          </div>
+
+          <section class="categories-content" data-categories-content hidden aria-labelledby="categories-result-title">
+            <div class="categories-result-header">
+              <div>
+                <p class="eyebrow">ผลลัพธ์</p>
+                <h2 id="categories-result-title">รายการหมวดหมู่</h2>
+              </div>
+              <p data-categories-pagination-summary>กำลังโหลดข้อมูล</p>
+            </div>
+
+            <div class="categories-table-wrap">
+              <table class="categories-table">
+                <thead>
+                  <tr>
+                    <th scope="col">หมวดหมู่</th>
+                    <th scope="col">สี</th>
+                    <th scope="col">กำหนดเสร็จ</th>
+                    <th scope="col">ลำดับ</th>
+                    <th scope="col">สถานะ</th>
+                    <th scope="col">การจัดการ</th>
+                  </tr>
+                </thead>
+                <tbody data-categories-table-body></tbody>
+              </table>
+            </div>
+
+            <div class="categories-card-list" data-categories-card-list></div>
+
+            <nav class="categories-pagination" aria-label="หน้ารายการหมวดหมู่">
+              <button class="button button-secondary" type="button" data-categories-prev>ก่อนหน้า</button>
+              <span data-categories-page-label>หน้า 1 จาก 1</span>
+              <button class="button button-secondary" type="button" data-categories-next>ถัดไป</button>
+            </nav>
+          </section>
         </section>
       </main>
+    </div>
+
+    <div class="categories-modal-backdrop" data-categories-editor hidden>
+      <section class="categories-modal" role="dialog" aria-modal="true" aria-labelledby="categories-editor-title">
+        <div class="categories-modal__header">
+          <h2 id="categories-editor-title" data-categories-editor-title>เพิ่มหมวดหมู่</h2>
+          <button class="admin-icon-button" type="button" data-categories-editor-close aria-label="ปิดหน้าต่าง">×</button>
+        </div>
+        <form class="categories-form" data-categories-form novalidate>
+          <input type="hidden" name="categoryId" />
+          <input type="hidden" name="version" />
+
+          <div class="categories-form__grid">
+            <div class="categories-field">
+              <label for="category-code">รหัสหมวดหมู่</label>
+              <input class="form-control" id="category-code" name="code" type="text" autocomplete="off" maxlength="40" required aria-describedby="category-code-error" />
+              <small id="category-code-error" data-field-error="code"></small>
+            </div>
+            <div class="categories-field">
+              <label for="category-name">ชื่อหมวดหมู่</label>
+              <input class="form-control" id="category-name" name="name" type="text" maxlength="120" required aria-describedby="category-name-error" />
+              <small id="category-name-error" data-field-error="name"></small>
+            </div>
+            <div class="categories-field">
+              <label for="category-icon">ไอคอน</label>
+              <input class="form-control" id="category-icon" name="icon" type="text" maxlength="40" placeholder="road" aria-describedby="category-icon-error" />
+              <small id="category-icon-error" data-field-error="icon"></small>
+            </div>
+            <div class="categories-field">
+              <label for="category-color">สี</label>
+              <div class="categories-color-input">
+                <input id="category-color" name="color" type="color" value="#287444" aria-describedby="category-color-error" />
+                <input class="form-control" name="colorText" type="text" maxlength="7" value="#287444" aria-label="ค่าสีแบบ Hex" />
+              </div>
+              <small id="category-color-error" data-field-error="color"></small>
+            </div>
+            <div class="categories-field">
+              <label for="category-default-assignee">ผู้รับผิดชอบเริ่มต้น</label>
+              <input class="form-control" id="category-default-assignee" name="defaultAssignee" type="text" autocomplete="off" placeholder="USER-..." aria-describedby="category-default-assignee-error" />
+              <small id="category-default-assignee-error" data-field-error="defaultAssignee"></small>
+            </div>
+            <div class="categories-field">
+              <label for="category-target-days">กำหนดเสร็จภายใน (วัน)</label>
+              <input class="form-control" id="category-target-days" name="targetDays" type="number" min="0" max="365" step="1" aria-describedby="category-target-days-error" />
+              <small id="category-target-days-error" data-field-error="targetDays"></small>
+            </div>
+            <div class="categories-field">
+              <label for="category-sort-order">ลำดับแสดงผล</label>
+              <input class="form-control" id="category-sort-order" name="sortOrder" type="number" min="0" max="100000" step="1" aria-describedby="category-sort-order-error" />
+              <small id="category-sort-order-error" data-field-error="sortOrder"></small>
+            </div>
+          </div>
+
+          <div class="categories-field">
+            <label for="category-description">คำอธิบาย</label>
+            <textarea class="form-control" id="category-description" name="description" maxlength="500" rows="4" aria-describedby="category-description-error"></textarea>
+            <small id="category-description-error" data-field-error="description"></small>
+          </div>
+
+          <label class="categories-check">
+            <input type="checkbox" name="isActive" checked />
+            <span>เปิดใช้งานหมวดหมู่นี้</span>
+          </label>
+
+          <div class="categories-alert" data-categories-form-error hidden role="alert"></div>
+          <div class="categories-success" data-categories-form-success hidden role="status" aria-live="polite"></div>
+
+          <div class="categories-modal__actions">
+            <button class="button button-secondary" type="button" data-categories-editor-cancel>ยกเลิก</button>
+            <button class="button button-primary" type="submit" data-categories-save>บันทึก</button>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <div class="categories-modal-backdrop" data-categories-confirm hidden>
+      <section class="categories-modal categories-modal--small" role="dialog" aria-modal="true" aria-labelledby="categories-confirm-title">
+        <div class="categories-modal__header">
+          <h2 id="categories-confirm-title" data-categories-confirm-title>ยืนยันการปิดใช้งาน</h2>
+          <button class="admin-icon-button" type="button" data-categories-confirm-cancel aria-label="ปิดหน้าต่าง">×</button>
+        </div>
+        <p data-categories-confirm-message></p>
+        <div class="categories-modal__actions">
+          <button class="button button-secondary" type="button" data-categories-confirm-back>ยกเลิก</button>
+          <button class="button button-danger" type="button" data-categories-confirm-ok>ยืนยัน</button>
+        </div>
+      </section>
     </div>
   </body>
 </html>

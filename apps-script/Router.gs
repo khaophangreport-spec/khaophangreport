@@ -2,6 +2,8 @@ const ROUTER_ACTIONS_ = Object.freeze({
   "health.check": Router_healthCheck_,
   "public.config": SettingsService_getPublicConfig,
   "category.list": CategoryService_listPublic,
+  "admin.category.list": CategoryService_listAdmin,
+  "admin.category.save": CategoryService_saveAdmin,
   "announcement.list": AnnouncementService_listPublic,
   "auth.login": AuthService_login,
   "auth.me": AuthService_me,
