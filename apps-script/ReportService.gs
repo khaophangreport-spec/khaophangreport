@@ -1178,7 +1178,7 @@ function ReportService_projectAdminDetailReport_(report, categoryMap, userMap, p
       landmark: Security_sanitizeText_(report.landmark || ""),
       latitude: ReportService_toOptionalNumber_(report.latitude),
       longitude: ReportService_toOptionalNumber_(report.longitude),
-      mapUrl: Security_sanitizeText_(report.map_url || "")
+      mapUrl: ReportService_sanitizeMapUrl_(report.map_url)
     },
     reporter: ReportService_projectAdminReporter_(report, canViewReporterPii),
     status: Security_sanitizeText_(report.status || ""),
@@ -1623,8 +1623,22 @@ function ReportService_normalizeLocation_(location) {
     landmark: Security_sanitizeUserText_(location.landmark, 200),
     latitude: latitude,
     longitude: longitude,
-    mapUrl: Security_sanitizeUserText_(location.mapUrl, 500)
+    mapUrl: ReportService_sanitizeMapUrl_(location.mapUrl)
   };
+}
+
+function ReportService_sanitizeMapUrl_(value) {
+  const text = Utils_normalizeString_(value).slice(0, 500);
+
+  if (!text) {
+    return "";
+  }
+
+  if (!/^https:\/\/[^\s<>"']+$/i.test(text)) {
+    return "";
+  }
+
+  return Security_sanitizeText_(text);
 }
 
 function ReportService_normalizeReporter_(reporter, isAnonymous, contactMethod) {

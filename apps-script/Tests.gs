@@ -167,6 +167,29 @@ function testUtilsToBoolean() {
   };
 }
 
+function testSecuritySanitizeSheetTextFormulaInjectionWhitespace() {
+  const cases = [
+    { input: "=SUM(1,2)", expectedPrefix: "'=" },
+    { input: "  +SUM(1,2)", expectedPrefix: "'  +" },
+    { input: "\t@IMPORTXML(\"https://example.test\")", expectedPrefix: "'\t@" },
+    { input: "ข้อความทั่วไป", expectedPrefix: "ข้อความ" }
+  ];
+
+  cases.forEach(function (testCase) {
+    const actual = Security_sanitizeSheetText_(testCase.input);
+
+    if (actual.indexOf(testCase.expectedPrefix) !== 0) {
+      throw new Error("Security_sanitizeSheetText_ formula protection failed for: " + testCase.input);
+    }
+  });
+
+  return {
+    ok: true,
+    testType: "unit",
+    cases: cases.length
+  };
+}
+
 function testPublicConfigApi() {
   const result = SettingsService_getPublicConfig({
     action: "public.config",
@@ -1612,6 +1635,42 @@ function testAdminReportDetailAttachmentProjectionNoDriveLeak() {
   return {
     ok: true,
     projection: projection
+  };
+}
+
+function testAdminReportDetailMapUrlRejectsUnsafeScheme() {
+  const projection = ReportService_projectAdminDetailReport_({
+    report_id: "REPORT-001",
+    tracking_code: "KPR-260626-A001",
+    category_id: "CAT-ROAD",
+    title: "Public title",
+    description: "Public description",
+    map_url: "javascript:alert(1)",
+    status: "new",
+    priority: "normal",
+    version: 1
+  }, {}, {}, UserService_getPermissions_("admin"));
+
+  if (projection.location.mapUrl !== "") {
+    throw new Error("admin.report.detail unsafe mapUrl scheme was not removed");
+  }
+
+  const normalized = ReportService_normalizeLocation_({
+    name: "หน้าศาลา",
+    villageNo: "1",
+    landmark: "",
+    latitude: "",
+    longitude: "",
+    mapUrl: "data:text/html,<script>alert(1)</script>"
+  });
+
+  if (normalized.mapUrl !== "") {
+    throw new Error("report.create unsafe mapUrl scheme was not removed");
+  }
+
+  return {
+    ok: true,
+    testType: "unit"
   };
 }
 

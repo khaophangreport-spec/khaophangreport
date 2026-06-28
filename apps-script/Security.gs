@@ -84,7 +84,7 @@ function Security_sanitizeUserText_(value, maxLength) {
 function Security_sanitizeSheetText_(value) {
   const text = value === null || value === undefined ? "" : String(value);
 
-  return /^[=+\-@]/.test(text) ? "'" + text : text;
+  return /^\s*[=+\-@]/.test(text) ? "'" + text : text;
 }
 
 function Security_hashWithSecret_(value, secretPropertyKey) {
