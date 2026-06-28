@@ -5,6 +5,8 @@ const ROUTER_ACTIONS_ = Object.freeze({
   "admin.category.list": CategoryService_listAdmin,
   "admin.category.save": CategoryService_saveAdmin,
   "announcement.list": AnnouncementService_listPublic,
+  "admin.announcement.list": AnnouncementService_listAdmin,
+  "admin.announcement.save": AnnouncementService_saveAdmin,
   "auth.login": AuthService_login,
   "auth.me": AuthService_me,
   "auth.logout": AuthService_logout,

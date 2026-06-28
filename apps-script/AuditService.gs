@@ -283,6 +283,30 @@ function AuditService_logAdminCategorySaved_(oldCategory, updatedCategory, actor
   });
 }
 
+function AuditService_logAdminAnnouncementSaved_(oldAnnouncement, updatedAnnouncement, actor, requestId, isCreated) {
+  return AuditService_log_({
+    userId: actor && actor.user_id ? actor.user_id : "system",
+    userNameSnapshot: actor && (actor.display_name || actor.username) ? actor.display_name || actor.username : "",
+    roleSnapshot: actor && actor.role ? actor.role : "",
+    action: "admin.announcement.save",
+    entityType: "announcement",
+    entityId: updatedAnnouncement && updatedAnnouncement.announcement_id ? updatedAnnouncement.announcement_id : "",
+    requestId: requestId || "",
+    success: true,
+    detail: {
+      operation: isCreated ? "create" : "update",
+      type: updatedAnnouncement && updatedAnnouncement.type ? updatedAnnouncement.type : "",
+      oldIsActive: oldAnnouncement ? Utils_toBoolean_(oldAnnouncement.is_active) : "",
+      newIsActive: updatedAnnouncement ? Utils_toBoolean_(updatedAnnouncement.is_active) : "",
+      oldSortOrder: oldAnnouncement && oldAnnouncement.sort_order !== undefined ? Number(oldAnnouncement.sort_order || 0) : "",
+      newSortOrder: updatedAnnouncement && updatedAnnouncement.sort_order !== undefined ? Number(updatedAnnouncement.sort_order || 0) : "",
+      hasContent: !!(updatedAnnouncement && updatedAnnouncement.content),
+      hasEndAt: !!(updatedAnnouncement && updatedAnnouncement.end_at),
+      version: updatedAnnouncement && updatedAnnouncement.version ? Number(updatedAnnouncement.version) : 0
+    }
+  });
+}
+
 function AuditService_logReportAssigned_(oldReport, updatedReport, assignment, officer, actor, requestId, oldAssigneeId) {
   return AuditService_log_({
     userId: actor && actor.user_id ? actor.user_id : "system",

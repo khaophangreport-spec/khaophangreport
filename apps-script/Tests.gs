@@ -2423,6 +2423,235 @@ function testAdminCategoryAuditNoAssigneeLeak() {
   };
 }
 
+function testAdminAnnouncementRouterWhitelist() {
+  const expected = {
+    "admin.announcement.list": {
+      handler: AnnouncementService_listAdmin,
+      name: "AnnouncementService_listAdmin"
+    },
+    "admin.announcement.save": {
+      handler: AnnouncementService_saveAdmin,
+      name: "AnnouncementService_saveAdmin"
+    }
+  };
+  const registrations = Object.keys(expected).map(function (action) {
+    return Tests_assertRouterHandler_(
+      action,
+      expected[action].handler,
+      expected[action].name
+    );
+  });
+
+  return {
+    ok: true,
+    testType: "unit",
+    actions: Object.keys(expected),
+    registrations: registrations
+  };
+}
+
+function testAdminAnnouncementProjectionIncludesAdminFieldsNoSecret() {
+  const projection = AnnouncementService_projectAdmin_({
+    announcement_id: "ANN-001",
+    title: "ประกาศ",
+    content: "รายละเอียด",
+    type: "warning",
+    start_at: "2026-06-28T00:00:00.000Z",
+    end_at: "2026-06-30T00:00:00.000Z",
+    is_active: true,
+    sort_order: 10,
+    created_by: "USER-SECRET",
+    updated_by: "USER-SECRET",
+    created_at: "2026-06-28T00:00:00.000Z",
+    updated_at: "2026-06-28T00:00:00.000Z",
+    password_hash: "HASH-SECRET",
+    version: 4
+  });
+  const serialized = JSON.stringify(projection);
+
+  ["USER-SECRET", "HASH-SECRET", "created_by", "updated_by", "password_hash"].forEach(function (forbidden) {
+    if (serialized.indexOf(forbidden) !== -1) {
+      throw new Error("admin.announcement projection leaked internal data: " + forbidden);
+    }
+  });
+
+  if (projection.announcementId !== "ANN-001" ||
+      projection.type !== "warning" ||
+      projection.isActive !== true ||
+      projection.sortOrder !== 10 ||
+      projection.version !== 4) {
+    throw new Error("admin.announcement projection missed expected fields");
+  }
+
+  return {
+    ok: true,
+    testType: "unit",
+    projection: projection
+  };
+}
+
+function testAdminAnnouncementSaveRequiresVersionOnUpdate() {
+  try {
+    AnnouncementService_normalizeAdminSavePayload_({
+      announcementId: "ANN-001",
+      title: "ประกาศ",
+      content: "รายละเอียด",
+      type: "info",
+      startAt: "2026-06-28T00:00:00.000Z",
+      isActive: true,
+      sortOrder: 1
+    });
+  } catch (error) {
+    if (error && error.code === "VALIDATION_ERROR" && error.fields && error.fields.version) {
+      return {
+        ok: true,
+        testType: "unit",
+        fields: error.fields
+      };
+    }
+
+    throw error;
+  }
+
+  throw new Error("admin.announcement.save did not require version on update");
+}
+
+function testAdminAnnouncementTypeValidation() {
+  try {
+    AnnouncementService_normalizeAdminSavePayload_({
+      title: "ประกาศ",
+      content: "รายละเอียด",
+      type: "danger",
+      startAt: "2026-06-28T00:00:00.000Z",
+      isActive: true,
+      sortOrder: 1
+    });
+  } catch (error) {
+    if (error && error.code === "VALIDATION_ERROR" && error.fields && error.fields.type) {
+      return {
+        ok: true,
+        testType: "unit",
+        fields: error.fields
+      };
+    }
+
+    throw error;
+  }
+
+  throw new Error("admin.announcement.save did not reject invalid type");
+}
+
+function testAdminAnnouncementDateRangeValidation() {
+  try {
+    AnnouncementService_normalizeAdminSavePayload_({
+      title: "ประกาศ",
+      content: "รายละเอียด",
+      type: "maintenance",
+      startAt: "2026-06-30T00:00:00.000Z",
+      endAt: "2026-06-28T00:00:00.000Z",
+      isActive: true,
+      sortOrder: 1
+    });
+  } catch (error) {
+    if (error && error.code === "VALIDATION_ERROR" && error.fields && error.fields.endAt) {
+      return {
+        ok: true,
+        testType: "unit",
+        fields: error.fields
+      };
+    }
+
+    throw error;
+  }
+
+  throw new Error("admin.announcement.save did not reject endAt before startAt");
+}
+
+function testAdminAnnouncementPublicProjectionSanitizes() {
+  const projection = AnnouncementService_projectPublic_({
+    announcement_id: "ANN-001",
+    title: "<script>alert(1)</script>ประกาศ",
+    content: "<b>รายละเอียด</b>",
+    type: "emergency",
+    start_at: "2026-06-28T00:00:00.000Z",
+    end_at: ""
+  });
+  const serialized = JSON.stringify(projection);
+
+  ["<script", "</script>", "<b>", "</b>"].forEach(function (forbidden) {
+    if (serialized.indexOf(forbidden) !== -1) {
+      throw new Error("announcement.list public projection did not sanitize: " + forbidden);
+    }
+  });
+
+  if (projection.announcementId !== "ANN-001" || projection.type !== "emergency") {
+    throw new Error("announcement.list public projection missed public fields");
+  }
+
+  return {
+    ok: true,
+    testType: "unit",
+    projection: projection
+  };
+}
+
+function testAdminAnnouncementAuditNoContentLeak() {
+  const originalLog = AuditService_log_;
+  let captured = null;
+
+  AuditService_log_ = function (entry) {
+    captured = entry;
+    return entry;
+  };
+
+  try {
+    AuditService_logAdminAnnouncementSaved_({
+      announcement_id: "ANN-001",
+      title: "Old title",
+      content: "Old secret content",
+      type: "info",
+      is_active: true,
+      sort_order: 1
+    }, {
+      announcement_id: "ANN-001",
+      title: "New title",
+      content: "รายละเอียดที่ไม่ควรลง audit",
+      type: "warning",
+      is_active: false,
+      sort_order: 2,
+      version: 3
+    }, {
+      user_id: "USER-SUPER",
+      username: "super",
+      display_name: "Super Admin",
+      role: "super_admin"
+    }, "REQ-TEST-ANNOUNCEMENT", false);
+  } finally {
+    AuditService_log_ = originalLog;
+  }
+
+  const serialized = JSON.stringify(captured);
+
+  ["Old secret content", "รายละเอียดที่ไม่ควรลง audit", "New title", "Old title"].forEach(function (forbidden) {
+    if (serialized.indexOf(forbidden) !== -1) {
+      throw new Error("admin.announcement audit leaked title/content: " + forbidden);
+    }
+  });
+
+  if (!captured || captured.action !== "admin.announcement.save" ||
+      captured.detail.operation !== "update" ||
+      captured.detail.hasContent !== true ||
+      captured.detail.version !== 3) {
+    throw new Error("admin.announcement audit detail is invalid");
+  }
+
+  return {
+    ok: true,
+    testType: "unit",
+    detail: captured.detail
+  };
+}
+
 function testAdminReportUpdateStatusTransitionMatrix() {
   try {
     const officerPermissions = UserService_getPermissions_("officer");
