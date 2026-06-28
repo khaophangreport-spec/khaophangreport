@@ -21,21 +21,80 @@
   const openButton = document.querySelector("[data-admin-drawer-open]");
   const closeButtons = document.querySelectorAll("[data-admin-drawer-close]");
   let lastFocusedElement = null;
+  let lastFocusedOutsideDialog = null;
+  const dialogFocusState = new WeakMap();
 
   function getFocusableElements(container) {
+    if (!container) {
+      return [];
+    }
+
     return Array.prototype.slice.call(
       container.querySelectorAll(
         'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
       )
     ).filter(function (element) {
-      return !element.hidden && element.getAttribute("aria-hidden") !== "true";
+      return !element.hidden &&
+        element.getAttribute("aria-hidden") !== "true" &&
+        Boolean(element.offsetWidth || element.offsetHeight || element.getClientRects().length);
     });
+  }
+
+  function hasExplicitAccessibleName(element) {
+    return Boolean(
+      element &&
+      (
+        element.getAttribute("aria-label") ||
+        element.getAttribute("aria-labelledby")
+      )
+    );
+  }
+
+  function ensureDrawerAccessibility() {
+    if (openButton && !hasExplicitAccessibleName(openButton)) {
+      openButton.setAttribute("aria-label", "เปิดเมนูผู้ดูแล");
+    }
+
+    closeButtons.forEach(function (button) {
+      if (!hasExplicitAccessibleName(button)) {
+        button.setAttribute("aria-label", "ปิดเมนูผู้ดูแล");
+      }
+    });
+
+    if (drawer) {
+      drawer.setAttribute("role", "dialog");
+      drawer.setAttribute("aria-modal", "true");
+      drawer.setAttribute("tabindex", "-1");
+    }
+  }
+
+  function trapFocus(event, container) {
+    const focusable = getFocusableElements(container);
+
+    if (focusable.length === 0) {
+      event.preventDefault();
+      container.focus();
+      return;
+    }
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
   }
 
   function setDrawerState(isOpen) {
     if (!drawer || !overlay || !openButton) {
       return;
     }
+
+    ensureDrawerAccessibility();
 
     if (isOpen) {
       lastFocusedElement = document.activeElement;
@@ -46,6 +105,8 @@
       const focusable = getFocusableElements(drawer);
       if (focusable.length > 0) {
         focusable[0].focus();
+      } else {
+        drawer.focus();
       }
       return;
     }
@@ -73,22 +134,131 @@
       return;
     }
 
-    const focusable = getFocusableElements(drawer);
-    if (focusable.length === 0) {
-      event.preventDefault();
+    trapFocus(event, drawer);
+  }
+
+  function getDialogBackdrop(dialog) {
+    let current = dialog ? dialog.parentElement : null;
+
+    while (current && current !== document.body) {
+      if (Object.prototype.hasOwnProperty.call(current, "hidden")) {
+        return current;
+      }
+
+      current = current.parentElement;
+    }
+
+    return dialog;
+  }
+
+  function isVisible(element) {
+    return Boolean(
+      element &&
+      !element.hidden &&
+      (element.offsetWidth || element.offsetHeight || element.getClientRects().length)
+    );
+  }
+
+  function isDialogOpen(dialog) {
+    const backdrop = getDialogBackdrop(dialog);
+
+    return isVisible(dialog) && (!backdrop || !backdrop.hidden);
+  }
+
+  function getOpenDialogs() {
+    return Array.prototype.slice.call(document.querySelectorAll('[role="dialog"][aria-modal="true"]'))
+      .filter(isDialogOpen);
+  }
+
+  function focusDialog(dialog) {
+    if (!dialog.hasAttribute("tabindex")) {
+      dialog.setAttribute("tabindex", "-1");
+    }
+
+    const focusable = getFocusableElements(dialog);
+    (focusable[0] || dialog).focus();
+  }
+
+  function syncDialogFocus(dialog) {
+    if (!dialog || dialog === drawer) {
       return;
     }
 
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
+    if (isDialogOpen(dialog)) {
+      if (!dialogFocusState.has(dialog)) {
+        dialogFocusState.set(dialog, {
+          previousFocus: lastFocusedOutsideDialog || document.activeElement
+        });
+      }
 
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
+      if (!dialog.hasAttribute("tabindex")) {
+        dialog.setAttribute("tabindex", "-1");
+      }
+
+      window.setTimeout(function () {
+        if (isDialogOpen(dialog) && !dialog.contains(document.activeElement)) {
+          focusDialog(dialog);
+        }
+      }, 0);
+      return;
     }
+
+    if (dialogFocusState.has(dialog)) {
+      const state = dialogFocusState.get(dialog);
+      dialogFocusState.delete(dialog);
+
+      if (state.previousFocus && typeof state.previousFocus.focus === "function" && document.contains(state.previousFocus)) {
+        state.previousFocus.focus();
+      }
+    }
+  }
+
+  function syncAllDialogs() {
+    document.querySelectorAll('[role="dialog"][aria-modal="true"]').forEach(syncDialogFocus);
+  }
+
+  function handleDialogKeydown(event) {
+    if (event.key !== "Tab") {
+      return;
+    }
+
+    const dialogs = getOpenDialogs().filter(function (dialog) {
+      return dialog !== drawer;
+    });
+    const activeDialog = dialogs[dialogs.length - 1];
+
+    if (activeDialog) {
+      trapFocus(event, activeDialog);
+    }
+  }
+
+  function initAdminDialogAccessibility() {
+    lastFocusedOutsideDialog = document.activeElement;
+
+    document.addEventListener("focusin", function (event) {
+      if (!event.target.closest || !event.target.closest('[role="dialog"][aria-modal="true"]')) {
+        lastFocusedOutsideDialog = event.target;
+      }
+    });
+    document.addEventListener("keydown", handleDialogKeydown);
+
+    const observer = new MutationObserver(function (mutations) {
+      const hasHiddenChange = mutations.some(function (mutation) {
+        return mutation.type === "attributes" && mutation.attributeName === "hidden";
+      });
+
+      if (hasHiddenChange) {
+        syncAllDialogs();
+      }
+    });
+
+    observer.observe(document.body, {
+      attributes: true,
+      attributeFilter: ["hidden"],
+      subtree: true
+    });
+
+    syncAllDialogs();
   }
 
   function getPermissions(user) {
@@ -223,6 +393,8 @@
   }
 
   function bindDrawer() {
+    ensureDrawerAccessibility();
+
     if (openButton) {
       openButton.addEventListener("click", function () {
         setDrawerState(true);
@@ -240,6 +412,7 @@
 
   async function init() {
     bindDrawer();
+    initAdminDialogAccessibility();
     bindLogoutButtons();
 
     try {

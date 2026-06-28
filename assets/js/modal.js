@@ -66,6 +66,10 @@
       modalElement.parentNode.removeChild(modalElement);
     }
 
+    if (!document.querySelector("[data-modal-backdrop]")) {
+      document.body.classList.remove("is-modal-open");
+    }
+
     if (state.previousFocus && typeof state.previousFocus.focus === "function") {
       state.previousFocus.focus();
     }
@@ -101,6 +105,9 @@
     const title = document.createElement("h2");
     const body = document.createElement("p");
     const actions = document.createElement("div");
+    const dialogId = settings.dialogId || "modal-" + Date.now().toString(36);
+    const titleId = settings.titleId || dialogId + "-title";
+    const bodyId = settings.bodyId || dialogId + "-body";
     const actionItems = Array.isArray(settings.actions) && settings.actions.length > 0
       ? settings.actions
       : [{ label: "ตกลง" }];
@@ -113,16 +120,15 @@
     dialog.setAttribute("role", "dialog");
     dialog.setAttribute("aria-modal", "true");
     dialog.setAttribute("tabindex", "-1");
-
-    if (settings.titleId) {
-      dialog.setAttribute("aria-labelledby", settings.titleId);
-      title.id = settings.titleId;
-    }
+    dialog.setAttribute("aria-labelledby", titleId);
+    dialog.setAttribute("aria-describedby", bodyId);
 
     title.className = "modal-title";
+    title.id = titleId;
     title.textContent = settings.title || "แจ้งเตือน";
 
     body.className = "modal-body";
+    body.id = bodyId;
     body.textContent = settings.message || "";
 
     actions.className = "modal-actions";
@@ -159,6 +165,7 @@
     });
 
     document.body.appendChild(backdrop);
+    document.body.classList.add("is-modal-open");
     document.addEventListener("keydown", onKeydown);
     focusFirstElement(dialog);
 
