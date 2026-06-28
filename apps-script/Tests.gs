@@ -3038,6 +3038,222 @@ function testAdminActivityPermissionFlag() {
   };
 }
 
+function testAdminExportRouterWhitelist() {
+  const registration = Tests_assertRouterHandler_(
+    "admin.export.csv",
+    ExportService_exportCsvAdmin,
+    "ExportService_exportCsvAdmin"
+  );
+
+  return {
+    ok: true,
+    testType: "unit",
+    action: "admin.export.csv",
+    registration: registration
+  };
+}
+
+function testAdminExportNormalizeDefaults() {
+  const payload = ExportService_normalizePayload_({
+    exportType: "reports",
+    filters: {
+      dateFrom: "2026-06-01",
+      dateTo: "2026-06-30"
+    }
+  });
+
+  if (payload.includePersonalData !== false || payload.exportType !== "reports") {
+    throw new Error("admin.export.csv defaults are invalid");
+  }
+
+  try {
+    ExportService_normalizePayload_({
+      exportType: "invalid",
+      filters: {
+        dateFrom: "2026-07-01",
+        dateTo: "2026-06-01"
+      }
+    });
+  } catch (error) {
+    if (error && error.code === "VALIDATION_ERROR" && error.fields && error.fields.exportType && error.fields["filters.dateTo"]) {
+      return {
+        ok: true,
+        testType: "unit",
+        payload: payload
+      };
+    }
+
+    throw error;
+  }
+
+  throw new Error("admin.export.csv did not reject invalid export payload");
+}
+
+function testAdminExportPersonalDataPermission() {
+  const superAdminPermissions = ExportService_buildPermissions_(UserService_getPermissions_("super_admin"));
+  const viewerPermissions = ExportService_buildPermissions_(UserService_getPermissions_("viewer"));
+
+  if (!superAdminPermissions.canIncludePersonalData || viewerPermissions.canIncludePersonalData) {
+    throw new Error("admin.export.csv personal data permission flag is incorrect");
+  }
+
+  return {
+    ok: true,
+    testType: "unit",
+    superAdminCanIncludePersonalData: superAdminPermissions.canIncludePersonalData,
+    viewerCanIncludePersonalData: viewerPermissions.canIncludePersonalData
+  };
+}
+
+function testAdminExportRequiresConfirmationForPersonalData() {
+  try {
+    ExportService_normalizePayload_({
+      exportType: "reports",
+      includePersonalData: true,
+      confirmed: false,
+      filters: {}
+    });
+  } catch (error) {
+    if (error && error.code === "VALIDATION_ERROR" && error.fields && error.fields.confirmed) {
+      return {
+        ok: true,
+        testType: "unit",
+        fields: error.fields
+      };
+    }
+
+    throw error;
+  }
+
+  throw new Error("admin.export.csv did not require confirmation for personal data");
+}
+
+function testAdminExportCsvFormulaInjectionProtection() {
+  const csv = ExportService_buildCsv_(["title", "note"], [{
+    title: "=IMPORTXML(\"https://example.test\")",
+    note: "+SUM(1,2)"
+  }]);
+
+  if (csv.indexOf("'=IMPORTXML") === -1 || csv.indexOf("'+SUM") === -1) {
+    throw new Error("admin.export.csv did not protect formula injection");
+  }
+
+  return {
+    ok: true,
+    testType: "unit",
+    csvPrefix: csv.slice(0, 20)
+  };
+}
+
+function testAdminExportCsvBomAndFilename() {
+  const payload = ExportService_normalizePayload_({
+    exportType: "summary",
+    filters: {
+      dateFrom: "2026-06-01",
+      dateTo: "2026-06-30"
+    }
+  });
+  const fileName = ExportService_buildFileName_(payload);
+  const csv = ExportService_buildCsv_(["name"], [{ name: "ทดสอบ" }]);
+
+  if (csv.charCodeAt(0) !== 0xFEFF || fileName !== "khaophang_summary_2026-06-01_2026-06-30.csv") {
+    throw new Error("admin.export.csv BOM or filename is invalid");
+  }
+
+  return {
+    ok: true,
+    testType: "unit",
+    fileName: fileName
+  };
+}
+
+function testAdminExportReportRowsNoPiiByDefault() {
+  const rows = ExportService_buildReportRows_([{
+    tracking_code: "KPR-001",
+    title: "ไฟดับ",
+    category_id: "CAT-001",
+    status: "new",
+    priority: "normal",
+    reporter_name: "Private Name",
+    reporter_phone: "0812345678",
+    reporter_email: "person@example.com",
+    description: "Private detail"
+  }], {
+    categoryMap: {
+      "CAT-001": {
+        code: "ROAD",
+        name: "Road"
+      }
+    },
+    userMap: {}
+  }, false);
+  const serialized = JSON.stringify({
+    headers: rows.headers,
+    rows: rows
+  });
+
+  ["Private Name", "0812345678", "person@example.com", "Private detail", "reporter_phone", "reporter_email", "description"].forEach(function (forbidden) {
+    if (serialized.indexOf(forbidden) !== -1) {
+      throw new Error("admin.export.csv default rows leaked PII: " + forbidden);
+    }
+  });
+
+  return {
+    ok: true,
+    testType: "unit",
+    headers: rows.headers
+  };
+}
+
+function testAdminExportAuditNoValueLeak() {
+  const originalLog = AuditService_log_;
+  let captured = null;
+
+  AuditService_log_ = function (entry) {
+    captured = entry;
+    return entry;
+  };
+
+  try {
+    AuditService_logExportCsvCreated_({
+      export_id: "EXPORT-001",
+      export_type: "reports",
+      included_personal_data: true,
+      row_count: 10,
+      filters_json: "{\"assigneeId\":\"USER-SECRET\"}"
+    }, {
+      user_id: "USER-SUPER",
+      username: "super",
+      display_name: "Super Admin",
+      role: "super_admin"
+    }, "REQ-TEST-EXPORT", {
+      truncated: false,
+      dateFrom: "2026-06-01",
+      dateTo: "2026-06-30"
+    });
+  } finally {
+    AuditService_log_ = originalLog;
+  }
+
+  const serialized = JSON.stringify(captured);
+
+  ["USER-SECRET", "assigneeId", "filters_json"].forEach(function (forbidden) {
+    if (serialized.indexOf(forbidden) !== -1) {
+      throw new Error("admin.export.csv audit leaked filter value: " + forbidden);
+    }
+  });
+
+  if (!captured || captured.action !== "admin.export.csv" || captured.detail.rowCount !== 10) {
+    throw new Error("admin.export.csv audit detail is invalid");
+  }
+
+  return {
+    ok: true,
+    testType: "unit",
+    detail: captured.detail
+  };
+}
+
 function testAdminReportUpdateStatusTransitionMatrix() {
   try {
     const officerPermissions = UserService_getPermissions_("officer");

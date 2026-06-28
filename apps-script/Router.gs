@@ -4,6 +4,7 @@ const ROUTER_ACTIONS_ = Object.freeze({
   "admin.settings.get": SettingsService_getAdmin,
   "admin.settings.update": SettingsService_updateAdmin,
   "admin.activity.list": AuditService_listAdmin,
+  "admin.export.csv": ExportService_exportCsvAdmin,
   "category.list": CategoryService_listPublic,
   "admin.category.list": CategoryService_listAdmin,
   "admin.category.save": CategoryService_saveAdmin,

@@ -635,6 +635,29 @@ function AuditService_logAdminSettingsUpdated_(changes, actor, requestId) {
   });
 }
 
+function AuditService_logExportCsvCreated_(exportLog, actor, requestId, options) {
+  const safeOptions = options || {};
+
+  return AuditService_log_({
+    userId: actor && actor.user_id ? actor.user_id : "system",
+    userNameSnapshot: actor && (actor.display_name || actor.username) ? actor.display_name || actor.username : "",
+    roleSnapshot: actor && actor.role ? actor.role : "",
+    action: "admin.export.csv",
+    entityType: "export",
+    entityId: exportLog && exportLog.export_id ? exportLog.export_id : "",
+    requestId: requestId || "",
+    success: true,
+    detail: {
+      exportType: exportLog && exportLog.export_type ? exportLog.export_type : "",
+      includedPersonalData: Utils_toBoolean_(exportLog && exportLog.included_personal_data),
+      rowCount: exportLog && exportLog.row_count !== undefined ? Number(exportLog.row_count || 0) : 0,
+      truncated: !!safeOptions.truncated,
+      hasDateFrom: !!safeOptions.dateFrom,
+      hasDateTo: !!safeOptions.dateTo
+    }
+  });
+}
+
 function AuditService_logReportAssigned_(oldReport, updatedReport, assignment, officer, actor, requestId, oldAssigneeId) {
   return AuditService_log_({
     userId: actor && actor.user_id ? actor.user_id : "system",

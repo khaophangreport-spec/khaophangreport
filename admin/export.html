@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="ส่งออกข้อมูล Khaophang Report" />
-    <title>ส่งออกข้อมูล | Khaophang Report Admin</title>
+    <meta name="description" content="ส่งออก CSV สำหรับรายงาน เรื่องแจ้ง และ Timeline ของ Khaophang Report" />
+    <title>ส่งออก CSV | Khaophang Report Admin</title>
     <link rel="stylesheet" href="../assets/css/variables.css" />
     <link rel="stylesheet" href="../assets/css/reset.css" />
     <link rel="stylesheet" href="../assets/css/base.css" />
@@ -15,33 +15,201 @@
     <script src="../assets/js/api.js" defer></script>
     <script src="../assets/js/auth.js" defer></script>
     <script src="../assets/js/admin/layout.js" defer></script>
+    <script src="../assets/js/admin/export.js" defer></script>
   </head>
   <body class="admin-app-page admin-auth-pending" data-admin-guard="required" data-admin-page="export">
     <header class="admin-mobile-topbar">
-      <a class="admin-brand" href="dashboard.html" aria-label="ไปหน้า Dashboard"><span class="admin-logo" aria-hidden="true">KR</span><span>Khaophang Admin</span></a>
-      <button class="admin-icon-button" type="button" data-admin-drawer-open aria-controls="admin-drawer" aria-expanded="false"><span aria-hidden="true">☰</span><span class="sr-only">เปิดเมนูผู้ดูแลระบบ</span></button>
+      <a class="admin-brand" href="dashboard.html" aria-label="ไปหน้าแดชบอร์ด">
+        <span class="admin-logo" aria-hidden="true">KR</span>
+        <span>Khaophang Admin</span>
+      </a>
+      <button class="admin-icon-button" type="button" data-admin-drawer-open aria-controls="admin-drawer" aria-expanded="false">
+        <span aria-hidden="true">☰</span>
+        <span class="sr-only">เปิดเมนูผู้ดูแลระบบ</span>
+      </button>
     </header>
+
     <button class="admin-drawer-overlay" type="button" data-admin-drawer-close aria-label="ปิดเมนู" hidden></button>
     <aside class="admin-drawer" id="admin-drawer" aria-labelledby="admin-drawer-title" hidden>
-      <div class="admin-drawer__header"><p id="admin-drawer-title" class="admin-drawer__title">เมนูผู้ดูแลระบบ</p><button class="admin-icon-button" type="button" data-admin-drawer-close><span aria-hidden="true">×</span><span class="sr-only">ปิดเมนูผู้ดูแลระบบ</span></button></div>
-      <p class="admin-user-summary">ผู้ใช้งาน: ยังไม่เชื่อม Session จริง</p>
+      <div class="admin-drawer__header">
+        <p id="admin-drawer-title" class="admin-drawer__title">เมนูผู้ดูแลระบบ</p>
+        <button class="admin-icon-button" type="button" data-admin-drawer-close>
+          <span aria-hidden="true">×</span>
+          <span class="sr-only">ปิดเมนูผู้ดูแลระบบ</span>
+        </button>
+      </div>
+      <p class="admin-user-summary">ผู้ใช้งาน: กำลังตรวจสอบ Session</p>
       <nav class="admin-menu" aria-label="เมนูผู้ดูแลระบบบนมือถือ">
-        <a href="dashboard.html" data-menu-key="dashboard">Dashboard</a><a href="reports.html" data-menu-key="reports">เรื่องแจ้ง</a><a href="reports.html?scope=assigned" data-menu-key="assigned">งานของฉัน</a><a href="export.html" data-menu-key="export" aria-current="page">รายงาน</a><a href="users.html" data-menu-key="users">ผู้ใช้งาน</a><a href="categories.html" data-menu-key="categories">หมวดหมู่</a><a href="announcements.html" data-menu-key="announcements">ประกาศ</a><a href="activity-logs.html" data-menu-key="activity">Activity Logs</a><a href="settings.html" data-menu-key="settings">ตั้งค่า</a><button type="button" class="admin-menu__button" data-admin-logout>ออกจากระบบ</button>
+        <a href="dashboard.html" data-menu-key="dashboard">แดชบอร์ด</a>
+        <a href="reports.html" data-menu-key="reports">เรื่องแจ้ง</a>
+        <a href="reports.html?scope=mine" data-menu-key="assigned">งานของฉัน</a>
+        <a href="export.html" data-menu-key="export" aria-current="page">รายงาน</a>
+        <a href="users.html" data-menu-key="users">ผู้ใช้งาน</a>
+        <a href="categories.html" data-menu-key="categories">หมวดหมู่</a>
+        <a href="announcements.html" data-menu-key="announcements">ประกาศ</a>
+        <a href="activity-logs.html" data-menu-key="activity">Activity Logs</a>
+        <a href="settings.html" data-menu-key="settings">ตั้งค่า</a>
+        <button type="button" class="admin-menu__button" data-admin-logout>ออกจากระบบ</button>
       </nav>
     </aside>
+
     <div class="admin-app">
       <aside class="admin-sidebar" aria-label="เมนูผู้ดูแลระบบ">
-        <a class="admin-brand" href="dashboard.html" aria-label="ไปหน้า Dashboard"><span class="admin-logo" aria-hidden="true">KR</span><span>Khaophang Admin</span></a>
-        <p class="admin-user-summary">ผู้ใช้งาน: ยังไม่เชื่อม Session จริง</p>
+        <a class="admin-brand" href="dashboard.html" aria-label="ไปหน้าแดชบอร์ด">
+          <span class="admin-logo" aria-hidden="true">KR</span>
+          <span>Khaophang Admin</span>
+        </a>
+        <p class="admin-user-summary">ผู้ใช้งาน: กำลังตรวจสอบ Session</p>
         <nav class="admin-menu">
-          <a href="dashboard.html" data-menu-key="dashboard">Dashboard</a><a href="reports.html" data-menu-key="reports">เรื่องแจ้ง</a><a href="reports.html?scope=assigned" data-menu-key="assigned">งานของฉัน</a><a href="export.html" data-menu-key="export" aria-current="page">รายงาน</a><a href="users.html" data-menu-key="users">ผู้ใช้งาน</a><a href="categories.html" data-menu-key="categories">หมวดหมู่</a><a href="announcements.html" data-menu-key="announcements">ประกาศ</a><a href="activity-logs.html" data-menu-key="activity">Activity Logs</a><a href="settings.html" data-menu-key="settings">ตั้งค่า</a><button type="button" class="admin-menu__button" data-admin-logout>ออกจากระบบ</button>
+          <a href="dashboard.html" data-menu-key="dashboard">แดชบอร์ด</a>
+          <a href="reports.html" data-menu-key="reports">เรื่องแจ้ง</a>
+          <a href="reports.html?scope=mine" data-menu-key="assigned">งานของฉัน</a>
+          <a href="export.html" data-menu-key="export" aria-current="page">รายงาน</a>
+          <a href="users.html" data-menu-key="users">ผู้ใช้งาน</a>
+          <a href="categories.html" data-menu-key="categories">หมวดหมู่</a>
+          <a href="announcements.html" data-menu-key="announcements">ประกาศ</a>
+          <a href="activity-logs.html" data-menu-key="activity">Activity Logs</a>
+          <a href="settings.html" data-menu-key="settings">ตั้งค่า</a>
+          <button type="button" class="admin-menu__button" data-admin-logout>ออกจากระบบ</button>
         </nav>
       </aside>
+
       <main class="admin-shell">
-        <section class="admin-panel" aria-labelledby="page-title">
-          <p class="eyebrow">รายงาน</p>
-          <h1 id="page-title">ส่งออกข้อมูล</h1>
-          <p class="placeholder-text">พื้นที่ตั้งต้นสำหรับส่งออก CSV ตามสิทธิ์</p>
+        <section class="export-page" aria-labelledby="page-title">
+          <div class="export-hero">
+            <div>
+              <p class="eyebrow">รายงาน</p>
+              <h1 id="page-title">ส่งออก CSV</h1>
+              <p>สร้างไฟล์ CSV สำหรับเรื่องแจ้ง Timeline หรือสรุปภาพรวม โดยค่าเริ่มต้นไม่รวมข้อมูลส่วนบุคคล</p>
+            </div>
+            <div class="export-hero__meta" aria-live="polite">
+              <span>จำกัดสูงสุด</span>
+              <strong data-export-max-rows>5,000 แถว</strong>
+            </div>
+          </div>
+
+          <section class="export-permission" data-export-forbidden hidden role="alert">
+            <h2>ไม่มีสิทธิ์ส่งออกข้อมูล</h2>
+            <p>หน้านี้เปิดให้เฉพาะผู้ดูแลระบบหรือผู้ดูตามสิทธิ์ที่ได้รับอนุญาตเท่านั้น</p>
+          </section>
+
+          <form class="export-form" data-export-form novalidate>
+            <fieldset class="export-type-group">
+              <legend>ประเภทข้อมูล</legend>
+              <label class="export-option">
+                <input type="radio" name="exportType" value="reports" checked />
+                <span>
+                  <strong>รายการเรื่อง</strong>
+                  <small>ข้อมูลหลักของเรื่องแจ้งตามตัวกรอง</small>
+                </span>
+              </label>
+              <label class="export-option">
+                <input type="radio" name="exportType" value="timeline" />
+                <span>
+                  <strong>Timeline</strong>
+                  <small>ประวัติการอัปเดตของเรื่องที่ตรงเงื่อนไข</small>
+                </span>
+              </label>
+              <label class="export-option">
+                <input type="radio" name="exportType" value="summary" />
+                <span>
+                  <strong>สรุปภาพรวม</strong>
+                  <small>สรุปตามสถานะ หมวดหมู่ ผู้รับผิดชอบ พื้นที่ และเดือน</small>
+                </span>
+              </label>
+            </fieldset>
+
+            <div class="export-filter-grid">
+              <div class="export-field">
+                <label for="export-date-from">ตั้งแต่วันที่</label>
+                <input id="export-date-from" name="dateFrom" type="date" />
+                <p class="field-error" data-export-field-error="filters.dateFrom"></p>
+              </div>
+              <div class="export-field">
+                <label for="export-date-to">ถึงวันที่</label>
+                <input id="export-date-to" name="dateTo" type="date" />
+                <p class="field-error" data-export-field-error="filters.dateTo"></p>
+              </div>
+              <div class="export-field">
+                <label for="export-status">สถานะ</label>
+                <select id="export-status" name="status">
+                  <option value="">ทุกสถานะ</option>
+                  <option value="new">new</option>
+                  <option value="reviewing">reviewing</option>
+                  <option value="assigned">assigned</option>
+                  <option value="in_progress">in_progress</option>
+                  <option value="waiting">waiting</option>
+                  <option value="resolved">resolved</option>
+                  <option value="closed">closed</option>
+                  <option value="rejected">rejected</option>
+                  <option value="duplicate">duplicate</option>
+                </select>
+                <p class="field-error" data-export-field-error="filters.status"></p>
+              </div>
+              <div class="export-field">
+                <label for="export-category">Category ID</label>
+                <input id="export-category" name="categoryId" type="text" maxlength="80" autocomplete="off" />
+              </div>
+              <div class="export-field">
+                <label for="export-assignee">Assignee ID</label>
+                <input id="export-assignee" name="assigneeId" type="text" maxlength="80" autocomplete="off" />
+              </div>
+            </div>
+
+            <label class="export-personal-data">
+              <input type="checkbox" name="includePersonalData" data-export-personal />
+              <span>
+                <strong>รวมข้อมูลส่วนบุคคล</strong>
+                <small data-export-personal-note>ต้องมีสิทธิ์ export.personal_data และจะมีขั้นตอนยืนยันก่อนส่งออก</small>
+              </span>
+            </label>
+
+            <div class="export-actions">
+              <button class="button button-secondary" type="button" data-export-clear>ล้างตัวกรอง</button>
+              <button class="button button-primary" type="submit" data-export-submit>ส่งออก CSV</button>
+            </div>
+          </form>
+
+          <div class="export-state export-state--loading" data-export-loading hidden role="status" aria-live="polite">
+            <div class="export-progress">
+              <span data-export-progress-bar></span>
+            </div>
+            <strong data-export-progress-title>กำลังเตรียมข้อมูล</strong>
+            <p data-export-progress-text>กรุณารอสักครู่</p>
+          </div>
+
+          <div class="export-state export-state--error" data-export-error hidden role="alert">
+            <h2>ส่งออกไม่สำเร็จ</h2>
+            <p data-export-error-message>กรุณาลองใหม่อีกครั้ง</p>
+          </div>
+
+          <div class="export-state export-state--empty" data-export-empty hidden>
+            <h2>ไม่พบข้อมูลตามเงื่อนไข</h2>
+            <p>ลองปรับช่วงวันที่หรือเงื่อนไขให้กว้างขึ้น แล้วส่งออกอีกครั้ง</p>
+          </div>
+
+          <section class="export-result" data-export-result hidden aria-labelledby="export-result-title">
+            <div>
+              <p class="eyebrow">สำเร็จ</p>
+              <h2 id="export-result-title">ไฟล์พร้อมดาวน์โหลด</h2>
+              <p data-export-result-summary>สร้างไฟล์ CSV สำเร็จ</p>
+            </div>
+            <dl class="export-result__meta">
+              <div>
+                <dt>ชื่อไฟล์</dt>
+                <dd data-export-file-name>-</dd>
+              </div>
+              <div>
+                <dt>จำนวนแถว</dt>
+                <dd data-export-row-count>-</dd>
+              </div>
+              <div>
+                <dt>ข้อมูลส่วนบุคคล</dt>
+                <dd data-export-pii-state>-</dd>
+              </div>
+            </dl>
+            <button class="button button-primary" type="button" data-export-download-again>ดาวน์โหลดอีกครั้ง</button>
+          </section>
         </section>
       </main>
     </div>

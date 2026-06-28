@@ -3117,6 +3117,207 @@ body.admin-drawer-open {
   font-weight: var(--font-weight-bold);
 }
 
+.export-page {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.export-hero,
+.export-form,
+.export-state,
+.export-result,
+.export-permission {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-4);
+}
+
+.export-hero,
+.export-result,
+.export-state {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.export-hero p,
+.export-option small,
+.export-personal-data small,
+.export-result__meta dt {
+  color: var(--color-text-muted);
+}
+
+.export-hero__meta {
+  align-content: center;
+  background: var(--color-primary-100);
+  border: 1px solid rgba(40, 116, 68, 0.18);
+  border-radius: var(--radius-md);
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3);
+}
+
+.export-type-group {
+  border: 0;
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+}
+
+.export-type-group legend {
+  font-weight: var(--font-weight-bold);
+  margin-bottom: var(--space-2);
+}
+
+.export-option,
+.export-personal-data {
+  align-items: start;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: auto minmax(0, 1fr);
+  padding: var(--space-3);
+}
+
+.export-option:has(input:checked),
+.export-personal-data:has(input:checked) {
+  background: var(--color-primary-100);
+  border-color: var(--color-primary-700);
+}
+
+.export-option input,
+.export-personal-data input {
+  margin-top: 0.25rem;
+}
+
+.export-option span,
+.export-personal-data span {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.export-filter-grid {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.export-field {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.export-field input,
+.export-field select {
+  min-height: 44px;
+}
+
+.export-personal-data {
+  margin-top: var(--space-4);
+}
+
+.export-personal-data:has(input:disabled) {
+  cursor: not-allowed;
+  opacity: 0.72;
+}
+
+.export-actions {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.export-state[hidden],
+.export-result[hidden],
+.export-permission[hidden] {
+  display: none;
+}
+
+.export-progress {
+  background: var(--color-border);
+  border-radius: 999px;
+  height: 0.65rem;
+  overflow: hidden;
+}
+
+.export-progress span {
+  background: var(--color-primary-700);
+  display: block;
+  height: 100%;
+  transition: width 220ms ease;
+  width: 0;
+}
+
+.export-state--error,
+.export-permission {
+  border-color: rgba(192, 57, 43, 0.35);
+}
+
+.export-state--empty {
+  border-color: rgba(217, 130, 0, 0.35);
+}
+
+.export-result__meta {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.export-result__meta div {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3);
+}
+
+.export-result__meta dd {
+  font-weight: var(--font-weight-bold);
+  margin: var(--space-1) 0 0;
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 720px) {
+  .export-filter-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .export-actions {
+    grid-template-columns: max-content max-content;
+    justify-content: end;
+  }
+
+  .export-result__meta {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .export-hero {
+    align-items: center;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .export-hero__meta {
+    justify-items: end;
+    min-width: 12rem;
+  }
+
+  .export-type-group {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .export-type-group legend {
+    grid-column: 1 / -1;
+  }
+
+  .export-filter-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
 @media (min-width: 1024px) {
   .admin-mobile-topbar,
   .admin-drawer,
