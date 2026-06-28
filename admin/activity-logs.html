@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="ประวัติการใช้งานระบบ" />
+    <meta name="description" content="ตรวจสอบประวัติการใช้งานระบบ Khaophang Report สำหรับผู้ดูแลระบบ" />
     <title>Activity Logs | Khaophang Report Admin</title>
     <link rel="stylesheet" href="../assets/css/variables.css" />
     <link rel="stylesheet" href="../assets/css/reset.css" />
@@ -15,33 +15,180 @@
     <script src="../assets/js/api.js" defer></script>
     <script src="../assets/js/auth.js" defer></script>
     <script src="../assets/js/admin/layout.js" defer></script>
+    <script src="../assets/js/admin/activity-logs.js" defer></script>
   </head>
   <body class="admin-app-page admin-auth-pending" data-admin-guard="required" data-admin-page="activity">
     <header class="admin-mobile-topbar">
-      <a class="admin-brand" href="dashboard.html" aria-label="ไปหน้า Dashboard"><span class="admin-logo" aria-hidden="true">KR</span><span>Khaophang Admin</span></a>
-      <button class="admin-icon-button" type="button" data-admin-drawer-open aria-controls="admin-drawer" aria-expanded="false"><span aria-hidden="true">☰</span><span class="sr-only">เปิดเมนูผู้ดูแลระบบ</span></button>
+      <a class="admin-brand" href="dashboard.html" aria-label="ไปหน้าแดชบอร์ด">
+        <span class="admin-logo" aria-hidden="true">KR</span>
+        <span>Khaophang Admin</span>
+      </a>
+      <button class="admin-icon-button" type="button" data-admin-drawer-open aria-controls="admin-drawer" aria-expanded="false">
+        <span aria-hidden="true">☰</span>
+        <span class="sr-only">เปิดเมนูผู้ดูแลระบบ</span>
+      </button>
     </header>
+
     <button class="admin-drawer-overlay" type="button" data-admin-drawer-close aria-label="ปิดเมนู" hidden></button>
     <aside class="admin-drawer" id="admin-drawer" aria-labelledby="admin-drawer-title" hidden>
-      <div class="admin-drawer__header"><p id="admin-drawer-title" class="admin-drawer__title">เมนูผู้ดูแลระบบ</p><button class="admin-icon-button" type="button" data-admin-drawer-close><span aria-hidden="true">×</span><span class="sr-only">ปิดเมนูผู้ดูแลระบบ</span></button></div>
-      <p class="admin-user-summary">ผู้ใช้งาน: ยังไม่เชื่อม Session จริง</p>
+      <div class="admin-drawer__header">
+        <p id="admin-drawer-title" class="admin-drawer__title">เมนูผู้ดูแลระบบ</p>
+        <button class="admin-icon-button" type="button" data-admin-drawer-close>
+          <span aria-hidden="true">×</span>
+          <span class="sr-only">ปิดเมนูผู้ดูแลระบบ</span>
+        </button>
+      </div>
+      <p class="admin-user-summary">ผู้ใช้งาน: กำลังตรวจสอบ Session</p>
       <nav class="admin-menu" aria-label="เมนูผู้ดูแลระบบบนมือถือ">
-        <a href="dashboard.html" data-menu-key="dashboard">Dashboard</a><a href="reports.html" data-menu-key="reports">เรื่องแจ้ง</a><a href="reports.html?scope=assigned" data-menu-key="assigned">งานของฉัน</a><a href="export.html" data-menu-key="export">รายงาน</a><a href="users.html" data-menu-key="users">ผู้ใช้งาน</a><a href="categories.html" data-menu-key="categories">หมวดหมู่</a><a href="announcements.html" data-menu-key="announcements">ประกาศ</a><a href="activity-logs.html" data-menu-key="activity" aria-current="page">Activity Logs</a><a href="settings.html" data-menu-key="settings">ตั้งค่า</a><button type="button" class="admin-menu__button" data-admin-logout>ออกจากระบบ</button>
+        <a href="dashboard.html" data-menu-key="dashboard">แดชบอร์ด</a>
+        <a href="reports.html" data-menu-key="reports">เรื่องแจ้ง</a>
+        <a href="reports.html?scope=mine" data-menu-key="assigned">งานของฉัน</a>
+        <a href="export.html" data-menu-key="export">รายงาน</a>
+        <a href="users.html" data-menu-key="users">ผู้ใช้งาน</a>
+        <a href="categories.html" data-menu-key="categories">หมวดหมู่</a>
+        <a href="announcements.html" data-menu-key="announcements">ประกาศ</a>
+        <a href="activity-logs.html" data-menu-key="activity" aria-current="page">Activity Logs</a>
+        <a href="settings.html" data-menu-key="settings">ตั้งค่า</a>
+        <button type="button" class="admin-menu__button" data-admin-logout>ออกจากระบบ</button>
       </nav>
     </aside>
+
     <div class="admin-app">
       <aside class="admin-sidebar" aria-label="เมนูผู้ดูแลระบบ">
-        <a class="admin-brand" href="dashboard.html" aria-label="ไปหน้า Dashboard"><span class="admin-logo" aria-hidden="true">KR</span><span>Khaophang Admin</span></a>
-        <p class="admin-user-summary">ผู้ใช้งาน: ยังไม่เชื่อม Session จริง</p>
+        <a class="admin-brand" href="dashboard.html" aria-label="ไปหน้าแดชบอร์ด">
+          <span class="admin-logo" aria-hidden="true">KR</span>
+          <span>Khaophang Admin</span>
+        </a>
+        <p class="admin-user-summary">ผู้ใช้งาน: กำลังตรวจสอบ Session</p>
         <nav class="admin-menu">
-          <a href="dashboard.html" data-menu-key="dashboard">Dashboard</a><a href="reports.html" data-menu-key="reports">เรื่องแจ้ง</a><a href="reports.html?scope=assigned" data-menu-key="assigned">งานของฉัน</a><a href="export.html" data-menu-key="export">รายงาน</a><a href="users.html" data-menu-key="users">ผู้ใช้งาน</a><a href="categories.html" data-menu-key="categories">หมวดหมู่</a><a href="announcements.html" data-menu-key="announcements">ประกาศ</a><a href="activity-logs.html" data-menu-key="activity" aria-current="page">Activity Logs</a><a href="settings.html" data-menu-key="settings">ตั้งค่า</a><button type="button" class="admin-menu__button" data-admin-logout>ออกจากระบบ</button>
+          <a href="dashboard.html" data-menu-key="dashboard">แดชบอร์ด</a>
+          <a href="reports.html" data-menu-key="reports">เรื่องแจ้ง</a>
+          <a href="reports.html?scope=mine" data-menu-key="assigned">งานของฉัน</a>
+          <a href="export.html" data-menu-key="export">รายงาน</a>
+          <a href="users.html" data-menu-key="users">ผู้ใช้งาน</a>
+          <a href="categories.html" data-menu-key="categories">หมวดหมู่</a>
+          <a href="announcements.html" data-menu-key="announcements">ประกาศ</a>
+          <a href="activity-logs.html" data-menu-key="activity" aria-current="page">Activity Logs</a>
+          <a href="settings.html" data-menu-key="settings">ตั้งค่า</a>
+          <button type="button" class="admin-menu__button" data-admin-logout>ออกจากระบบ</button>
         </nav>
       </aside>
+
       <main class="admin-shell">
-        <section class="admin-panel" aria-labelledby="page-title">
-          <p class="eyebrow">ตรวจสอบย้อนหลัง</p>
-          <h1 id="page-title">Activity Logs</h1>
-          <p class="placeholder-text">พื้นที่ตั้งต้นสำหรับประวัติการใช้งาน</p>
+        <section class="activity-logs-page" aria-labelledby="page-title">
+          <div class="activity-logs-hero">
+            <div>
+              <p class="eyebrow">ตรวจสอบย้อนหลัง</p>
+              <h1 id="page-title">Activity Logs</h1>
+              <p>ดูประวัติการใช้งานและการเปลี่ยนแปลงสำคัญของระบบ โดยแสดงเฉพาะข้อมูลที่ผ่านการปิดบังค่าลับแล้ว</p>
+            </div>
+            <div class="activity-logs-hero__actions">
+              <span>โหลดล่าสุด</span>
+              <strong data-activity-updated-at>-</strong>
+              <button class="button button-primary" type="button" data-activity-refresh>รีเฟรช</button>
+            </div>
+          </div>
+
+          <section class="activity-logs-permission" data-activity-forbidden hidden role="alert">
+            <h2>ไม่มีสิทธิ์ดู Activity Logs</h2>
+            <p>หน้านี้จำกัดสำหรับผู้ดูแลระบบที่มีสิทธิ์จัดการค่าระบบเท่านั้น</p>
+          </section>
+
+          <form class="activity-logs-filter" data-activity-filter-form novalidate>
+            <div class="activity-logs-filter__search">
+              <label for="activity-keyword">ค้นหา</label>
+              <input id="activity-keyword" name="keyword" type="search" maxlength="120" autocomplete="off" placeholder="ค้นจาก action, entity, request id หรือรายละเอียด" />
+            </div>
+            <div class="activity-logs-filter__grid">
+              <div class="activity-logs-field">
+                <label for="activity-user">ผู้ใช้</label>
+                <input id="activity-user" name="userId" type="text" maxlength="120" autocomplete="off" />
+              </div>
+              <div class="activity-logs-field">
+                <label for="activity-action">Action</label>
+                <select id="activity-action" name="actionName">
+                  <option value="">ทั้งหมด</option>
+                </select>
+              </div>
+              <div class="activity-logs-field">
+                <label for="activity-entity-type">Entity</label>
+                <select id="activity-entity-type" name="entityType">
+                  <option value="">ทั้งหมด</option>
+                </select>
+              </div>
+              <div class="activity-logs-field">
+                <label for="activity-entity">Entity ID</label>
+                <input id="activity-entity" name="entity" type="text" maxlength="120" autocomplete="off" />
+              </div>
+              <div class="activity-logs-field">
+                <label for="activity-date-from">ตั้งแต่วันที่</label>
+                <input id="activity-date-from" name="dateFrom" type="date" />
+              </div>
+              <div class="activity-logs-field">
+                <label for="activity-date-to">ถึงวันที่</label>
+                <input id="activity-date-to" name="dateTo" type="date" />
+              </div>
+            </div>
+            <div class="activity-logs-filter__actions">
+              <button class="button button-secondary" type="button" data-activity-clear>ล้างตัวกรอง</button>
+              <button class="button button-primary" type="submit">ค้นหา</button>
+            </div>
+          </form>
+
+          <div class="activity-logs-state activity-logs-state--loading" data-activity-loading role="status" aria-live="polite">
+            <span class="activity-logs-skeleton activity-logs-skeleton--toolbar"></span>
+            <span class="activity-logs-skeleton"></span>
+            <span class="activity-logs-skeleton"></span>
+            <span class="activity-logs-skeleton"></span>
+          </div>
+
+          <div class="activity-logs-state activity-logs-state--error" data-activity-error hidden role="alert">
+            <h2>โหลด Activity Logs ไม่สำเร็จ</h2>
+            <p data-activity-error-message>กรุณาลองใหม่อีกครั้ง</p>
+            <button class="button button-primary" type="button" data-activity-retry>ลองใหม่</button>
+          </div>
+
+          <div class="activity-logs-state activity-logs-state--empty" data-activity-empty hidden>
+            <h2>ไม่พบประวัติตามเงื่อนไข</h2>
+            <p>ลองปรับช่วงวันที่หรือคำค้นหาให้กว้างขึ้น</p>
+            <button class="button button-secondary" type="button" data-activity-empty-clear>ล้างตัวกรอง</button>
+          </div>
+
+          <div class="activity-logs-success" data-activity-success hidden role="status" aria-live="polite"></div>
+
+          <section class="activity-logs-content" data-activity-content hidden aria-labelledby="activity-result-title">
+            <div class="activity-logs-result-header">
+              <div>
+                <h2 id="activity-result-title">รายการประวัติ</h2>
+                <p data-activity-pagination-summary>กำลังโหลดข้อมูล</p>
+              </div>
+              <span data-activity-page-label>หน้า 1</span>
+            </div>
+
+            <div class="activity-logs-table-wrap">
+              <table class="activity-logs-table">
+                <thead>
+                  <tr>
+                    <th scope="col">เวลา</th>
+                    <th scope="col">ผู้ใช้</th>
+                    <th scope="col">Action</th>
+                    <th scope="col">Entity</th>
+                    <th scope="col">สถานะ</th>
+                    <th scope="col">รายละเอียด</th>
+                  </tr>
+                </thead>
+                <tbody data-activity-table-body></tbody>
+              </table>
+            </div>
+
+            <div class="activity-logs-card-list" data-activity-card-list></div>
+
+            <nav class="activity-logs-pagination" aria-label="เปลี่ยนหน้า Activity Logs">
+              <button class="button button-secondary" type="button" data-activity-prev>ก่อนหน้า</button>
+              <span data-activity-pagination-summary-mobile>หน้า 1</span>
+              <button class="button button-secondary" type="button" data-activity-next>ถัดไป</button>
+            </nav>
+          </section>
         </section>
       </main>
     </div>

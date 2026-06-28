@@ -24,6 +24,295 @@ function AuditService_log_(entry) {
   });
 }
 
+function AuditService_listAdmin(request) {
+  const context = AuditService_requireActivityReadContext_(request);
+  const query = AuditService_normalizeAdminListQuery_(request && request.data);
+  const logs = SheetRepository_batchRead_("activity_logs", {
+    keyColumnName: "log_id",
+    includeDeleted: false
+  }).objects;
+  const filtered = AuditService_filterAdminLogs_(logs, query);
+  const sorted = AuditService_sortAdminLogs_(filtered);
+  const page = SheetRepository_paginate_(sorted, query.page, query.pageSize);
+
+  return {
+    data: {
+      items: page.items.map(AuditService_projectAdminLog_),
+      pagination: page.pagination,
+      filters: query,
+      actions: AuditService_buildUniqueOptions_(logs, "action"),
+      entityTypes: AuditService_buildUniqueOptions_(logs, "entity_type"),
+      permissions: AuditService_buildAdminListPermissions_(context.permissions)
+    },
+    message: "Loaded activity logs"
+  };
+}
+
+function AuditService_requireActivityReadContext_(request) {
+  const context = SessionService_require_(request && request.sessionToken, {
+    requestId: request && request.requestId
+  });
+  const permissions = UserService_getPermissions_(context.user.role);
+
+  UserService_assertPermission_(permissions, "settings.manage", "No permission to view activity logs");
+
+  return {
+    session: context.session,
+    user: context.user,
+    permissions: permissions,
+    requestId: request && request.requestId ? String(request.requestId) : ""
+  };
+}
+
+function AuditService_buildAdminListPermissions_(permissions) {
+  return {
+    canRead: UserService_hasPermission_(permissions, "settings.manage")
+  };
+}
+
+function AuditService_normalizeAdminListQuery_(data) {
+  const input = Utils_isPlainObject_(data) ? data : {};
+
+  return {
+    page: Utils_clampInteger_(input.page, 1, 1, 1000000),
+    pageSize: Utils_clampInteger_(input.pageSize, 20, 1, 100),
+    userId: Utils_normalizeString_(input.userId),
+    actionName: Utils_normalizeString_(input.actionName || input.action),
+    entityType: Utils_normalizeString_(input.entityType),
+    entity: Utils_normalizeString_(input.entity || input.entityId),
+    dateFrom: AuditService_normalizeDateFilter_(input.dateFrom, false),
+    dateTo: AuditService_normalizeDateFilter_(input.dateTo, true),
+    keyword: Utils_normalizeString_(input.keyword).toLowerCase()
+  };
+}
+
+function AuditService_normalizeDateFilter_(value, endOfDay) {
+  const normalizedValue = Utils_normalizeString_(value);
+
+  if (!normalizedValue) {
+    return "";
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(normalizedValue)) {
+    return normalizedValue + (endOfDay ? "T23:59:59.999Z" : "T00:00:00.000Z");
+  }
+
+  const date = new Date(normalizedValue);
+
+  return isNaN(date.getTime()) ? "" : date.toISOString();
+}
+
+function AuditService_filterAdminLogs_(logs, query) {
+  const safeQuery = query || {};
+  const fromTime = safeQuery.dateFrom ? new Date(safeQuery.dateFrom).getTime() : null;
+  const toTime = safeQuery.dateTo ? new Date(safeQuery.dateTo).getTime() : null;
+
+  return (logs || []).filter(function (log) {
+    const actionName = Utils_normalizeString_(log.action);
+    const entityType = Utils_normalizeString_(log.entity_type);
+    const entityId = Utils_normalizeString_(log.entity_id);
+    const userSearch = [
+      log.user_id,
+      log.user_name_snapshot,
+      log.role_snapshot
+    ].join(" ").toLowerCase();
+    const createdTime = log.created_at ? new Date(log.created_at).getTime() : null;
+
+    if (safeQuery.userId && userSearch.indexOf(safeQuery.userId.toLowerCase()) === -1) {
+      return false;
+    }
+
+    if (safeQuery.actionName && actionName !== safeQuery.actionName) {
+      return false;
+    }
+
+    if (safeQuery.entityType && entityType !== safeQuery.entityType) {
+      return false;
+    }
+
+    if (safeQuery.entity) {
+      const entitySearch = [entityType, entityId].join(" ").toLowerCase();
+
+      if (entitySearch.indexOf(safeQuery.entity.toLowerCase()) === -1) {
+        return false;
+      }
+    }
+
+    if (fromTime !== null && (!createdTime || createdTime < fromTime)) {
+      return false;
+    }
+
+    if (toTime !== null && (!createdTime || createdTime > toTime)) {
+      return false;
+    }
+
+    if (safeQuery.keyword) {
+      const safeDetail = AuditService_buildDetailSummary_(AuditService_parseSafeDetail_(log.detail || ""));
+      const searchText = [
+        log.log_id,
+        log.user_id,
+        log.user_name_snapshot,
+        log.role_snapshot,
+        log.action,
+        log.entity_type,
+        log.entity_id,
+        log.request_id,
+        log.severity,
+        safeDetail
+      ].join(" ").toLowerCase();
+
+      return searchText.indexOf(safeQuery.keyword) !== -1;
+    }
+
+    return true;
+  });
+}
+
+function AuditService_sortAdminLogs_(logs) {
+  return (logs || []).slice().sort(function (a, b) {
+    const aTime = a && a.created_at ? new Date(a.created_at).getTime() : 0;
+    const bTime = b && b.created_at ? new Date(b.created_at).getTime() : 0;
+
+    if (aTime !== bTime) {
+      return bTime - aTime;
+    }
+
+    return String(b && b.log_id ? b.log_id : "").localeCompare(String(a && a.log_id ? a.log_id : ""));
+  });
+}
+
+function AuditService_projectAdminLog_(log) {
+  const detail = AuditService_parseSafeDetail_(log && log.detail ? log.detail : "");
+
+  return {
+    logId: String(log && log.log_id ? log.log_id : ""),
+    userId: Security_sanitizeText_(log && log.user_id ? log.user_id : ""),
+    userNameSnapshot: Security_sanitizeText_(log && log.user_name_snapshot ? log.user_name_snapshot : ""),
+    roleSnapshot: Security_sanitizeText_(log && log.role_snapshot ? log.role_snapshot : ""),
+    action: Security_sanitizeText_(log && log.action ? log.action : ""),
+    entityType: Security_sanitizeText_(log && log.entity_type ? log.entity_type : ""),
+    entityId: Security_sanitizeText_(log && log.entity_id ? log.entity_id : ""),
+    requestId: Security_sanitizeText_(log && log.request_id ? log.request_id : ""),
+    createdAt: String(log && log.created_at ? log.created_at : ""),
+    severity: Security_sanitizeText_(log && log.severity ? log.severity : "info"),
+    success: Utils_toBoolean_(log && log.success !== undefined ? log.success : true),
+    detail: detail,
+    detailSummary: AuditService_buildDetailSummary_(detail)
+  };
+}
+
+function AuditService_parseSafeDetail_(detailText) {
+  const rawText = String(detailText || "");
+
+  if (!rawText) {
+    return {};
+  }
+
+  const parsed = Utils_safeJsonParse_(rawText);
+
+  if (!parsed.ok) {
+    return {
+      text: AuditService_redactSensitiveText_(rawText)
+    };
+  }
+
+  return AuditService_redactLogDetail_(Security_redactSensitive_(parsed.data));
+}
+
+function AuditService_redactLogDetail_(value) {
+  if (Array.isArray(value)) {
+    return value.map(function (item) {
+      return AuditService_redactLogDetail_(item);
+    });
+  }
+
+  if (Utils_isPlainObject_(value)) {
+    const output = {};
+
+    Object.keys(value).forEach(function (key) {
+      if (Security_isSensitiveKey_(key)) {
+        output[Security_sanitizeText_(key)] = SECURITY_REDACTED_TEXT_;
+        return;
+      }
+
+      output[Security_sanitizeText_(key)] = AuditService_redactLogDetail_(value[key]);
+    });
+
+    return output;
+  }
+
+  if (typeof value === "string") {
+    return AuditService_redactSensitiveText_(value);
+  }
+
+  return value;
+}
+
+function AuditService_redactSensitiveText_(value) {
+  const text = Security_sanitizeText_(value);
+
+  if (/password|token|secret|salt|base64/i.test(text)) {
+    return SECURITY_REDACTED_TEXT_;
+  }
+
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.[0-9a-f-]{20,}/i.test(text)) {
+    return SECURITY_REDACTED_TEXT_;
+  }
+
+  if (/^[A-Za-z0-9+/._-]{80,}={0,2}$/.test(text)) {
+    return SECURITY_REDACTED_TEXT_;
+  }
+
+  return text;
+}
+
+function AuditService_buildDetailSummary_(detail) {
+  const parts = [];
+
+  AuditService_collectDetailSummaryParts_(detail, "", parts);
+
+  return parts.slice(0, 6).join(", ");
+}
+
+function AuditService_collectDetailSummaryParts_(value, prefix, parts) {
+  if (parts.length >= 6 || value === null || value === undefined) {
+    return;
+  }
+
+  if (Array.isArray(value)) {
+    parts.push((prefix || "items") + ": " + value.length + " items");
+    return;
+  }
+
+  if (Utils_isPlainObject_(value)) {
+    Object.keys(value).forEach(function (key) {
+      if (parts.length >= 6) {
+        return;
+      }
+
+      AuditService_collectDetailSummaryParts_(value[key], prefix ? prefix + "." + key : key, parts);
+    });
+    return;
+  }
+
+  parts.push((prefix || "value") + ": " + String(value));
+}
+
+function AuditService_buildUniqueOptions_(logs, columnName) {
+  const seen = {};
+
+  return (logs || []).map(function (log) {
+    return Security_sanitizeText_(log && log[columnName] ? log[columnName] : "");
+  }).filter(function (value) {
+    if (!value || seen[value]) {
+      return false;
+    }
+
+    seen[value] = true;
+    return true;
+  }).sort();
+}
+
 function AuditService_logReportCreated_(report, attachmentCount, requestId) {
   return AuditService_log_({
     userId: "public",

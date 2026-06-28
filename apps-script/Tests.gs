@@ -2908,6 +2908,136 @@ function testAdminSettingsAuditNoValueLeak() {
   };
 }
 
+function testAdminActivityRouterWhitelist() {
+  const registration = Tests_assertRouterHandler_(
+    "admin.activity.list",
+    AuditService_listAdmin,
+    "AuditService_listAdmin"
+  );
+
+  return {
+    ok: true,
+    testType: "unit",
+    action: "admin.activity.list",
+    registration: registration
+  };
+}
+
+function testAdminActivityProjectionNoSecret() {
+  const projection = AuditService_projectAdminLog_({
+    log_id: "LOG-001",
+    user_id: "USER-001",
+    user_name_snapshot: "Admin",
+    role_snapshot: "super_admin",
+    action: "auth.login",
+    entity_type: "session",
+    entity_id: "SESSION-001",
+    detail: JSON.stringify({
+      status: "ok",
+      rawToken: "RAW-TOKEN-SECRET",
+      password: "PlainPassword123",
+      nested: {
+        sessionSecret: "SESSION-SECRET"
+      }
+    }),
+    request_id: "REQ-001",
+    ip_hint: "PRIVATE-IP",
+    user_agent_hint: "PRIVATE-UA",
+    created_at: "2026-06-28T00:00:00.000Z",
+    severity: "info",
+    success: true
+  });
+  const serialized = JSON.stringify(projection);
+
+  [
+    "RAW-TOKEN-SECRET",
+    "PlainPassword123",
+    "SESSION-SECRET",
+    "ip_hint",
+    "user_agent_hint",
+    "PRIVATE-IP",
+    "PRIVATE-UA"
+  ].forEach(function (forbidden) {
+    if (serialized.indexOf(forbidden) !== -1) {
+      throw new Error("admin.activity projection leaked secret/internal data: " + forbidden);
+    }
+  });
+
+  if (projection.logId !== "LOG-001" || projection.action !== "auth.login" ||
+      projection.detail.rawToken !== SECURITY_REDACTED_TEXT_) {
+    throw new Error("admin.activity projection missed expected safe fields");
+  }
+
+  return {
+    ok: true,
+    testType: "unit",
+    projection: projection
+  };
+}
+
+function testAdminActivityFilterPagination() {
+  const query = AuditService_normalizeAdminListQuery_({
+    page: 1,
+    pageSize: 1,
+    userId: "USER-001",
+    actionName: "admin.settings.update",
+    entityType: "settings",
+    entity: "settings",
+    dateFrom: "2026-06-01",
+    dateTo: "2026-06-30",
+    keyword: "maintenance"
+  });
+  const filtered = AuditService_filterAdminLogs_([{
+    log_id: "LOG-001",
+    user_id: "USER-001",
+    user_name_snapshot: "Admin",
+    action: "admin.settings.update",
+    entity_type: "settings",
+    entity_id: "settings",
+    detail: JSON.stringify({
+      changedKeys: ["maintenance_mode"]
+    }),
+    created_at: "2026-06-28T00:00:00.000Z"
+  }, {
+    log_id: "LOG-002",
+    user_id: "USER-002",
+    user_name_snapshot: "Officer",
+    action: "auth.login",
+    entity_type: "session",
+    entity_id: "SESSION-002",
+    detail: "{}",
+    created_at: "2026-05-28T00:00:00.000Z"
+  }], query);
+  const sorted = AuditService_sortAdminLogs_(filtered);
+  const page = SheetRepository_paginate_(sorted, query.page, query.pageSize);
+
+  if (filtered.length !== 1 || page.pagination.total !== 1 || page.items[0].log_id !== "LOG-001") {
+    throw new Error("admin.activity filters/pagination returned invalid result");
+  }
+
+  return {
+    ok: true,
+    testType: "unit",
+    pagination: page.pagination
+  };
+}
+
+function testAdminActivityPermissionFlag() {
+  const superAdminPermissions = AuditService_buildAdminListPermissions_(UserService_getPermissions_("super_admin"));
+  const viewerPermissions = AuditService_buildAdminListPermissions_(UserService_getPermissions_("viewer"));
+
+  if (!superAdminPermissions.canRead || viewerPermissions.canRead) {
+    throw new Error("admin.activity permission flag is incorrect");
+  }
+
+  return {
+    ok: true,
+    testType: "unit",
+    superAdminCanRead: superAdminPermissions.canRead,
+    viewerCanRead: viewerPermissions.canRead
+  };
+}
+
 function testAdminReportUpdateStatusTransitionMatrix() {
   try {
     const officerPermissions = UserService_getPermissions_("officer");

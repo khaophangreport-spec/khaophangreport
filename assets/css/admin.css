@@ -2854,6 +2854,269 @@ body.admin-drawer-open {
   padding: 0 var(--space-3);
 }
 
+.activity-logs-page {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.activity-logs-hero,
+.activity-logs-filter,
+.activity-logs-state,
+.activity-logs-content,
+.activity-logs-permission,
+.activity-logs-success {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.activity-logs-hero {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-5);
+}
+
+.activity-logs-hero h1 {
+  color: var(--color-primary-950);
+  font-size: var(--font-size-2xl);
+  line-height: var(--line-height-tight);
+  margin: 0 0 var(--space-2);
+}
+
+.activity-logs-hero p,
+.activity-logs-hero__actions {
+  color: var(--color-text-muted);
+}
+
+.activity-logs-hero__actions {
+  align-items: start;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.activity-logs-hero__actions strong {
+  color: var(--color-primary-950);
+}
+
+.activity-logs-permission {
+  border-color: rgba(185, 28, 28, 0.25);
+  color: var(--color-text-muted);
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-5);
+}
+
+.activity-logs-permission h2 {
+  color: var(--color-danger);
+  margin: 0;
+}
+
+.activity-logs-filter {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-4);
+}
+
+.activity-logs-filter__search,
+.activity-logs-filter__grid,
+.activity-logs-filter__actions,
+.activity-logs-field {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.activity-logs-filter label,
+.activity-logs-field label {
+  color: var(--color-primary-950);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+}
+
+.activity-logs-filter__grid,
+.activity-logs-filter__actions {
+  grid-template-columns: 1fr;
+}
+
+.activity-logs-state {
+  color: var(--color-text-muted);
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-5);
+}
+
+.activity-logs-state h2 {
+  color: var(--color-primary-950);
+  margin: 0;
+}
+
+.activity-logs-state--error {
+  border-color: rgba(185, 28, 28, 0.25);
+}
+
+.activity-logs-success {
+  background: rgba(40, 116, 68, 0.08);
+  color: var(--color-primary-900);
+  font-weight: var(--font-weight-bold);
+  padding: var(--space-3) var(--space-4);
+}
+
+.activity-logs-skeleton {
+  background: linear-gradient(90deg, var(--color-surface-soft), var(--color-primary-100), var(--color-surface-soft));
+  background-size: 200% 100%;
+  border-radius: var(--radius-sm);
+  display: block;
+  height: 5.5rem;
+}
+
+.activity-logs-skeleton--toolbar {
+  height: 4rem;
+}
+
+.activity-logs-content {
+  display: grid;
+  gap: var(--space-4);
+  overflow: hidden;
+  padding: var(--space-4);
+}
+
+.activity-logs-result-header {
+  align-items: start;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.activity-logs-result-header h2 {
+  color: var(--color-primary-950);
+  font-size: var(--font-size-xl);
+  margin: 0;
+}
+
+.activity-logs-result-header p,
+.activity-logs-result-header span {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  margin: 0;
+}
+
+.activity-logs-table-wrap {
+  display: none;
+}
+
+.activity-logs-table {
+  border-collapse: collapse;
+  min-width: 70rem;
+  width: 100%;
+}
+
+.activity-logs-table th,
+.activity-logs-table td {
+  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-3);
+  text-align: left;
+  vertical-align: top;
+}
+
+.activity-logs-table th {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+}
+
+.activity-logs-table td {
+  color: var(--color-text-soft);
+  font-size: var(--font-size-sm);
+}
+
+.activity-logs-user,
+.activity-logs-entity,
+.activity-logs-detail,
+.activity-logs-card__header,
+.activity-logs-card__meta,
+.activity-logs-card__detail {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.activity-logs-user strong,
+.activity-logs-entity strong,
+.activity-logs-card h3 {
+  color: var(--color-primary-950);
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.activity-logs-user span,
+.activity-logs-entity span,
+.activity-logs-detail span,
+.activity-logs-detail small,
+.activity-logs-card span,
+.activity-logs-card p,
+.activity-logs-card small {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  overflow-wrap: anywhere;
+}
+
+.activity-logs-card-list {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.activity-logs-card {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+
+.activity-logs-card__header {
+  align-items: start;
+  grid-template-columns: 1fr;
+}
+
+.activity-logs-status {
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  line-height: 1;
+  padding: 0.45rem 0.7rem;
+  white-space: nowrap;
+  width: fit-content;
+}
+
+.activity-logs-status--info {
+  background: var(--color-primary-100);
+  color: var(--color-primary-900);
+}
+
+.activity-logs-status--warning {
+  background: rgba(180, 83, 9, 0.11);
+  color: var(--color-warning);
+}
+
+.activity-logs-status--critical,
+.activity-logs-status--failed {
+  background: rgba(185, 28, 28, 0.1);
+  color: var(--color-danger);
+}
+
+.activity-logs-pagination {
+  align-items: center;
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: 1fr;
+  text-align: center;
+}
+
+.activity-logs-pagination span {
+  color: var(--color-text-muted);
+  font-weight: var(--font-weight-bold);
+}
+
 @media (min-width: 1024px) {
   .admin-mobile-topbar,
   .admin-drawer,
@@ -3090,6 +3353,43 @@ body.admin-drawer-open {
 
   .settings-hero__actions {
     justify-items: end;
+  }
+
+  .activity-logs-hero {
+    align-items: center;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .activity-logs-hero__actions {
+    justify-items: end;
+  }
+
+  .activity-logs-filter__grid {
+    align-items: end;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .activity-logs-filter__actions {
+    grid-template-columns: max-content max-content;
+    justify-content: end;
+  }
+
+  .activity-logs-result-header {
+    align-items: end;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .activity-logs-table-wrap {
+    display: block;
+    overflow-x: auto;
+  }
+
+  .activity-logs-card-list {
+    display: none;
+  }
+
+  .activity-logs-pagination {
+    grid-template-columns: max-content 1fr max-content;
   }
 
   .settings-form {

@@ -3,6 +3,7 @@ const ROUTER_ACTIONS_ = Object.freeze({
   "public.config": SettingsService_getPublicConfig,
   "admin.settings.get": SettingsService_getAdmin,
   "admin.settings.update": SettingsService_updateAdmin,
+  "admin.activity.list": AuditService_listAdmin,
   "category.list": CategoryService_listPublic,
   "admin.category.list": CategoryService_listAdmin,
   "admin.category.save": CategoryService_saveAdmin,
