@@ -14,6 +14,7 @@
     <script src="../assets/js/config.js" defer></script>
     <script src="../assets/js/api.js" defer></script>
     <script src="../assets/js/auth.js" defer></script>
+    <script src="../assets/js/image-compress.js" defer></script>
     <script src="../assets/js/admin/layout.js" defer></script>
     <script src="../assets/js/admin/report-detail.js" defer></script>
   </head>
@@ -202,6 +203,57 @@
                 <p class="report-detail-text" data-detail-public-result>-</p>
               </section>
             </div>
+
+            <section class="report-detail-card report-update-composer" data-update-section aria-labelledby="detail-update-title" hidden>
+              <div class="report-detail-section-header">
+                <div>
+                  <p class="eyebrow">Update</p>
+                  <h2 id="detail-update-title">เพิ่มอัปเดต</h2>
+                </div>
+              </div>
+
+              <form class="report-update-form" data-update-form novalidate>
+                <div class="report-detail-modal-alert" data-update-error role="alert" hidden></div>
+                <div class="report-detail-success" data-update-success role="status" aria-live="polite" hidden></div>
+
+                <label class="report-detail-field" for="update-public-message">
+                  <span>ข้อความสาธารณะ (Public Message)</span>
+                  <textarea id="update-public-message" data-update-public-message rows="4" maxlength="1000"></textarea>
+                  <small data-update-field-error="publicMessage"></small>
+                </label>
+
+                <label class="report-detail-field" for="update-internal-note">
+                  <span>หมายเหตุภายใน (Internal Note)</span>
+                  <textarea id="update-internal-note" data-update-internal-note rows="4" maxlength="2000"></textarea>
+                  <small data-update-field-error="internalNote"></small>
+                </label>
+
+                <label class="report-detail-check">
+                  <input type="checkbox" data-update-is-public />
+                  <span>แสดงอัปเดตนี้ในหน้าติดตามสาธารณะ</span>
+                </label>
+
+                <label class="report-detail-field" for="update-attachments">
+                  <span>ไฟล์แนบ (Attachments)</span>
+                  <input id="update-attachments" data-update-attachments type="file" accept="image/jpeg,image/png,image/webp" multiple />
+                  <small data-update-field-error="attachments">ไฟล์แนบจะเป็น Private โดยอัตโนมัติ เปิดเผยเฉพาะรายการที่เลือก</small>
+                </label>
+
+                <div class="report-update-attachment-list" data-update-attachment-list></div>
+
+                <div class="report-detail-status-preview" data-update-preview aria-live="polite">
+                  <strong>ตัวอย่างหน้าสาธารณะ (Preview Public)</strong>
+                  <p data-update-preview-text>อัปเดตนี้ยังไม่แสดงต่อประชาชน</p>
+                </div>
+
+                <div class="report-detail-modal-actions report-update-actions">
+                  <button class="button button-secondary" type="button" data-update-reset>ล้างฟอร์ม</button>
+                  <button class="button button-primary" type="submit" data-update-submit>
+                    <span data-update-submit-text>บันทึกอัปเดต</span>
+                  </button>
+                </div>
+              </form>
+            </section>
 
             <section class="report-detail-card" aria-labelledby="detail-public-timeline-title">
               <div class="report-detail-section-header">

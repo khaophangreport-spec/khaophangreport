@@ -371,6 +371,78 @@ function ReportService_updateStatus(request) {
   }
 }
 
+function ReportService_addUpdate(request) {
+  const lock = LockService.getScriptLock();
+  const context = ReportService_requireAdminListContext_(request);
+  const requestId = Utils_normalizeString_(request && request.requestId);
+
+  ReportService_assertPermission_(context.permissions, "report.update", "à¹„à¸¡à¹ˆà¸¡à¸µà¸ªà¸´à¸—à¸˜à¸´à¹Œà¹€à¸žà¸´à¹ˆà¸¡à¸­à¸±à¸›à¹€à¸”à¸•à¹€à¸£à¸·à¹ˆà¸­à¸‡à¹à¸ˆà¹‰à¸‡");
+  lock.waitLock(30000);
+
+  let createdUpdateId = "";
+  let createdAttachmentIds = [];
+  let uploadedFileIds = [];
+
+  try {
+    const payload = ReportService_normalizeAddUpdatePayload_(request && request.data);
+    const report = SheetRepository_findById_("reports", "report_id", payload.reportId, {
+      keyColumnName: "report_id"
+    });
+
+    if (!report || Utils_toBoolean_(report.is_deleted)) {
+      throw ApiError_("NOT_FOUND", "à¹„à¸¡à¹ˆà¸žà¸šà¹€à¸£à¸·à¹ˆà¸­à¸‡à¹à¸ˆà¹‰à¸‡à¸™à¸µà¹‰");
+    }
+
+    ReportService_assertAdminReportAccess_(report, context);
+
+    const updateId = Utils_createUuid_();
+    const now = Utils_nowIso_();
+
+    SheetRepository_assertVersion_(report.version, payload.version);
+
+    const attachmentResult = AttachmentService_uploadAdminUpdateAttachments_(
+      report.report_id,
+      updateId,
+      payload.attachments,
+      context.user,
+      now
+    );
+    uploadedFileIds = attachmentResult.uploadedFileIds;
+    createdAttachmentIds = attachmentResult.records.map(function (record) {
+      return record.attachment_id;
+    });
+
+    const updatedReport = SheetRepository_updateById_("reports", "report_id", report.report_id, {
+      updated_at: now,
+      updated_by: context.user.user_id
+    }, {
+      userId: context.user.user_id,
+      expectedVersion: payload.version
+    });
+    const updateRecord = ReportService_createAdminUpdateTimeline_(updatedReport, updateId, payload, context.user, now);
+    createdUpdateId = updateId;
+
+    AuditService_logReportUpdateAdded_(updatedReport, updateRecord, attachmentResult.records.length, context.user, requestId);
+    ReportService_clearDashboardCacheSafe_("admin.report.addUpdate", requestId);
+
+    return {
+      data: {
+        reportId: String(updatedReport.report_id || ""),
+        updateId: updateId,
+        createdAt: now,
+        version: Number(updatedReport.version || 0),
+        attachmentCount: attachmentResult.records.length
+      },
+      message: "à¹€à¸žà¸´à¹ˆà¸¡à¸­à¸±à¸›à¹€à¸”à¸•à¹€à¸£à¸·à¹ˆà¸­à¸‡à¹à¸ˆà¹‰à¸‡à¸ªà¸³à¹€à¸£à¹‡à¸ˆ"
+    };
+  } catch (error) {
+    ReportService_compensateAdminUpdateFailure_(createdUpdateId, createdAttachmentIds, uploadedFileIds);
+    throw error;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
 function ReportService_requireAdminListContext_(request) {
   const sessionContext = SessionService_require_(request && request.sessionToken, {
     requestId: request && request.requestId
@@ -443,6 +515,60 @@ function ReportService_normalizeUpdateStatusPayload_(data) {
   }
 
   return payload;
+}
+
+function ReportService_normalizeAddUpdatePayload_(data) {
+  const safeData = Utils_isPlainObject_(data) ? data : {};
+  const fields = {};
+  const payload = {
+    reportId: Utils_normalizeString_(safeData.reportId),
+    version: safeData.version,
+    publicMessage: Security_sanitizeUserText_(safeData.publicMessage, 1000),
+    internalNote: Security_sanitizeUserText_(safeData.internalNote, 2000),
+    isPublic: Utils_toBoolean_(safeData.isPublic),
+    attachments: AttachmentService_validateCreatePayload_(safeData.attachments || [], fields, {})
+  };
+
+  if (!payload.reportId) {
+    fields.reportId = "à¸à¸£à¸¸à¸“à¸²à¸£à¸°à¸šà¸¸à¹€à¸£à¸·à¹ˆà¸­à¸‡à¹à¸ˆà¹‰à¸‡";
+  }
+
+  if (payload.version === undefined || payload.version === null || payload.version === "") {
+    fields.version = "à¸à¸£à¸¸à¸“à¸²à¸£à¸°à¸šà¸¸ Version à¸›à¸±à¸ˆà¸ˆà¸¸à¸šà¸±à¸™";
+  }
+
+  if (!payload.publicMessage && !payload.internalNote) {
+    fields.update = "à¸à¸£à¸¸à¸“à¸²à¸£à¸°à¸šà¸¸ Public Message à¸«à¸£à¸·à¸­ Internal Note";
+  }
+
+  payload.attachments = payload.attachments.map(function (attachment, index) {
+    const source = Array.isArray(safeData.attachments) && Utils_isPlainObject_(safeData.attachments[index]) ? safeData.attachments[index] : {};
+
+    attachment.isPublic = payload.isPublic && Utils_toBoolean_(source.isPublic);
+    attachment.fileRole = ReportService_normalizeAttachmentFileRole_(source.fileRole);
+    return attachment;
+  });
+
+  const publicAttachmentCount = payload.attachments.filter(function (attachment) {
+    return Utils_toBoolean_(attachment.isPublic);
+  }).length;
+
+  if (payload.isPublic && !payload.publicMessage && publicAttachmentCount === 0) {
+    fields.publicMessage = "à¸­à¸±à¸›à¹€à¸”à¸•à¸ªà¸²à¸˜à¸²à¸£à¸“à¸°à¸•à¹‰à¸­à¸‡à¸¡à¸µà¸‚à¹‰à¸­à¸„à¸§à¸²à¸¡à¸«à¸£à¸·à¸­à¹„à¸Ÿà¸¥à¹Œà¸ªà¸²à¸˜à¸²à¸£à¸“à¸°";
+  }
+
+  if (Object.keys(fields).length > 0) {
+    throw ApiError_("VALIDATION_ERROR", "à¸à¸£à¸¸à¸“à¸²à¸•à¸£à¸§à¸ˆà¸ªà¸­à¸šà¸‚à¹‰à¸­à¸¡à¸¹à¸¥à¸à¹ˆà¸­à¸™à¸šà¸±à¸™à¸—à¸¶à¸", fields);
+  }
+
+  return payload;
+}
+
+function ReportService_normalizeAttachmentFileRole_(value) {
+  const role = Utils_normalizeString_(value || "progress").toLowerCase();
+  const allowedRoles = ["report", "progress", "resolved", "additional", "announcement"];
+
+  return allowedRoles.indexOf(role) === -1 ? "progress" : role;
 }
 
 function ReportService_validateStatusTransition_(report, payload, permissions) {
@@ -1567,6 +1693,33 @@ function ReportService_createStatusTimeline_(oldReport, updatedReport, payload, 
   });
 }
 
+function ReportService_createAdminUpdateTimeline_(report, updateId, payload, actor, createdAt) {
+  const actorName = Security_sanitizeText_(actor && (actor.display_name || actor.username) ? actor.display_name || actor.username : "");
+  const updateRecord = {
+    update_id: updateId,
+    report_id: report.report_id,
+    update_type: "note",
+    old_status: report.status || "",
+    new_status: report.status || "",
+    public_message: payload.isPublic ? payload.publicMessage : "",
+    internal_note: payload.internalNote,
+    is_public: payload.isPublic,
+    updated_by: actor && actor.user_id ? actor.user_id : "",
+    updated_by_name_snapshot: actorName,
+    updated_by_role_snapshot: actor && actor.role ? actor.role : "",
+    created_at: createdAt,
+    is_deleted: false,
+    version: 1
+  };
+
+  SheetRepository_append_("report_updates", updateRecord, {
+    keyColumnName: "update_id",
+    userId: actor && actor.user_id ? actor.user_id : "system"
+  });
+
+  return updateRecord;
+}
+
 function ReportService_resolveStatusUpdateType_(newStatus) {
   if (newStatus === "resolved") {
     return "result";
@@ -1618,6 +1771,38 @@ function ReportService_buildStatusInternalNote_(payload) {
     payload.duplicateReason ? "เหตุผลเรื่องซ้ำ: " + payload.duplicateReason : "",
     payload.reason ? "เหตุผลเปิดกลับ: " + payload.reason : ""
   ].filter(Boolean).join(" | ");
+}
+
+function ReportService_compensateAdminUpdateFailure_(updateId, attachmentIds, fileIds) {
+  if (fileIds && fileIds.length > 0) {
+    AttachmentService_compensateUploads_(fileIds);
+  }
+
+  (attachmentIds || []).forEach(function (attachmentId) {
+    try {
+      SheetRepository_softDeleteById_("attachments", "attachment_id", attachmentId, {
+        userId: "system"
+      });
+    } catch (error) {
+      Security_safeLog_("ADMIN_UPDATE_ATTACHMENT_COMPENSATION_FAILED", {
+        attachmentId: attachmentId,
+        code: error && error.code ? error.code : "INTERNAL_ERROR"
+      });
+    }
+  });
+
+  if (updateId) {
+    try {
+      SheetRepository_softDeleteById_("report_updates", "update_id", updateId, {
+        userId: "system"
+      });
+    } catch (error) {
+      Security_safeLog_("ADMIN_UPDATE_TIMELINE_COMPENSATION_FAILED", {
+        updateId: updateId,
+        code: error && error.code ? error.code : "INTERNAL_ERROR"
+      });
+    }
+  }
 }
 
 function ReportService_assertNotDuplicateRequest_(requestId) {

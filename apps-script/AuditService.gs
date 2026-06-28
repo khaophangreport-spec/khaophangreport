@@ -238,3 +238,24 @@ function AuditService_logReportStatusUpdated_(oldReport, updatedReport, payload,
     }
   });
 }
+
+function AuditService_logReportUpdateAdded_(report, update, attachmentCount, actor, requestId) {
+  return AuditService_log_({
+    userId: actor && actor.user_id ? actor.user_id : "system",
+    userNameSnapshot: actor && (actor.display_name || actor.username) ? actor.display_name || actor.username : "",
+    roleSnapshot: actor && actor.role ? actor.role : "",
+    action: "admin.report.addUpdate",
+    entityType: "report",
+    entityId: report && report.report_id ? report.report_id : "",
+    requestId: requestId || "",
+    success: true,
+    detail: {
+      updateId: update && update.update_id ? update.update_id : "",
+      status: report && report.status ? report.status : "",
+      isPublic: !!(update && update.is_public),
+      hasPublicMessage: !!(update && update.public_message),
+      hasInternalNote: !!(update && update.internal_note),
+      attachmentCount: attachmentCount || 0
+    }
+  });
+}

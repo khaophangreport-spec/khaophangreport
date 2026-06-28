@@ -64,7 +64,9 @@
     data: null,
     isLoading: false,
     isAssigning: false,
-    isUpdatingStatus: false
+    isUpdatingStatus: false,
+    isAddingUpdate: false,
+    updateAttachments: []
   };
 
   function $(selector) {
@@ -230,6 +232,7 @@
     setRefreshEnabled(true);
     renderAssignmentAction();
     renderStatusAction();
+    renderUpdateAction();
   }
 
   function setRefreshEnabled(isEnabled) {
@@ -415,6 +418,15 @@
 
     button.hidden = !canUpdate;
     button.disabled = !canUpdate || state.isLoading;
+  }
+
+  function renderUpdateAction() {
+    const section = $("[data-update-section]");
+    const canUpdate = hasPermission("canUpdate");
+
+    if (section) {
+      section.hidden = !canUpdate;
+    }
   }
 
   function renderPriorityInfo(report) {
@@ -919,6 +931,323 @@
     }
   }
 
+  function setUpdateError(message, fields) {
+    const alert = $("[data-update-error]");
+
+    if (alert) {
+      alert.hidden = !message;
+      alert.textContent = message || "";
+    }
+
+    $all("[data-update-field-error]").forEach(function (element) {
+      const key = element.getAttribute("data-update-field-error");
+      if (!key || key === "attachments") {
+        if (fields && fields[key]) {
+          element.textContent = fields[key];
+        } else if (key !== "attachments") {
+          element.textContent = "";
+        }
+        return;
+      }
+
+      element.textContent = fields && fields[key] ? fields[key] : "";
+    });
+  }
+
+  function setUpdateSuccess(message) {
+    const alert = $("[data-update-success]");
+
+    if (alert) {
+      alert.hidden = !message;
+      alert.textContent = message || "";
+    }
+  }
+
+  function getUpdateInputValue(selector) {
+    const element = $(selector);
+    return element ? element.value.trim() : "";
+  }
+
+  function buildUpdatePayload() {
+    const isPublic = $("[data-update-is-public]");
+
+    return {
+      reportId: state.reportId,
+      version: state.version,
+      publicMessage: getUpdateInputValue("[data-update-public-message]"),
+      internalNote: getUpdateInputValue("[data-update-internal-note]"),
+      isPublic: !!(isPublic && isPublic.checked),
+      attachments: state.updateAttachments.map(function (attachment) {
+        return {
+          fileName: attachment.fileName,
+          mimeType: attachment.mimeType,
+          base64: attachment.base64,
+          fileSize: attachment.fileSize,
+          width: attachment.width,
+          height: attachment.height,
+          isPublic: !!attachment.isPublic,
+          fileRole: "progress"
+        };
+      })
+    };
+  }
+
+  function validateUpdatePayload(payload) {
+    const fields = {};
+
+    if (!payload.publicMessage && !payload.internalNote) {
+      fields.update = "กรุณาระบุ Public Message หรือ Internal Note";
+    }
+
+    if (payload.isPublic && !payload.publicMessage && payload.attachments.filter(function (attachment) {
+      return attachment.isPublic;
+    }).length === 0) {
+      fields.publicMessage = "อัปเดตสาธารณะควรมีข้อความหรือไฟล์ที่เปิดเผยได้";
+    }
+
+    return fields;
+  }
+
+  function updatePublicPreview() {
+    const isPublic = $("[data-update-is-public]");
+    const preview = $("[data-update-preview-text]");
+    const publicMessage = getUpdateInputValue("[data-update-public-message]");
+    const publicAttachmentCount = state.updateAttachments.filter(function (attachment) {
+      return attachment.isPublic;
+    }).length;
+
+    if (!preview) {
+      return;
+    }
+
+    if (!isPublic || !isPublic.checked) {
+      preview.textContent = "อัปเดตนี้ยังไม่แสดงต่อประชาชน";
+      return;
+    }
+
+    preview.textContent = [
+      publicMessage || "จะแสดงเฉพาะไฟล์แนบที่เปิดเผย",
+      publicAttachmentCount > 0 ? "ไฟล์แนบสาธารณะ " + formatNumber(publicAttachmentCount) + " รายการ" : ""
+    ].filter(Boolean).join(" | ");
+  }
+
+  function setAddingUpdate(adding) {
+    const elements = [
+      $("[data-update-submit]"),
+      $("[data-update-reset]"),
+      $("[data-update-public-message]"),
+      $("[data-update-internal-note]"),
+      $("[data-update-is-public]"),
+      $("[data-update-attachments]")
+    ];
+    const submitText = $("[data-update-submit-text]");
+
+    state.isAddingUpdate = !!adding;
+    elements.forEach(function (element) {
+      if (element) {
+        element.disabled = state.isAddingUpdate;
+      }
+    });
+
+    if (submitText) {
+      submitText.textContent = state.isAddingUpdate ? "กำลังบันทึก..." : "บันทึกอัปเดต";
+    }
+  }
+
+  function readFileAsBase64(file) {
+    return new Promise(function (resolve, reject) {
+      const reader = new FileReader();
+
+      reader.onload = function () {
+        const result = String(reader.result || "");
+        resolve(result.replace(/^data:[^;]+;base64,/, ""));
+      };
+      reader.onerror = function () {
+        reject(new Error("ไม่สามารถอ่านไฟล์แนบได้"));
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  async function buildAttachmentPayload(file) {
+    const compressed = window.KPR_IMAGE_COMPRESS && typeof window.KPR_IMAGE_COMPRESS.compress === "function"
+      ? await window.KPR_IMAGE_COMPRESS.compress(file)
+      : {
+        file: file,
+        fileName: file.name,
+        mimeType: file.type,
+        fileSize: file.size,
+        width: 1,
+        height: 1
+      };
+    const sourceFile = compressed.file || compressed.blob || file;
+    const base64 = await readFileAsBase64(sourceFile);
+
+    return {
+      fileName: compressed.fileName || file.name,
+      mimeType: compressed.mimeType || file.type,
+      fileSize: compressed.fileSize || sourceFile.size || file.size,
+      width: compressed.width || 1,
+      height: compressed.height || 1,
+      base64: base64,
+      isPublic: false
+    };
+  }
+
+  function renderUpdateAttachments() {
+    const container = $("[data-update-attachment-list]");
+
+    clearElement(container);
+    if (!container) {
+      return;
+    }
+
+    state.updateAttachments.forEach(function (attachment, index) {
+      const item = document.createElement("article");
+      const meta = createTextElement("small", "", [
+        attachment.mimeType,
+        formatBytes(attachment.fileSize),
+        attachment.width && attachment.height ? attachment.width + " × " + attachment.height + " px" : "",
+        attachment.isPublic ? "Public" : "Private"
+      ].filter(Boolean).join(" | "));
+      const checkLabel = document.createElement("label");
+      const checkbox = document.createElement("input");
+      const checkText = document.createElement("span");
+      const remove = document.createElement("button");
+
+      item.className = "report-update-attachment";
+      item.appendChild(createTextElement("strong", "", attachment.fileName));
+      item.appendChild(meta);
+
+      checkLabel.className = "report-detail-check report-update-attachment__check";
+      checkbox.type = "checkbox";
+      checkbox.checked = !!attachment.isPublic;
+      checkbox.addEventListener("change", function () {
+        state.updateAttachments[index].isPublic = checkbox.checked;
+        renderUpdateAttachments();
+        updatePublicPreview();
+      });
+      checkText.textContent = "เปิดเผยไฟล์นี้ในหน้า Public";
+      checkLabel.appendChild(checkbox);
+      checkLabel.appendChild(checkText);
+      item.appendChild(checkLabel);
+
+      remove.type = "button";
+      remove.className = "button button-outline report-update-attachment__remove";
+      remove.textContent = "ลบ";
+      remove.addEventListener("click", function () {
+        state.updateAttachments.splice(index, 1);
+        renderUpdateAttachments();
+        updatePublicPreview();
+      });
+      item.appendChild(remove);
+      container.appendChild(item);
+    });
+  }
+
+  async function handleUpdateAttachmentChange(event) {
+    const input = event.target;
+    const files = Array.prototype.slice.call(input.files || []);
+    const maxImages = window.KPR_IMAGE_COMPRESS && typeof window.KPR_IMAGE_COMPRESS.maxImages === "function"
+      ? window.KPR_IMAGE_COMPRESS.maxImages()
+      : 3;
+
+    setUpdateError("");
+    setUpdateSuccess("");
+
+    if (state.updateAttachments.length + files.length > maxImages) {
+      setUpdateError("แนบไฟล์ได้สูงสุด " + formatNumber(maxImages) + " รายการ", {
+        attachments: "แนบไฟล์ได้สูงสุด " + formatNumber(maxImages) + " รายการ"
+      });
+      input.value = "";
+      return;
+    }
+
+    setAddingUpdate(true);
+    try {
+      for (let index = 0; index < files.length; index += 1) {
+        state.updateAttachments.push(await buildAttachmentPayload(files[index]));
+      }
+      renderUpdateAttachments();
+      updatePublicPreview();
+    } catch (error) {
+      setUpdateError(error && error.message ? error.message : "ไม่สามารถเตรียมไฟล์แนบได้");
+    } finally {
+      input.value = "";
+      setAddingUpdate(false);
+    }
+  }
+
+  function resetUpdateForm() {
+    const form = $("[data-update-form]");
+    const fileInput = $("[data-update-attachments]");
+
+    if (form) {
+      form.reset();
+    }
+    if (fileInput) {
+      fileInput.value = "";
+    }
+    state.updateAttachments = [];
+    renderUpdateAttachments();
+    setUpdateError("");
+    setUpdateSuccess("");
+    updatePublicPreview();
+  }
+
+  function getUpdateErrorMessage(error) {
+    if (!error) {
+      return "ไม่สามารถบันทึกอัปเดตได้ กรุณาลองใหม่";
+    }
+
+    if (error.code === "VERSION_CONFLICT") {
+      return "ข้อมูลเรื่องนี้ถูกอัปเดตแล้ว กรุณาโหลดใหม่ก่อนบันทึกอัปเดต";
+    }
+
+    if (error.code === "FORBIDDEN") {
+      return "คุณไม่มีสิทธิ์เพิ่มอัปเดตเรื่องนี้";
+    }
+
+    if (error.code === "SESSION_EXPIRED" || error.code === "UNAUTHORIZED") {
+      return "เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่";
+    }
+
+    return error.message || "ไม่สามารถบันทึกอัปเดตได้ กรุณาลองใหม่";
+  }
+
+  async function submitReportUpdate(event) {
+    event.preventDefault();
+
+    if (state.isAddingUpdate || !window.KPR_API) {
+      return;
+    }
+
+    const payload = buildUpdatePayload();
+    const fields = validateUpdatePayload(payload);
+
+    if (Object.keys(fields).length > 0) {
+      setUpdateError("กรุณาตรวจสอบข้อมูลก่อนบันทึก", fields);
+      return;
+    }
+
+    setAddingUpdate(true);
+    setUpdateError("");
+    setUpdateSuccess("");
+
+    try {
+      await window.KPR_API.write("admin.report.addUpdate", payload, {
+        withSession: true
+      });
+      resetUpdateForm();
+      setUpdateSuccess("บันทึกอัปเดตเรียบร้อยแล้ว");
+      await loadDetail();
+    } catch (error) {
+      setUpdateError(getUpdateErrorMessage(error), error && error.fields ? error.fields : {});
+    } finally {
+      setAddingUpdate(false);
+    }
+  }
+
   function renderAttachments(attachments) {
     const container = $("[data-detail-attachments]");
     const empty = $("[data-detail-attachments-empty]");
@@ -965,10 +1294,10 @@
 
       card.className = "report-detail-timeline__item";
       header.className = "report-detail-timeline__header";
-      header.appendChild(createStatusChip(update.status));
+      header.appendChild(createStatusChip(update.status || update.newStatus || update.oldStatus));
       header.appendChild(createTextElement("time", "", formatDateTime(update.createdAt)));
       card.appendChild(header);
-      card.appendChild(createTextElement("p", "", update.message || "-"));
+      card.appendChild(createTextElement("p", "", update.message || update.publicMessage || "-"));
 
       if (update.internalNote && hasPermission("canViewInternalNotes")) {
         card.appendChild(createTextElement("small", "report-detail-internal-note", "บันทึกภายใน: " + update.internalNote));
@@ -1158,6 +1487,10 @@
     const assignForm = $("[data-assign-form]");
     const assignModal = $("[data-assign-modal]");
     const assignCloseButtons = $all("[data-assign-close], [data-assign-cancel]");
+    const updateForm = $("[data-update-form]");
+    const updateReset = $("[data-update-reset]");
+    const updateFileInput = $("[data-update-attachments]");
+    const updatePreviewInputs = $all("[data-update-public-message], [data-update-is-public]");
 
     if (refresh) {
       refresh.addEventListener("click", loadDetail);
@@ -1223,6 +1556,23 @@
         }
       });
     }
+
+    if (updateForm) {
+      updateForm.addEventListener("submit", submitReportUpdate);
+    }
+
+    if (updateReset) {
+      updateReset.addEventListener("click", resetUpdateForm);
+    }
+
+    if (updateFileInput) {
+      updateFileInput.addEventListener("change", handleUpdateAttachmentChange);
+    }
+
+    updatePreviewInputs.forEach(function (input) {
+      input.addEventListener("input", updatePublicPreview);
+      input.addEventListener("change", updatePublicPreview);
+    });
 
     document.addEventListener("keydown", function (event) {
       if (event.key === "Escape" && statusModal && !statusModal.hidden && !state.isUpdatingStatus) {

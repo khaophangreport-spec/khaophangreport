@@ -1314,9 +1314,54 @@ body.admin-drawer-open {
   padding: var(--space-3);
 }
 
+.report-detail-success {
+  background: rgba(40, 116, 68, 0.1);
+  border: 1px solid rgba(40, 116, 68, 0.24);
+  border-radius: var(--radius-sm);
+  color: var(--color-primary-900);
+  font-weight: var(--font-weight-bold);
+  padding: var(--space-3);
+}
+
 .report-detail-modal-actions {
   flex-wrap: wrap;
   justify-content: end;
+}
+
+.report-update-composer {
+  border-color: rgba(40, 116, 68, 0.32);
+}
+
+.report-update-form,
+.report-update-attachment-list {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.report-update-attachment {
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+
+.report-update-attachment strong,
+.report-update-attachment small {
+  overflow-wrap: anywhere;
+}
+
+.report-update-attachment__check {
+  align-items: flex-start;
+}
+
+.report-update-attachment__remove {
+  justify-self: start;
+}
+
+.report-update-actions {
+  flex-wrap: wrap;
 }
 
 @media (min-width: 1024px) {

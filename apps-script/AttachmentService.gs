@@ -157,6 +157,59 @@ function AttachmentService_uploadAdditionalInfoAttachments_(reportId, additional
   }
 }
 
+function AttachmentService_uploadAdminUpdateAttachments_(reportId, updateId, attachments, actor, createdAt) {
+  const uploadedFiles = [];
+  const records = [];
+  const userId = actor && actor.user_id ? actor.user_id : "system";
+
+  try {
+    (attachments || []).forEach(function (attachment) {
+      const isPublic = Utils_toBoolean_(attachment.isPublic);
+      const fileRole = Utils_normalizeString_(attachment.fileRole || "progress").toLowerCase() || "progress";
+      const uploadResult = AttachmentService_uploadOneForRole_(reportId, attachment, createdAt, fileRole);
+
+      uploadedFiles.push(uploadResult.fileId);
+      records.push({
+        attachment_id: Utils_createUuid_(),
+        report_id: reportId,
+        update_id: updateId || "",
+        additional_info_id: "",
+        file_id: uploadResult.fileId,
+        file_name: uploadResult.fileName,
+        original_file_name: attachment.fileName,
+        mime_type: uploadResult.mimeType,
+        file_size: uploadResult.fileSize,
+        width: attachment.width || "",
+        height: attachment.height || "",
+        file_role: fileRole,
+        is_public: isPublic,
+        uploaded_by: userId,
+        created_at: createdAt,
+        drive_folder_id: uploadResult.driveFolderId,
+        checksum: uploadResult.checksum,
+        is_deleted: false,
+        deleted_at: "",
+        version: 1
+      });
+    });
+
+    if (records.length > 0) {
+      SheetRepository_batchWrite_("attachments", records, {
+        keyColumnName: "attachment_id",
+        userId: userId
+      });
+    }
+
+    return {
+      uploadedFileIds: uploadedFiles,
+      records: records
+    };
+  } catch (error) {
+    AttachmentService_compensateUploads_(uploadedFiles);
+    throw error;
+  }
+}
+
 function AttachmentService_uploadOne_(reportId, attachment, createdAt) {
   return AttachmentService_uploadOneForRole_(reportId, attachment, createdAt, "report");
 }

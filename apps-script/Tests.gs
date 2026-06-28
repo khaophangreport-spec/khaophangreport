@@ -1767,6 +1767,62 @@ function testAdminReportUpdateStatusRouterWhitelist() {
   };
 }
 
+function testAdminReportAddUpdateRouterWhitelist() {
+  var action = "admin.report.addUpdate";
+  var registration = Tests_assertRouterHandler_(
+    action,
+    ReportService_addUpdate,
+    "ReportService_addUpdate"
+  );
+
+  console.log("admin.report.addUpdate is registered in Router whitelist");
+  return {
+    ok: true,
+    testType: "unit",
+    action: action,
+    mappedHandlerType: registration.mappedHandlerType,
+    mappedHandlerName: registration.mappedHandlerName,
+    globalHandlerName: registration.expectedHandlerName
+  };
+}
+
+function testAdminReportAddUpdatePrivateAttachmentDefault() {
+  const fields = {};
+  const payload = ReportService_normalizeAddUpdatePayload_({
+    reportId: "REPORT-001",
+    version: 2,
+    publicMessage: "Public update",
+    internalNote: "Internal note",
+    isPublic: true,
+    attachments: [{
+      fileName: "photo.jpg",
+      mimeType: "image/jpeg",
+      base64: "x",
+      fileSize: 10,
+      width: 10,
+      height: 10
+    }]
+  });
+
+  if (!payload.attachments || payload.attachments.length !== 1 || payload.attachments[0].isPublic !== false) {
+    throw new Error("admin.report.addUpdate attachment default should be private");
+  }
+
+  if (payload.internalNote !== "Internal note" || payload.publicMessage !== "Public update") {
+    throw new Error("admin.report.addUpdate payload normalization lost messages");
+  }
+
+  console.log(JSON.stringify({
+    isPublic: payload.isPublic,
+    attachmentIsPublic: payload.attachments[0].isPublic,
+    fieldCount: Object.keys(fields).length
+  }));
+  return {
+    ok: true,
+    payload: payload
+  };
+}
+
 function testAdminReportUpdateStatusTransitionMatrix() {
   try {
     const officerPermissions = UserService_getPermissions_("officer");
