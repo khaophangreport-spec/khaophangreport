@@ -1948,6 +1948,283 @@ function testAdminReportUpdatePriorityAuditDetailNoNoteLeak() {
   };
 }
 
+function testAdminUserRouterWhitelist() {
+  const expected = {
+    "admin.user.list": {
+      handler: UserService_listAdmin,
+      name: "UserService_listAdmin"
+    },
+    "admin.user.save": {
+      handler: UserService_saveAdmin,
+      name: "UserService_saveAdmin"
+    },
+    "admin.user.resetPassword": {
+      handler: UserService_resetPasswordAdmin,
+      name: "UserService_resetPasswordAdmin"
+    },
+    "admin.user.revokeSessions": {
+      handler: UserService_revokeSessionsAdmin,
+      name: "UserService_revokeSessionsAdmin"
+    }
+  };
+  const registrations = Object.keys(expected).map(function (action) {
+    return Tests_assertRouterHandler_(
+      action,
+      expected[action].handler,
+      expected[action].name
+    );
+  });
+
+  return {
+    ok: true,
+    testType: "unit",
+    actions: Object.keys(expected),
+    registrations: registrations
+  };
+}
+
+function testAdminUserProjectionNoHashSalt() {
+  const projection = UserService_projectAdminUser_({
+    user_id: "USER-001",
+    username: "admin",
+    password_hash: "HASH-SECRET",
+    password_salt: "SALT-SECRET",
+    token_hash: "TOKEN-SECRET",
+    display_name: "Admin",
+    email: "admin@example.com",
+    phone: "0812345678",
+    role: "super_admin",
+    status: "active",
+    must_change_password: true,
+    version: 3
+  });
+  const serialized = JSON.stringify(projection);
+
+  ["password_hash", "passwordHash", "password_salt", "passwordSalt", "token_hash", "tokenHash", "HASH-SECRET", "SALT-SECRET", "TOKEN-SECRET"].forEach(function (forbidden) {
+    if (serialized.indexOf(forbidden) !== -1) {
+      throw new Error("admin.user projection leaked secret: " + forbidden);
+    }
+  });
+
+  if (projection.userId !== "USER-001" || projection.version !== 3 || projection.mustChangePassword !== true) {
+    throw new Error("admin.user projection missed expected fields");
+  }
+
+  return {
+    ok: true,
+    testType: "unit",
+    projection: projection
+  };
+}
+
+function testAdminUserRoleStatusValidation() {
+  try {
+    UserService_normalizeAdminSavePayload_({
+      username: "officer01",
+      displayName: "Officer",
+      role: "root",
+      status: "blocked"
+    });
+  } catch (error) {
+    if (error && error.code === "VALIDATION_ERROR" && error.fields && error.fields.role && error.fields.status) {
+      return {
+        ok: true,
+        testType: "unit",
+        fields: error.fields
+      };
+    }
+
+    throw error;
+  }
+
+  throw new Error("admin.user.save did not reject invalid role/status");
+}
+
+function testAdminUserTemporaryPasswordHashImmediately() {
+  const temporaryPassword = UserService_generateTemporaryPassword_();
+  const fields = {};
+
+  UserService_validatePassword_(temporaryPassword, "temporaryPassword", fields);
+
+  if (Object.keys(fields).length > 0) {
+    throw new Error("Generated temporary password did not pass password policy");
+  }
+
+  const updates = UserService_buildPasswordResetUpdates_({
+    password_version: 2
+  }, temporaryPassword, "2026-06-28T00:00:00.000Z");
+
+  if (!updates.password_hash || !updates.password_salt || updates.password_hash === temporaryPassword ||
+      updates.password_salt === temporaryPassword || updates.must_change_password !== true ||
+      updates.password_version !== 3) {
+    throw new Error("Password reset updates did not hash immediately or force password change");
+  }
+
+  return {
+    ok: true,
+    testType: "unit",
+    passwordLength: temporaryPassword.length,
+    passwordVersion: updates.password_version
+  };
+}
+
+function testAdminUserLastSuperAdminPolicy() {
+  const closesLast = UserService_isClosingLastActiveSuperAdmin_({
+    user_id: "USER-SUPER",
+    role: "super_admin",
+    status: "active",
+    is_deleted: false
+  }, {
+    role: "admin",
+    status: "active"
+  }, 1);
+  const keepsOne = UserService_isClosingLastActiveSuperAdmin_({
+    user_id: "USER-SUPER",
+    role: "super_admin",
+    status: "active",
+    is_deleted: false
+  }, {
+    role: "admin",
+    status: "active"
+  }, 2);
+
+  if (!closesLast || keepsOne) {
+    throw new Error("Last active super admin policy returned invalid result");
+  }
+
+  return {
+    ok: true,
+    testType: "unit",
+    closesLast: closesLast,
+    keepsOne: keepsOne
+  };
+}
+
+function testAdminUserAuditNoPasswordLeak() {
+  const originalLog = AuditService_log_;
+  let captured = null;
+
+  AuditService_log_ = function (entry) {
+    captured = entry;
+    return entry;
+  };
+
+  try {
+    AuditService_logAdminUserPasswordReset_({
+      user_id: "USER-001",
+      username: "admin",
+      role: "admin",
+      status: "active",
+      password_version: 4,
+      must_change_password: true
+    }, {
+      user_id: "USER-SUPER",
+      username: "super",
+      display_name: "Super Admin",
+      role: "super_admin"
+    }, "REQ-TEST-USER-RESET", 2);
+  } finally {
+    AuditService_log_ = originalLog;
+  }
+
+  const serialized = JSON.stringify(captured);
+
+  ["temporaryPassword", "password_hash", "password_salt", "HASH-SECRET", "SALT-SECRET"].forEach(function (forbidden) {
+    if (serialized.indexOf(forbidden) !== -1) {
+      throw new Error("admin.user audit leaked password data: " + forbidden);
+    }
+  });
+
+  if (!captured || captured.action !== "admin.user.resetPassword" || captured.detail.revokedSessions !== 2) {
+    throw new Error("admin.user reset password audit detail is invalid");
+  }
+
+  return {
+    ok: true,
+    testType: "unit",
+    detail: captured.detail
+  };
+}
+
+function testAdminUserListPagination() {
+  const query = UserService_normalizeAdminListQuery_({
+    page: 1,
+    pageSize: 1,
+    keyword: "officer",
+    role: "officer",
+    status: "active"
+  });
+  const filtered = UserService_filterAdminUsers_([
+    {
+      user_id: "USER-001",
+      username: "officer01",
+      display_name: "Officer One",
+      role: "officer",
+      status: "active"
+    },
+    {
+      user_id: "USER-002",
+      username: "viewer01",
+      display_name: "Viewer One",
+      role: "viewer",
+      status: "active"
+    }
+  ], query);
+  const page = SheetRepository_paginate_(filtered, query.page, query.pageSize);
+
+  if (page.pagination.total !== 1 || page.pagination.pageSize !== 1 || page.items[0].user_id !== "USER-001") {
+    throw new Error("admin.user.list pagination/filter returned invalid result");
+  }
+
+  return {
+    ok: true,
+    testType: "unit",
+    pagination: page.pagination
+  };
+}
+
+function testAdminUserResetPasswordRequiresVersion() {
+  try {
+    UserService_normalizeResetPasswordPayload_({
+      userId: "USER-001",
+      temporaryPassword: "StrongPass123"
+    });
+  } catch (error) {
+    if (error && error.code === "VALIDATION_ERROR" && error.fields && error.fields.version) {
+      return {
+        ok: true,
+        testType: "unit",
+        fields: error.fields
+      };
+    }
+
+    throw error;
+  }
+
+  throw new Error("admin.user.resetPassword did not require version");
+}
+
+function testAdminUserRevokeSessionsRequiresVersion() {
+  try {
+    UserService_normalizeRevokeSessionsPayload_({
+      userId: "USER-001",
+      reason: "security_reset"
+    });
+  } catch (error) {
+    if (error && error.code === "VALIDATION_ERROR" && error.fields && error.fields.version) {
+      return {
+        ok: true,
+        testType: "unit",
+        fields: error.fields
+      };
+    }
+
+    throw error;
+  }
+
+  throw new Error("admin.user.revokeSessions did not require version");
+}
+
 function testAdminReportUpdateStatusTransitionMatrix() {
   try {
     const officerPermissions = UserService_getPermissions_("officer");

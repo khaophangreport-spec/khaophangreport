@@ -14,6 +14,10 @@ const ROUTER_ACTIONS_ = Object.freeze({
   "admin.report.updateStatus": ReportService_updateStatus,
   "admin.report.updatePriority": ReportService_updatePriority,
   "admin.report.addUpdate": ReportService_addUpdate,
+  "admin.user.list": UserService_listAdmin,
+  "admin.user.save": UserService_saveAdmin,
+  "admin.user.resetPassword": UserService_resetPasswordAdmin,
+  "admin.user.revokeSessions": UserService_revokeSessionsAdmin,
   "report.create": ReportService_create,
   "report.track": ReportService_track,
   "report.addInfo": ReportService_addInfo

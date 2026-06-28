@@ -195,6 +195,70 @@ function AuditService_logFirstAdminCreated_(user, requestId) {
   });
 }
 
+function AuditService_logAdminUserSaved_(oldUser, updatedUser, actor, requestId, isCreated) {
+  return AuditService_log_({
+    userId: actor && actor.user_id ? actor.user_id : "system",
+    userNameSnapshot: actor && (actor.display_name || actor.username) ? actor.display_name || actor.username : "",
+    roleSnapshot: actor && actor.role ? actor.role : "",
+    action: "admin.user.save",
+    entityType: "user",
+    entityId: updatedUser && updatedUser.user_id ? updatedUser.user_id : "",
+    requestId: requestId || "",
+    success: true,
+    detail: {
+      operation: isCreated ? "create" : "update",
+      usernameHash: Security_hashSha256_(UserService_normalizeUsername_(updatedUser && updatedUser.username), "user-log"),
+      oldRole: oldUser && oldUser.role ? oldUser.role : "",
+      newRole: updatedUser && updatedUser.role ? updatedUser.role : "",
+      oldStatus: oldUser && oldUser.status ? oldUser.status : "",
+      newStatus: updatedUser && updatedUser.status ? updatedUser.status : "",
+      mustChangePassword: Utils_toBoolean_(updatedUser && updatedUser.must_change_password),
+      version: updatedUser && updatedUser.version ? Number(updatedUser.version) : 0
+    }
+  });
+}
+
+function AuditService_logAdminUserPasswordReset_(user, actor, requestId, revokedCount) {
+  return AuditService_log_({
+    userId: actor && actor.user_id ? actor.user_id : "system",
+    userNameSnapshot: actor && (actor.display_name || actor.username) ? actor.display_name || actor.username : "",
+    roleSnapshot: actor && actor.role ? actor.role : "",
+    action: "admin.user.resetPassword",
+    entityType: "user",
+    entityId: user && user.user_id ? user.user_id : "",
+    requestId: requestId || "",
+    success: true,
+    detail: {
+      usernameHash: Security_hashSha256_(UserService_normalizeUsername_(user && user.username), "user-log"),
+      role: user && user.role ? user.role : "",
+      status: user && user.status ? user.status : "",
+      mustChangePassword: Utils_toBoolean_(user && user.must_change_password),
+      passwordVersion: user && user.password_version ? Number(user.password_version) : 0,
+      revokedSessions: Number(revokedCount || 0)
+    }
+  });
+}
+
+function AuditService_logAdminUserSessionsRevoked_(user, actor, requestId, revokedCount, reason) {
+  return AuditService_log_({
+    userId: actor && actor.user_id ? actor.user_id : "system",
+    userNameSnapshot: actor && (actor.display_name || actor.username) ? actor.display_name || actor.username : "",
+    roleSnapshot: actor && actor.role ? actor.role : "",
+    action: "admin.user.revokeSessions",
+    entityType: "user",
+    entityId: user && user.user_id ? user.user_id : "",
+    requestId: requestId || "",
+    success: true,
+    detail: {
+      usernameHash: Security_hashSha256_(UserService_normalizeUsername_(user && user.username), "user-log"),
+      role: user && user.role ? user.role : "",
+      status: user && user.status ? user.status : "",
+      revokedSessions: Number(revokedCount || 0),
+      reason: Utils_normalizeString_(reason || "admin_revoked")
+    }
+  });
+}
+
 function AuditService_logReportAssigned_(oldReport, updatedReport, assignment, officer, actor, requestId, oldAssigneeId) {
   return AuditService_log_({
     userId: actor && actor.user_id ? actor.user_id : "system",
