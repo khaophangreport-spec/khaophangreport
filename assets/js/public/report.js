@@ -19,7 +19,9 @@
     isSubmitting: false,
     isDirty: false,
     hasSubmitted: false,
-    queryCategoryId: ""
+    queryCategoryId: "",
+    publicConfig: null,
+    publicConfigPromise: null
   };
 
   const elements = {};
@@ -37,6 +39,7 @@
     updateReporterMode();
     syncMapFromCoordinates();
     updateStep();
+    loadPublicConfig();
     loadCategories();
     window.addEventListener("beforeunload", handleBeforeUnload);
     window.addEventListener("pagehide", clearObjectUrls);
@@ -131,6 +134,35 @@
       setText(elements.categoryErrorMessage, getErrorMessage(error));
       showCategoryState("error");
     }
+  }
+
+  async function loadPublicConfig() {
+    if (!window.KPR_API || typeof window.KPR_API.read !== "function") {
+      return null;
+    }
+
+    if (state.publicConfig) {
+      return state.publicConfig;
+    }
+
+    if (state.publicConfigPromise) {
+      return state.publicConfigPromise;
+    }
+
+    state.publicConfigPromise = window.KPR_API.read("public.config", {})
+      .then(function (response) {
+        state.publicConfig = response && response.data ? response.data : {};
+        return state.publicConfig;
+      })
+      .catch(function () {
+        state.publicConfig = null;
+        return null;
+      })
+      .finally(function () {
+        state.publicConfigPromise = null;
+      });
+
+    return state.publicConfigPromise;
   }
 
   function renderCategories() {
@@ -1258,6 +1290,8 @@
   }
 
   async function buildReportSubmitPayload() {
+    await loadPublicConfig();
+
     const payload = buildReportPayload();
     payload.attachments = await getAttachmentPayloadList();
     return payload;
@@ -1440,7 +1474,10 @@
   }
 
   function getPrivacyVersion() {
-    return "1.0";
+    const publicConfig = state.publicConfig || {};
+    const appConfig = window.APP_CONFIG || {};
+
+    return toText(publicConfig.privacyVersion || appConfig.PRIVACY_VERSION || "1.0");
   }
 
   function saveDraft(showMessage) {

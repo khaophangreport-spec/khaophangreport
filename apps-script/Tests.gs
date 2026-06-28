@@ -3468,6 +3468,348 @@ function testAdminReportUpdateStatusBuildUpdates() {
   }
 }
 
+const TEST_SUITE_DATA_PREFIX_ = "TEST-SUITE-";
+const TEST_SUITE_REQUEST_PREFIX_ = "REQ-TEST-SUITE-";
+
+function runKhaophangCoreTestSuite() {
+  return Tests_runSuite_("khaophang-core", [
+    { group: "setup validation", name: "validate seed data", fn: testValidateSeedData },
+    { group: "setup validation", name: "validate physical seed placement", fn: testValidatePhysicalSeedPlacement },
+    { group: "public.config", name: "public config projection", fn: testPublicConfigApi },
+    { group: "category.list", name: "public category list", fn: testCategoryListApi },
+    { group: "report.create", name: "router whitelist", fn: testReportCreateRouterWhitelist },
+    { group: "report.create", name: "request id required", fn: testReportCreateRequiresRequestId },
+    { group: "report.create", name: "consent validation", fn: testReportCreateValidationMissingConsent },
+    { group: "anonymous report", name: "anonymous reporter removes pii", fn: testReportCreateAnonymousReporterSanitizesPii },
+    { group: "invalid payload", name: "attachment limit validation", fn: testReportCreateAttachmentValidationLimit },
+    { group: "duplicate request", name: "report.create duplicate request", fn: testReportCreateDuplicateRequestDetection },
+    { group: "duplicate request", name: "report.addInfo duplicate request", fn: testReportAddInfoDuplicateRequestDetection },
+    { group: "report.track", name: "tracking code normalization", fn: testReportTrackNormalizeTrackingCode },
+    { group: "report.track", name: "generic not found", fn: testReportTrackNotFoundGeneric },
+    { group: "no PII", name: "track public projection", fn: testReportTrackPublicProjectionNoLeak },
+    { group: "no PII", name: "admin list projection", fn: testAdminReportListProjectionNoPii },
+    { group: "addInfo", name: "router whitelist", fn: testReportAddInfoRouterWhitelist },
+    { group: "addInfo", name: "request id required", fn: testReportAddInfoRequiresRequestId },
+    { group: "addInfo", name: "closed report policy", fn: testReportAddInfoClosedPolicy },
+    { group: "addInfo", name: "pending private record", fn: testReportAddInfoBuildRecordPending },
+    { group: "auth.login", name: "auth router whitelist", fn: testAuthRouterWhitelist },
+    { group: "auth.login", name: "invalid payload validation", fn: testAuthLoginInvalidPayloadValidation },
+    { group: "session", name: "token hash hides raw token", fn: testAuthSessionTokenHashNoRawToken },
+    { group: "session", name: "usable state checks", fn: testSessionUsableStates },
+    { group: "permission", name: "dashboard officer scope", fn: testDashboardSummaryOfficerCannotGlobal },
+    { group: "permission", name: "viewer report list read only", fn: testAdminReportListViewerReadOnly },
+    { group: "list", name: "admin report list filters", fn: testAdminReportListFiltersSortPagination },
+    { group: "list", name: "admin user list pagination", fn: testAdminUserListPagination },
+    { group: "detail", name: "viewer projection masks pii", fn: testAdminReportDetailViewerProjectionMasksPii },
+    { group: "detail", name: "attachment projection hides drive fields", fn: testAdminReportDetailAttachmentProjectionNoDriveLeak },
+    { group: "assign", name: "assign router whitelist", fn: testAdminReportAssignRouterWhitelist },
+    { group: "assign", name: "version required", fn: testAdminReportAssignPayloadRequiresVersion },
+    { group: "assign", name: "active officers only", fn: testAdminReportAssignActiveOfficerOnly },
+    { group: "status transition", name: "transition matrix", fn: testAdminReportUpdateStatusTransitionMatrix },
+    { group: "status transition", name: "required fields", fn: testAdminReportUpdateStatusRequiredFields },
+    { group: "version conflict", name: "repository version conflict", fn: testRepositoryVersionConflictDetection },
+    { group: "export sanitization", name: "csv formula injection", fn: testAdminExportCsvFormulaInjectionProtection },
+    { group: "export sanitization", name: "default export rows no pii", fn: testAdminExportReportRowsNoPiiByDefault }
+  ]);
+}
+
+function testReportCreateDuplicateRequestDetection() {
+  const originalFindOne = SheetRepository_findOne_;
+  const requestId = TEST_SUITE_REQUEST_PREFIX_ + "REPORT-DUPLICATE";
+
+  SheetRepository_findOne_ = function (sheetName, criteria) {
+    if (sheetName === "reports" && criteria && criteria.request_id === requestId) {
+      return {
+        report_id: TEST_SUITE_DATA_PREFIX_ + "REPORT-001",
+        request_id: requestId
+      };
+    }
+
+    return null;
+  };
+
+  try {
+    ReportService_assertNotDuplicateRequest_(requestId);
+  } catch (error) {
+    if (error && error.code === "DUPLICATE_REQUEST") {
+      return {
+        ok: true,
+        testType: "unit",
+        code: error.code
+      };
+    }
+
+    throw error;
+  } finally {
+    SheetRepository_findOne_ = originalFindOne;
+  }
+
+  throw new Error("report.create duplicate request was not rejected");
+}
+
+function testReportAddInfoDuplicateRequestDetection() {
+  const originalFindOne = SheetRepository_findOne_;
+  const requestId = TEST_SUITE_REQUEST_PREFIX_ + "ADD-INFO-DUPLICATE";
+
+  SheetRepository_findOne_ = function (sheetName, criteria) {
+    if (sheetName === "report_additional_info" && criteria && criteria.request_id === requestId) {
+      return {
+        additional_info_id: TEST_SUITE_DATA_PREFIX_ + "INFO-001",
+        request_id: requestId
+      };
+    }
+
+    return null;
+  };
+
+  try {
+    ReportService_assertAddInfoNotDuplicateRequest_(requestId);
+  } catch (error) {
+    if (error && error.code === "DUPLICATE_REQUEST") {
+      return {
+        ok: true,
+        testType: "unit",
+        code: error.code
+      };
+    }
+
+    throw error;
+  } finally {
+    SheetRepository_findOne_ = originalFindOne;
+  }
+
+  throw new Error("report.addInfo duplicate request was not rejected");
+}
+
+function testAuthLoginInvalidPayloadValidation() {
+  try {
+    AuthService_login({
+      action: "auth.login",
+      requestId: "",
+      data: {}
+    });
+  } catch (error) {
+    if (error && error.code === "VALIDATION_ERROR" && error.fields &&
+        error.fields.requestId && error.fields.username && error.fields.password) {
+      return {
+        ok: true,
+        testType: "unit",
+        fields: error.fields
+      };
+    }
+
+    throw error;
+  }
+
+  throw new Error("auth.login did not reject invalid payload");
+}
+
+function testSessionUsableStates() {
+  const now = new Date();
+  const activeSession = {
+    is_active: true,
+    revoked_at: "",
+    expires_at: new Date(now.getTime() + 60000).toISOString()
+  };
+  const expiredSession = {
+    is_active: true,
+    revoked_at: "",
+    expires_at: new Date(now.getTime() - 60000).toISOString()
+  };
+  const revokedSession = {
+    is_active: true,
+    revoked_at: now.toISOString(),
+    expires_at: new Date(now.getTime() + 60000).toISOString()
+  };
+  const inactiveSession = {
+    is_active: false,
+    revoked_at: "",
+    expires_at: new Date(now.getTime() + 60000).toISOString()
+  };
+
+  if (!SessionService_isUsable_(activeSession) ||
+      SessionService_isUsable_(expiredSession) ||
+      SessionService_isUsable_(revokedSession) ||
+      SessionService_isUsable_(inactiveSession)) {
+    throw new Error("Session usable state checks failed");
+  }
+
+  return {
+    ok: true,
+    testType: "unit"
+  };
+}
+
+function testRepositoryVersionConflictDetection() {
+  SheetRepository_assertVersion_(3, 3);
+
+  try {
+    SheetRepository_assertVersion_(3, 2);
+  } catch (error) {
+    if (error && error.code === "VERSION_CONFLICT") {
+      return {
+        ok: true,
+        testType: "unit",
+        code: error.code
+      };
+    }
+
+    throw error;
+  }
+
+  throw new Error("Version conflict was not detected");
+}
+
+function Tests_runSuite_(suiteName, cases) {
+  const startedAt = Utils_nowIso_();
+  const startedMs = new Date().getTime();
+  const results = [];
+  let passed = 0;
+  let failed = 0;
+
+  (cases || []).forEach(function (testCase) {
+    const caseStartedMs = new Date().getTime();
+
+    try {
+      const result = testCase.fn();
+      passed += 1;
+      results.push({
+        ok: true,
+        group: testCase.group,
+        name: testCase.name,
+        durationMs: new Date().getTime() - caseStartedMs,
+        result: Tests_summarizeTestResult_(result)
+      });
+    } catch (error) {
+      failed += 1;
+      results.push({
+        ok: false,
+        group: testCase.group,
+        name: testCase.name,
+        durationMs: new Date().getTime() - caseStartedMs,
+        error: {
+          code: error && error.code ? error.code : "INTERNAL_ERROR",
+          message: error && error.message ? error.message : String(error)
+        }
+      });
+      Tests_logDiagnosticError_(error);
+    }
+  });
+
+  const cleanup = Tests_cleanupTestData_();
+  const suiteOk = failed === 0 && cleanup.ok === true;
+  const summary = {
+    ok: suiteOk,
+    suite: suiteName,
+    startedAt: startedAt,
+    finishedAt: Utils_nowIso_(),
+    durationMs: new Date().getTime() - startedMs,
+    total: results.length,
+    passed: passed,
+    failed: failed,
+    cleanup: cleanup,
+    results: results
+  };
+
+  console.log(JSON.stringify(summary));
+
+  if (!suiteOk) {
+    throw new Error(
+      suiteName +
+      " failed: " +
+      failed +
+      " of " +
+      results.length +
+      " tests failed; cleanup ok=" +
+      cleanup.ok
+    );
+  }
+
+  return summary;
+}
+
+function Tests_summarizeTestResult_(result) {
+  if (!result || typeof result !== "object") {
+    return {
+      ok: true
+    };
+  }
+
+  return {
+    ok: result.ok !== false,
+    testType: result.testType || "",
+    action: result.action || "",
+    code: result.code || "",
+    count: result.count || result.cases || "",
+    checked: result.checked || ""
+  };
+}
+
+function Tests_cleanupTestData_() {
+  const targets = [
+    { sheetName: "reports", columns: ["report_id", "request_id", "tracking_code", "title"] },
+    { sheetName: "report_updates", columns: ["update_id", "report_id", "request_id", "message"] },
+    { sheetName: "report_additional_info", columns: ["additional_info_id", "report_id", "request_id", "message"] },
+    { sheetName: "attachments", columns: ["attachment_id", "report_id", "update_id", "additional_info_id", "file_name"] },
+    { sheetName: "sessions", columns: ["session_id", "user_id"] },
+    { sheetName: "users", columns: ["user_id", "username"] },
+    { sheetName: "activity_logs", columns: ["log_id", "request_id", "entity_id"] },
+    { sheetName: "rate_limits", columns: ["rate_limit_id", "rate_key"] },
+    { sheetName: "export_logs", columns: ["export_id", "request_id", "file_name"] }
+  ];
+  const cleanupResult = {
+    ok: true,
+    clearedCount: 0,
+    cleared: [],
+    errors: []
+  };
+
+  targets.forEach(function (target) {
+    try {
+      const readResult = SheetRepository_readRows_(target.sheetName, {
+        includeDeleted: true
+      });
+
+      readResult.rows.forEach(function (entry) {
+        if (!Tests_isSuiteTestRow_(entry.object, target.columns)) {
+          return;
+        }
+
+        readResult.sheet.getRange(entry.rowNumber, 1, 1, readResult.headers.length).clearContent();
+        cleanupResult.clearedCount += 1;
+        cleanupResult.cleared.push({
+          sheetName: target.sheetName,
+          rowNumber: entry.rowNumber
+        });
+      });
+    } catch (error) {
+      cleanupResult.ok = false;
+      cleanupResult.errors.push({
+        sheetName: target.sheetName,
+        code: error && error.code ? error.code : "INTERNAL_ERROR",
+        message: error && error.message ? error.message : String(error)
+      });
+    }
+  });
+
+  return cleanupResult;
+}
+
+function Tests_isSuiteTestRow_(rowObject, columns) {
+  return (columns || []).some(function (columnName) {
+    const value = rowObject && rowObject[columnName];
+
+    return Tests_isSuiteTestValue_(value);
+  });
+}
+
+function Tests_isSuiteTestValue_(value) {
+  const text = String(value || "");
+
+  return text.indexOf(TEST_SUITE_DATA_PREFIX_) === 0 ||
+    text.indexOf(TEST_SUITE_REQUEST_PREFIX_) === 0;
+}
+
 function Tests_logDiagnosticError_(error) {
   console.error(error && error.message ? error.message : String(error));
   console.error(error && error.stack ? error.stack : "No stack available");
