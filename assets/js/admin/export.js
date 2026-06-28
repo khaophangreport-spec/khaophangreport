@@ -267,6 +267,7 @@
       return;
     }
 
+    state.latestFile = null;
     form.reset();
     resetFieldErrors();
     hideResultStates();
@@ -297,6 +298,7 @@
     }
 
     payload.confirmed = payload.includePersonalData;
+    state.latestFile = null;
     setLoading(true);
 
     window.KPR_API.write("admin.export.csv", payload, {
@@ -352,6 +354,11 @@
     if (downloadAgainButton) {
       downloadAgainButton.addEventListener("click", downloadLatestFile);
     }
+
+    window.addEventListener("pagehide", function () {
+      stopProgress();
+      state.latestFile = null;
+    });
   }
 
   async function init() {

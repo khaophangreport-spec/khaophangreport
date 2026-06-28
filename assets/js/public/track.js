@@ -76,6 +76,7 @@
   function initDetailPage() {
     cacheDetailElements();
     bindDetailEvents();
+    window.addEventListener("pagehide", clearAddInfoImageUrls);
 
     const codeFromUrl = getTrackingCodeFromUrl();
     if (!codeFromUrl) {
@@ -549,6 +550,10 @@
 
     window.KPR_IMAGE_COMPRESS.compress(file)
       .then(function (result) {
+        if (!isAddInfoImageActive(imageItem.id)) {
+          return;
+        }
+
         imageItem.status = "ready";
         imageItem.file = result.file;
         imageItem.fileName = result.fileName;
@@ -556,11 +561,16 @@
         imageItem.fileSize = result.fileSize;
         imageItem.width = result.width;
         imageItem.height = result.height;
+        revokeAddInfoImageUrl(imageItem);
         imageItem.previewUrl = URL.createObjectURL(result.file);
         imageItem.wasCompressed = result.wasCompressed;
         clearAddInfoFieldError("attachments");
       })
       .catch(function (error) {
+        if (!isAddInfoImageActive(imageItem.id)) {
+          return;
+        }
+
         imageItem.status = "error";
         imageItem.error = error && error.message ? error.message : "ไม่สามารถบีบอัดรูปภาพนี้ได้";
       })
@@ -664,12 +674,22 @@
       elements.addInfoForm.reset();
     }
 
-    state.addInfoImages.forEach(revokeAddInfoImageUrl);
+    clearAddInfoImageUrls();
     state.addInfoImages = [];
     updateAddInfoMessageCount();
     renderAddInfoImages();
     updateAddInfoImageStatus();
     clearAddInfoErrors();
+  }
+
+  function clearAddInfoImageUrls() {
+    state.addInfoImages.forEach(revokeAddInfoImageUrl);
+  }
+
+  function isAddInfoImageActive(imageId) {
+    return state.addInfoImages.some(function (imageItem) {
+      return imageItem.id === imageId;
+    });
   }
 
   function clearAddInfoErrors() {

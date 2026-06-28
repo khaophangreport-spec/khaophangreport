@@ -2105,6 +2105,8 @@ function ReportService_projectTrackAttachment_(attachment) {
 }
 
 function ReportService_checkRateLimit_(request) {
+  RateLimitService_cleanupExpiredSafe_();
+
   const now = new Date();
   const action = "report.create";
   const rateKey = ReportService_buildRateLimitKey_(request);
@@ -2191,6 +2193,8 @@ function ReportService_buildRateLimitKey_(request) {
 }
 
 function ReportService_checkTrackRateLimit_(trackingCode) {
+  RateLimitService_cleanupExpiredSafe_();
+
   const now = new Date();
   const action = "report.track";
   const rateKey = ReportService_buildTrackRateLimitKey_(trackingCode);
@@ -2269,6 +2273,8 @@ function ReportService_buildTrackRateLimitKey_(trackingCode) {
 }
 
 function ReportService_checkAddInfoRateLimit_(request) {
+  RateLimitService_cleanupExpiredSafe_();
+
   const now = new Date();
   const action = "report.addInfo";
   const rateKey = ReportService_buildAddInfoRateLimitKey_(request);

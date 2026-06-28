@@ -3,6 +3,9 @@ const AUTH_LOGIN_RATE_LIMIT_ = Object.freeze({
   windowSeconds: 15 * 60
 });
 const AUTH_GENERIC_LOGIN_MESSAGE_ = "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง";
+const RATE_LIMIT_CLEANUP_CACHE_KEY_ = "RATE_LIMIT_CLEANUP_RECENT";
+const RATE_LIMIT_CLEANUP_INTERVAL_SECONDS_ = 6 * 60 * 60;
+const RATE_LIMIT_CLEANUP_MAX_ROWS_ = 100;
 
 function AuthService_login(request) {
   const data = request && Utils_isPlainObject_(request.data) ? request.data : {};
@@ -154,6 +157,8 @@ function AuthService_changePassword(request) {
 }
 
 function AuthService_checkLoginRateLimit_(username, deviceKey) {
+  RateLimitService_cleanupExpiredSafe_();
+
   const now = new Date();
   const rateKey = AuthService_buildLoginRateLimitKey_(username, deviceKey);
   const existing = SheetRepository_findById_("rate_limits", "rate_key", rateKey, {
@@ -233,4 +238,58 @@ function AuthService_buildLoginRateLimitKey_(username, deviceKey) {
 
 function AuthService_throwInvalidCredentials_() {
   throw ApiError_("INVALID_CREDENTIALS", AUTH_GENERIC_LOGIN_MESSAGE_);
+}
+
+function RateLimitService_cleanupExpiredSafe_() {
+  try {
+    const cache = CacheService.getScriptCache();
+
+    if (cache.get(RATE_LIMIT_CLEANUP_CACHE_KEY_)) {
+      return {
+        ok: true,
+        skipped: true
+      };
+    }
+
+    cache.put(RATE_LIMIT_CLEANUP_CACHE_KEY_, "1", RATE_LIMIT_CLEANUP_INTERVAL_SECONDS_);
+    return RateLimitService_cleanupExpired_(new Date(), RATE_LIMIT_CLEANUP_MAX_ROWS_);
+  } catch (error) {
+    Security_safeLog_("RATE_LIMIT_CLEANUP_FAILED", {
+      code: error && error.code ? error.code : "INTERNAL_ERROR"
+    });
+    return {
+      ok: false,
+      clearedCount: 0
+    };
+  }
+}
+
+function RateLimitService_cleanupExpired_(now, maxRows) {
+  const currentTime = now && now.getTime ? now.getTime() : new Date().getTime();
+  const limit = Utils_clampInteger_(maxRows, RATE_LIMIT_CLEANUP_MAX_ROWS_, 1, 500);
+  const readResult = SheetRepository_readRows_("rate_limits", {
+    keyColumnName: "rate_key",
+    includeDeleted: true
+  });
+  const headers = readResult.headers;
+  const clearedRows = [];
+
+  for (let index = 0; index < readResult.rows.length && clearedRows.length < limit; index += 1) {
+    const entry = readResult.rows[index];
+    const record = entry.object || {};
+    const expiresAt = new Date(record.expires_at || "");
+
+    if (isNaN(expiresAt.getTime()) || expiresAt.getTime() > currentTime) {
+      continue;
+    }
+
+    readResult.sheet.getRange(entry.rowNumber, 1, 1, headers.length).clearContent();
+    clearedRows.push(entry.rowNumber);
+  }
+
+  return {
+    ok: true,
+    clearedCount: clearedRows.length,
+    clearedRows: clearedRows
+  };
 }

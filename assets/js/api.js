@@ -19,6 +19,13 @@
     "category.list",
     "announcement.list"
   ];
+  const PUBLIC_READ_CACHE_TTL_MS = Object.freeze({
+    "public.config": 5 * 60 * 1000,
+    "category.list": 5 * 60 * 1000,
+    "announcement.list": 60 * 1000
+  });
+  const responseCache = Object.create(null);
+  const inflightRequests = Object.create(null);
   const ERROR_MESSAGES = {
     VALIDATION_ERROR: "กรุณาตรวจสอบข้อมูล",
     RATE_LIMITED: "มีการใช้งานถี่เกินไป กรุณาลองใหม่ภายหลัง",
@@ -183,6 +190,56 @@
     return GET_READ_ACTIONS.indexOf(payload.action) !== -1 && !payload.sessionToken;
   }
 
+  function getCacheTtlMs(action, options) {
+    if (!Object.prototype.hasOwnProperty.call(PUBLIC_READ_CACHE_TTL_MS, action)) {
+      return 0;
+    }
+
+    if (options && options.skipCache === true) {
+      return 0;
+    }
+
+    if (options && Number.isFinite(options.cacheTtlMs)) {
+      return Math.max(Number(options.cacheTtlMs), 0);
+    }
+
+    return PUBLIC_READ_CACHE_TTL_MS[action] || 0;
+  }
+
+  function cloneResult(result) {
+    return JSON.parse(JSON.stringify(result));
+  }
+
+  function createCacheKey(payload) {
+    return payload.action + "::" + JSON.stringify(payload.data || {});
+  }
+
+  function getCachedResult(cacheKey) {
+    const entry = responseCache[cacheKey];
+
+    if (!entry) {
+      return null;
+    }
+
+    if (entry.expiresAt <= Date.now()) {
+      delete responseCache[cacheKey];
+      return null;
+    }
+
+    return cloneResult(entry.result);
+  }
+
+  function setCachedResult(cacheKey, result, ttlMs) {
+    if (!cacheKey || ttlMs <= 0) {
+      return;
+    }
+
+    responseCache[cacheKey] = {
+      expiresAt: Date.now() + ttlMs,
+      result: cloneResult(result)
+    };
+  }
+
   function createGetUrl(apiUrl, payload) {
     const url = new URL(apiUrl);
 
@@ -259,21 +316,49 @@
     const maxRetries = isReadAction(payload.action)
       ? Number.isFinite(settings.retries) ? settings.retries : DEFAULT_RETRY_COUNT
       : 0;
+    const cacheTtlMs = getCacheTtlMs(payload.action, settings);
+    const cacheKey = cacheTtlMs > 0 && !payload.sessionToken ? createCacheKey(payload) : "";
+    const cachedResult = cacheKey ? getCachedResult(cacheKey) : null;
 
-    let attempt = 0;
+    if (cachedResult) {
+      return cachedResult;
+    }
 
-    while (true) {
-      try {
-        return await sendRequest(apiUrl, payload, timeoutMs, settings.signal);
-      } catch (error) {
-        handleSessionExpired(error);
+    if (cacheKey && !settings.signal && inflightRequests[cacheKey]) {
+      return cloneResult(await inflightRequests[cacheKey]);
+    }
 
-        if (!shouldRetry(error, payload.action, attempt, maxRetries)) {
-          throw error;
+    const requestPromise = (async function () {
+      let attempt = 0;
+
+      while (true) {
+        try {
+          return await sendRequest(apiUrl, payload, timeoutMs, settings.signal);
+        } catch (error) {
+          handleSessionExpired(error);
+
+          if (!shouldRetry(error, payload.action, attempt, maxRetries)) {
+            throw error;
+          }
+
+          attempt += 1;
+          await wait(error.retryAfterSeconds > 0 ? error.retryAfterSeconds * 1000 : 300 * attempt);
         }
+      }
+    })();
 
-        attempt += 1;
-        await wait(error.retryAfterSeconds > 0 ? error.retryAfterSeconds * 1000 : 300 * attempt);
+    if (cacheKey && !settings.signal) {
+      inflightRequests[cacheKey] = requestPromise;
+    }
+
+    try {
+      const result = await requestPromise;
+
+      setCachedResult(cacheKey, result, cacheTtlMs);
+      return cloneResult(result);
+    } finally {
+      if (cacheKey && inflightRequests[cacheKey] === requestPromise) {
+        delete inflightRequests[cacheKey];
       }
     }
   }

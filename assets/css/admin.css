@@ -3209,11 +3209,14 @@ body.admin-drawer-open {
 .export-field {
   display: grid;
   gap: var(--space-2);
+  min-width: 0;
 }
 
 .export-field input,
 .export-field select {
   min-height: 44px;
+  min-width: 0;
+  width: 100%;
 }
 
 .export-personal-data {
@@ -3314,7 +3317,7 @@ body.admin-drawer-open {
   }
 
   .export-filter-grid {
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 10.5rem), 1fr));
   }
 }
 

@@ -1,6 +1,11 @@
 const SESSION_TTL_SECONDS_ = 8 * 60 * 60;
+const SESSION_CLEANUP_CACHE_KEY_ = "SESSION_CLEANUP_RECENT";
+const SESSION_CLEANUP_INTERVAL_SECONDS_ = 6 * 60 * 60;
+const SESSION_CLEANUP_MAX_ROWS_ = 50;
 
 function SessionService_create_(user, options) {
+  SessionService_cleanupExpiredSafe_();
+
   const safeOptions = options || {};
   const now = new Date();
   const sessionToken = Security_generateSessionToken_();
@@ -170,5 +175,60 @@ function SessionService_projectSafe_(session) {
     isActive: Utils_toBoolean_(session && session.is_active),
     createdAt: String(session && session.created_at ? session.created_at : ""),
     lastUsedAt: String(session && session.last_used_at ? session.last_used_at : "")
+  };
+}
+
+function SessionService_cleanupExpiredSafe_() {
+  try {
+    const cache = CacheService.getScriptCache();
+
+    if (cache.get(SESSION_CLEANUP_CACHE_KEY_)) {
+      return {
+        ok: true,
+        skipped: true
+      };
+    }
+
+    cache.put(SESSION_CLEANUP_CACHE_KEY_, "1", SESSION_CLEANUP_INTERVAL_SECONDS_);
+    return SessionService_cleanupExpired_(new Date(), SESSION_CLEANUP_MAX_ROWS_);
+  } catch (error) {
+    Security_safeLog_("SESSION_CLEANUP_FAILED", {
+      code: error && error.code ? error.code : "INTERNAL_ERROR"
+    });
+    return {
+      ok: false,
+      clearedCount: 0
+    };
+  }
+}
+
+function SessionService_cleanupExpired_(now, maxRows) {
+  const currentTime = now && now.getTime ? now.getTime() : new Date().getTime();
+  const limit = Utils_clampInteger_(maxRows, SESSION_CLEANUP_MAX_ROWS_, 1, 500);
+  const readResult = SheetRepository_readRows_("sessions", {
+    keyColumnName: "session_id",
+    includeDeleted: true
+  });
+  const headers = readResult.headers;
+  const clearedRows = [];
+
+  for (let index = 0; index < readResult.rows.length && clearedRows.length < limit; index += 1) {
+    const entry = readResult.rows[index];
+    const session = entry.object || {};
+    const expiresAt = new Date(session.expires_at || "");
+    const isExpired = !isNaN(expiresAt.getTime()) && expiresAt.getTime() <= currentTime;
+
+    if (!isExpired) {
+      continue;
+    }
+
+    readResult.sheet.getRange(entry.rowNumber, 1, 1, headers.length).clearContent();
+    clearedRows.push(entry.rowNumber);
+  }
+
+  return {
+    ok: true,
+    clearedCount: clearedRows.length,
+    clearedRows: clearedRows
   };
 }

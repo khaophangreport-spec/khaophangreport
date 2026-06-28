@@ -12,8 +12,9 @@ function ExportService_exportCsvAdmin(request) {
     throw ApiError_("FORBIDDEN", "ไม่มีสิทธิ์ส่งออกข้อมูลส่วนบุคคล");
   }
 
-  const readModel = ExportService_readModel_();
-  const filteredReports = ExportService_filterReports_(readModel.reports, payload.filters);
+  const reports = ExportService_readReports_();
+  const filteredReports = ExportService_filterReports_(reports, payload.filters);
+  const readModel = ExportService_readModel_(payload.exportType, filteredReports, reports);
   const rows = ExportService_buildRows_(payload.exportType, filteredReports, readModel, payload.includePersonalData);
   const limitedRows = rows.slice(0, EXPORT_MAX_ROWS_);
   const truncated = rows.length > EXPORT_MAX_ROWS_;
@@ -146,30 +147,35 @@ function ExportService_validateDateRange_(dateFrom, dateTo, fields) {
   }
 }
 
-function ExportService_readModel_() {
-  const reports = SheetRepository_batchRead_("reports", {
+function ExportService_readReports_() {
+  return SheetRepository_batchRead_("reports", {
     keyColumnName: "report_id",
     includeDeleted: false
   }).objects;
-  const updates = SheetRepository_batchRead_("report_updates", {
+}
+
+function ExportService_readModel_(exportType, filteredReports, allReports) {
+  const hasReports = (filteredReports || []).length > 0;
+  const reports = allReports || ExportService_readReports_();
+  const updates = hasReports && exportType === "timeline" ? SheetRepository_batchRead_("report_updates", {
     keyColumnName: "update_id",
     includeDeleted: false
-  }).objects;
-  const categories = SheetRepository_batchRead_("categories", {
+  }).objects : [];
+  const categories = hasReports ? SheetRepository_batchRead_("categories", {
     keyColumnName: "category_id",
     includeDeleted: false
-  }).objects;
-  const users = SheetRepository_batchRead_("users", {
+  }).objects : [];
+  const users = hasReports ? SheetRepository_batchRead_("users", {
     keyColumnName: "user_id",
     includeDeleted: false
-  }).objects;
+  }).objects : [];
 
   return {
-    reports: reports,
+    reports: allReports || reports,
     updates: updates,
     categoryMap: ExportService_buildCategoryMap_(categories),
     userMap: ExportService_buildUserMap_(users),
-    reportMap: ExportService_buildReportMap_(reports)
+    reportMap: ExportService_buildReportMap_(allReports || reports)
   };
 }
 
