@@ -1207,6 +1207,150 @@ function testDashboardSummaryBuildNoPii() {
   };
 }
 
+function testDashboardSummaryStatusMappingCurrentValues() {
+  const summary = DashboardService_buildSummary_([
+    {
+      report_id: "REPORT-RESOLVED",
+      category_id: "CAT-ROAD",
+      status: "resolved",
+      target_due_at: "2026-06-30T00:00:00.000Z",
+      resolved_at: "2026-06-03T00:00:00.000Z",
+      created_at: "2026-06-01T00:00:00.000Z",
+      year_month: "2026-06",
+      village_no: "1",
+      village_key: "1"
+    },
+    {
+      report_id: "REPORT-PROCESSING",
+      category_id: "CAT-ROAD",
+      status: "in_progress",
+      target_due_at: "2026-07-10T00:00:00.000Z",
+      resolved_at: "",
+      created_at: "2026-07-01T00:00:00.000Z",
+      year_month: "2026-07",
+      village_no: "2",
+      village_key: "2"
+    }
+  ], [{
+    category_id: "CAT-ROAD",
+    code: "road",
+    name: "Road",
+    icon: "road",
+    color: "#287444",
+    sort_order: 1,
+    is_active: true
+  }], {
+    scope: "global"
+  }, new Date("2026-06-29T00:00:00.000Z"));
+  const statusTotals = {};
+  const statusOrder = DashboardService_getStatusOrder_();
+
+  summary.byStatus.forEach(function (item) {
+    statusTotals[item.status] = item.total;
+  });
+
+  if (statusTotals.resolved !== 1 || statusTotals.in_progress !== 1 ||
+      summary.cards.resolved !== 1 || summary.cards.open !== 1) {
+    throw new Error("dashboard.summary did not aggregate resolved/in_progress correctly");
+  }
+
+  if (statusOrder.indexOf("reviewing") === -1 || statusOrder.indexOf("assigned") === -1 ||
+      statusOrder.indexOf("waiting") === -1 || statusOrder.indexOf("duplicate") === -1 ||
+      statusOrder.indexOf("accepted") !== -1 || statusOrder.indexOf("waiting_info") !== -1) {
+    throw new Error("dashboard.summary status order is not aligned with ReportService statuses");
+  }
+
+  return {
+    ok: true,
+    testType: "unit",
+    checked: 2
+  };
+}
+
+function testDashboardSummaryInvalidDateRowSafe() {
+  const summary = DashboardService_buildSummary_([
+    {
+      report_id: "REPORT-BAD-DATE",
+      category_id: "CAT-ROAD",
+      status: "in_progress",
+      target_due_at: "not-a-date",
+      resolved_at: "",
+      created_at: "invalid-date",
+      year_month: "",
+      village_no: "1",
+      village_key: "1",
+      is_anonymous: true,
+      reporter_name: "",
+      reporter_phone: "",
+      reporter_email: ""
+    },
+    {
+      report_id: "REPORT-OK",
+      category_id: "CAT-ROAD",
+      status: "resolved",
+      target_due_at: "2026-06-10T00:00:00.000Z",
+      resolved_at: "2026-06-02T00:00:00.000Z",
+      created_at: "2026-06-01T00:00:00.000Z",
+      year_month: "2026-06",
+      village_no: "2",
+      village_key: "2"
+    }
+  ], [{
+    category_id: "CAT-ROAD",
+    code: "road",
+    name: "Road",
+    icon: "road",
+    color: "#287444",
+    sort_order: 1,
+    is_active: true
+  }], {
+    scope: "global"
+  }, new Date("2026-06-29T00:00:00.000Z"));
+  const hasUnknownMonth = summary.byMonth.some(function (item) {
+    return item.yearMonth === "unknown";
+  });
+
+  if (summary.cards.total !== 2 || summary.cards.open !== 1 || summary.cards.resolved !== 1 || !hasUnknownMonth) {
+    throw new Error("dashboard.summary did not safely aggregate invalid date row");
+  }
+
+  return {
+    ok: true,
+    testType: "unit",
+    checked: 2
+  };
+}
+
+function testDashboardSummaryDemoSeedPlanBuilds() {
+  const plan = DemoSeed_buildPlanForTest_();
+  const categories = DemoSeed_getTestCategories_().map(function (category, index) {
+    return Object.assign({}, category, {
+      code: "CAT" + index,
+      name: "Category " + index,
+      icon: "circle",
+      color: "#287444",
+      sort_order: index + 1
+    });
+  });
+  const summary = DashboardService_buildSummary_(plan.reports, categories, {
+    scope: "global"
+  }, new Date("2026-06-29T00:00:00.000Z"));
+  const months = summary.byMonth.map(function (item) {
+    return item.yearMonth;
+  });
+
+  if (summary.cards.total !== 37 || summary.cards.resolved !== 29 || summary.cards.open !== 8 ||
+      months.indexOf("2026-03") === -1 || months.indexOf("2026-07") === -1) {
+    throw new Error("dashboard.summary could not build from demo seed 37 reports");
+  }
+
+  return {
+    ok: true,
+    testType: "unit",
+    reportCount: summary.cards.total
+  };
+}
+
 function testDashboardSummaryCacheClearVersion() {
   const beforeVersion = DashboardService_getCacheVersion_();
   const result = DashboardService_clearCache_();
@@ -3620,6 +3764,9 @@ function runKhaophangCoreTestSuite() {
     { group: "session", name: "token hash hides raw token", fn: testAuthSessionTokenHashNoRawToken },
     { group: "session", name: "usable state checks", fn: testSessionUsableStates },
     { group: "permission", name: "dashboard officer scope", fn: testDashboardSummaryOfficerCannotGlobal },
+    { group: "dashboard", name: "current status mapping", fn: testDashboardSummaryStatusMappingCurrentValues },
+    { group: "dashboard", name: "invalid date row safe", fn: testDashboardSummaryInvalidDateRowSafe },
+    { group: "dashboard", name: "demo seed summary builds", fn: testDashboardSummaryDemoSeedPlanBuilds },
     { group: "permission", name: "viewer report list read only", fn: testAdminReportListViewerReadOnly },
     { group: "list", name: "admin report list filters", fn: testAdminReportListFiltersSortPagination },
     { group: "list", name: "admin user list pagination", fn: testAdminUserListPagination },

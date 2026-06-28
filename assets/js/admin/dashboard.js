@@ -157,6 +157,7 @@
       ? window.KPR_API.getErrorMessage(error)
       : "ไม่สามารถเชื่อมต่อระบบได้";
 
+    state.isLoading = false;
     setHidden("[data-dashboard-loading]", true);
     setHidden("[data-dashboard-content]", true);
     setHidden("[data-dashboard-empty]", true);
@@ -167,6 +168,7 @@
   }
 
   function showEmpty() {
+    state.isLoading = false;
     setHidden("[data-dashboard-loading]", true);
     setHidden("[data-dashboard-content]", true);
     setHidden("[data-dashboard-error]", true);
@@ -176,6 +178,7 @@
   }
 
   function showContent() {
+    state.isLoading = false;
     setHidden("[data-dashboard-loading]", true);
     setHidden("[data-dashboard-error]", true);
     setHidden("[data-dashboard-empty]", true);
@@ -374,7 +377,14 @@
 
       renderDashboard(result.data || {});
     } catch (error) {
+      logDashboardError("loadDashboard", error);
       showError(error);
+    } finally {
+      if (state.isLoading) {
+        state.isLoading = false;
+        setControlsDisabled(false);
+        updateScopeButtons();
+      }
     }
   }
 
@@ -412,14 +422,33 @@
       return;
     }
 
-    state.user = await window.KPR_AUTH.requireAdminSession();
-    if (!state.user) {
+    try {
+      state.user = await window.KPR_AUTH.requireAdminSession();
+      if (!state.user) {
+        setHidden("[data-dashboard-loading]", true);
+        return;
+      }
+
+      state.scope = resolveInitialScope(state.user);
+      updateScopeButtons();
+      loadDashboard();
+    } catch (error) {
+      logDashboardError("init", error);
+      showError(error);
+    }
+  }
+
+  function logDashboardError(stage, error) {
+    if (!window.console || typeof window.console.error !== "function") {
       return;
     }
 
-    state.scope = resolveInitialScope(state.user);
-    updateScopeButtons();
-    loadDashboard();
+    window.console.error("Dashboard error", {
+      stage: stage,
+      code: error && error.code ? error.code : "UNKNOWN",
+      message: error && error.message ? error.message : String(error || ""),
+      requestId: error && error.meta && error.meta.requestId ? error.meta.requestId : ""
+    });
   }
 
   document.addEventListener("DOMContentLoaded", init);

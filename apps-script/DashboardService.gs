@@ -26,12 +26,14 @@ const DASHBOARD_CATEGORY_COLUMNS_ = Object.freeze([
 ]);
 const DASHBOARD_STATUS_ORDER_ = Object.freeze([
   "new",
-  "accepted",
+  "reviewing",
+  "assigned",
   "in_progress",
-  "waiting_info",
+  "waiting",
   "resolved",
   "closed",
-  "rejected"
+  "rejected",
+  "duplicate"
 ]);
 
 function DashboardService_summary(request) {
@@ -319,8 +321,9 @@ function DashboardService_projectByCategory_(groups, categoryMap) {
 
 function DashboardService_projectByStatus_(groups) {
   const keys = {};
+  const statusOrder = DashboardService_getStatusOrder_();
 
-  DASHBOARD_STATUS_ORDER_.forEach(function (status) {
+  statusOrder.forEach(function (status) {
     keys[status] = true;
   });
   Object.keys(groups || {}).forEach(function (status) {
@@ -333,8 +336,8 @@ function DashboardService_projectByStatus_(groups) {
       total: Number(groups[status] || 0)
     };
   }).sort(function (left, right) {
-    const leftIndex = DASHBOARD_STATUS_ORDER_.indexOf(left.status);
-    const rightIndex = DASHBOARD_STATUS_ORDER_.indexOf(right.status);
+    const leftIndex = statusOrder.indexOf(left.status);
+    const rightIndex = statusOrder.indexOf(right.status);
     const safeLeftIndex = leftIndex === -1 ? 999 : leftIndex;
     const safeRightIndex = rightIndex === -1 ? 999 : rightIndex;
 
@@ -344,6 +347,14 @@ function DashboardService_projectByStatus_(groups) {
 
     return left.status.localeCompare(right.status);
   });
+}
+
+function DashboardService_getStatusOrder_() {
+  if (typeof REPORT_STATUS_VALUES_ !== "undefined" && Array.isArray(REPORT_STATUS_VALUES_)) {
+    return REPORT_STATUS_VALUES_.slice();
+  }
+
+  return DASHBOARD_STATUS_ORDER_.slice();
 }
 
 function DashboardService_projectByVillage_(groups) {

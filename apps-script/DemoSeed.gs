@@ -93,6 +93,283 @@ function runCleanupDemoReportsMarchToJuly2026ForDevOnly() {
   });
 }
 
+function diagnoseDemoReportsMarchToJuly2026() {
+  DemoSeed_assertDevelopmentOnly_();
+
+  const reportRead = SheetRepository_readRows_("reports", {
+    keyColumnName: "report_id",
+    includeDeleted: true
+  });
+  const updateRead = SheetRepository_readRows_("report_updates", {
+    keyColumnName: "update_id",
+    includeDeleted: true
+  });
+  const assignmentRead = SheetRepository_readRows_("assignments", {
+    keyColumnName: "assignment_id",
+    includeDeleted: true
+  });
+  const activityRead = SheetRepository_readRows_("activity_logs", {
+    keyColumnName: "log_id",
+    includeDeleted: true
+  });
+  const categories = SheetRepository_readRows_("categories", {
+    keyColumnName: "category_id",
+    includeDeleted: true
+  }).rows.map(function (entry) {
+    return entry.object;
+  });
+  const users = SheetRepository_readRows_("users", {
+    keyColumnName: "user_id",
+    includeDeleted: true
+  }).rows.map(function (entry) {
+    return entry.object;
+  });
+  const reportEntries = reportRead.rows.filter(function (entry) {
+    return DemoSeed_isSeedRow_(entry.object, ["report_id", "request_id", "internal_summary", "search_text"]);
+  }).map(function (entry) {
+    entry.sheetName = "reports";
+    return entry;
+  });
+  const updateEntries = updateRead.rows.filter(function (entry) {
+    return DemoSeed_isSeedRow_(entry.object, ["update_id", "report_id"]);
+  }).map(function (entry) {
+    entry.sheetName = "report_updates";
+    return entry;
+  });
+  const assignmentEntries = assignmentRead.rows.filter(function (entry) {
+    return DemoSeed_isSeedRow_(entry.object, ["assignment_id", "report_id"]);
+  }).map(function (entry) {
+    entry.sheetName = "assignments";
+    return entry;
+  });
+  const activityEntries = activityRead.rows.filter(function (entry) {
+    return DemoSeed_isSeedRow_(entry.object, ["request_id", "entity_id", "detail"]);
+  }).map(function (entry) {
+    entry.sheetName = "activity_logs";
+    return entry;
+  });
+  const result = {
+    ok: true,
+    readOnly: true,
+    seedBatchId: DEMO_REPORT_SEED_BATCH_ID_,
+    counts: {
+      reports: reportEntries.length,
+      updates: updateEntries.length,
+      assignments: assignmentEntries.length,
+      activityLogs: activityEntries.length
+    },
+    months: {},
+    duplicates: {
+      reportIds: [],
+      requestIds: [],
+      updateIds: [],
+      assignmentIds: []
+    },
+    unknownStatuses: [],
+    missingCategoryIds: [],
+    missingAdminIds: [],
+    invalidDates: [],
+    chronologyErrors: [],
+    resolvedWithoutResolvedAt: [],
+    inProgressWithResolvedAt: [],
+    orphanUpdates: [],
+    orphanAssignments: [],
+    orphanActivityLogs: [],
+    rowShapeErrors: [],
+    dashboardSummary: null,
+    dashboardSummaryError: null,
+    warnings: []
+  };
+  const categoryMap = DemoSeed_buildCategoryMap_(categories);
+  const userMap = DemoSeed_buildUserMap_(users);
+  const reportMap = {};
+  const updatesByReportId = {};
+  const validStatuses = DemoSeed_getValidStatuses_();
+
+  DemoSeed_collectDuplicateValues_(reportEntries, "report_id", result.duplicates.reportIds);
+  DemoSeed_collectDuplicateValues_(reportEntries, "request_id", result.duplicates.requestIds);
+  DemoSeed_collectDuplicateValues_(updateEntries, "update_id", result.duplicates.updateIds);
+  DemoSeed_collectDuplicateValues_(assignmentEntries, "assignment_id", result.duplicates.assignmentIds);
+  DemoSeed_collectRowShapeErrors_(reportRead, reportEntries, result.rowShapeErrors);
+  DemoSeed_collectRowShapeErrors_(updateRead, updateEntries, result.rowShapeErrors);
+  DemoSeed_collectRowShapeErrors_(assignmentRead, assignmentEntries, result.rowShapeErrors);
+  DemoSeed_collectRowShapeErrors_(activityRead, activityEntries, result.rowShapeErrors);
+
+  reportEntries.forEach(function (entry) {
+    const report = entry.object;
+    const reportId = String(report.report_id || "");
+    const status = Utils_normalizeString_(report.status).toLowerCase();
+    const yearMonth = DashboardService_resolveYearMonth_(report);
+
+    reportMap[reportId] = report;
+    result.months[yearMonth] = result.months[yearMonth] || {
+      total: 0,
+      resolved: 0,
+      inProgress: 0,
+      open: 0,
+      invalidDateRows: 0
+    };
+    result.months[yearMonth].total += 1;
+
+    if (status === "resolved") {
+      result.months[yearMonth].resolved += 1;
+    }
+
+    if (status === "in_progress") {
+      result.months[yearMonth].inProgress += 1;
+    }
+
+    if (!DashboardService_isTerminalStatus_(status)) {
+      result.months[yearMonth].open += 1;
+    }
+
+    if (validStatuses.indexOf(status) === -1) {
+      result.unknownStatuses.push(DemoSeed_issue_(entry, "status", status));
+    }
+
+    if (!categoryMap[report.category_id]) {
+      result.missingCategoryIds.push(DemoSeed_issue_(entry, "category_id", report.category_id));
+    }
+
+    ["assigned_to", "created_by", "updated_by"].forEach(function (columnName) {
+      const value = String(report[columnName] || "");
+
+      if (value && !userMap[value]) {
+        result.missingAdminIds.push(DemoSeed_issue_(entry, columnName, value));
+      }
+    });
+
+    ["created_at", "updated_at", "target_due_at", "resolved_at", "closed_at", "rejected_at"].forEach(function (columnName) {
+      if (!DemoSeed_isDateValueValidForDiagnostic_(report[columnName])) {
+        result.invalidDates.push(DemoSeed_issue_(entry, columnName, report[columnName]));
+        result.months[yearMonth].invalidDateRows += 1;
+      }
+    });
+
+    if (status === "resolved" && !report.resolved_at && !report.closed_at) {
+      result.resolvedWithoutResolvedAt.push(DemoSeed_issue_(entry, "resolved_at", report.resolved_at));
+    }
+
+    if (status === "in_progress" && (report.resolved_at || report.closed_at)) {
+      result.inProgressWithResolvedAt.push(DemoSeed_issue_(entry, "resolved_at", report.resolved_at || report.closed_at));
+    }
+  });
+
+  updateEntries.forEach(function (entry) {
+    const update = entry.object;
+    const reportId = String(update.report_id || "");
+
+    if (!reportMap[reportId]) {
+      result.orphanUpdates.push(DemoSeed_issue_(entry, "report_id", reportId));
+      return;
+    }
+
+    updatesByReportId[reportId] = updatesByReportId[reportId] || [];
+    updatesByReportId[reportId].push(entry);
+
+    if (!DemoSeed_isDateValueValidForDiagnostic_(update.created_at)) {
+      result.invalidDates.push(DemoSeed_issue_(entry, "created_at", update.created_at));
+    }
+
+    if (update.new_status && validStatuses.indexOf(Utils_normalizeString_(update.new_status).toLowerCase()) === -1) {
+      result.unknownStatuses.push(DemoSeed_issue_(entry, "new_status", update.new_status));
+    }
+
+    if (update.updated_by && !userMap[String(update.updated_by || "")]) {
+      result.missingAdminIds.push(DemoSeed_issue_(entry, "updated_by", update.updated_by));
+    }
+  });
+
+  assignmentEntries.forEach(function (entry) {
+    const assignment = entry.object;
+    const reportId = String(assignment.report_id || "");
+
+    if (!reportMap[reportId]) {
+      result.orphanAssignments.push(DemoSeed_issue_(entry, "report_id", reportId));
+    }
+
+    ["assigned_to", "assigned_by"].forEach(function (columnName) {
+      const value = String(assignment[columnName] || "");
+
+      if (value && !userMap[value]) {
+        result.missingAdminIds.push(DemoSeed_issue_(entry, columnName, value));
+      }
+    });
+
+    ["assigned_at", "target_due_at", "completed_at", "unassigned_at", "created_at"].forEach(function (columnName) {
+      if (!DemoSeed_isDateValueValidForDiagnostic_(assignment[columnName])) {
+        result.invalidDates.push(DemoSeed_issue_(entry, columnName, assignment[columnName]));
+      }
+    });
+  });
+
+  activityEntries.forEach(function (entry) {
+    const log = entry.object;
+    const reportId = String(log.entity_id || "");
+
+    if (reportId && !reportMap[reportId]) {
+      result.orphanActivityLogs.push(DemoSeed_issue_(entry, "entity_id", reportId));
+    }
+
+    if (!DemoSeed_isDateValueValidForDiagnostic_(log.created_at)) {
+      result.invalidDates.push(DemoSeed_issue_(entry, "created_at", log.created_at));
+    }
+  });
+
+  Object.keys(updatesByReportId).forEach(function (reportId) {
+    const updateObjects = updatesByReportId[reportId].map(function (entry) {
+      return entry.object;
+    });
+
+    try {
+      DemoSeed_validateReportTimeline_(reportMap[reportId], updateObjects);
+    } catch (error) {
+      result.chronologyErrors.push({
+        reportId: reportId,
+        code: error && error.code ? error.code : "VALIDATION_ERROR",
+        message: error && error.message ? error.message : String(error)
+      });
+    }
+  });
+
+  try {
+    const activeCategories = categories.filter(function (category) {
+      return category && category.category_id && Utils_toBoolean_(category.is_active) !== false;
+    });
+    const summary = DashboardService_buildSummary_(
+      reportEntries.map(function (entry) {
+        return entry.object;
+      }),
+      activeCategories,
+      { scope: "global" },
+      new Date()
+    );
+
+    result.dashboardSummary = {
+      total: summary.cards.total,
+      open: summary.cards.open,
+      resolved: summary.cards.resolved,
+      closed: summary.cards.closed,
+      overdue: summary.cards.overdue,
+      months: summary.byMonth.map(function (item) {
+        return item.yearMonth;
+      }),
+      statuses: summary.byStatus.filter(function (item) {
+        return item.total > 0;
+      })
+    };
+  } catch (error) {
+    result.dashboardSummaryError = {
+      code: error && error.code ? error.code : "INTERNAL_ERROR",
+      message: error && error.message ? error.message : String(error)
+    };
+  }
+
+  DemoSeed_updateDiagnosticOk_(result);
+  console.log(JSON.stringify(result));
+  return result;
+}
+
 function seedDemoReportsMarchToJuly2026(options) {
   const safeOptions = options || {};
 
@@ -173,18 +450,22 @@ function cleanupDemoReportsMarchToJuly2026(options) {
 }
 
 function DemoSeed_assertAllowed_(options, expectedConfirm) {
+  DemoSeed_assertDevelopmentOnly_();
+
+  if (!options || options.confirm !== expectedConfirm) {
+    throw ApiError_("VALIDATION_ERROR", "Confirmation is required before running demo report seed tooling.", {
+      confirm: "Use confirm=" + expectedConfirm
+    });
+  }
+}
+
+function DemoSeed_assertDevelopmentOnly_() {
   const environment = typeof Config_getEnvironment_ === "function" ?
     Utils_normalizeString_(Config_getEnvironment_()).toLowerCase() :
     "development";
 
   if (environment === "production") {
     throw ApiError_("FORBIDDEN", "Demo report seed is blocked when ENVIRONMENT=production.");
-  }
-
-  if (!options || options.confirm !== expectedConfirm) {
-    throw ApiError_("VALIDATION_ERROR", "Confirmation is required before running demo report seed tooling.", {
-      confirm: "Use confirm=" + expectedConfirm
-    });
   }
 }
 
@@ -744,6 +1025,101 @@ function DemoSeed_buildUserMap_(users) {
   });
 
   return map;
+}
+
+function DemoSeed_getValidStatuses_() {
+  if (typeof REPORT_STATUS_VALUES_ !== "undefined" && Array.isArray(REPORT_STATUS_VALUES_)) {
+    return REPORT_STATUS_VALUES_.slice();
+  }
+
+  return [
+    "new",
+    "reviewing",
+    "assigned",
+    "in_progress",
+    "waiting",
+    "resolved",
+    "closed",
+    "rejected",
+    "duplicate"
+  ];
+}
+
+function DemoSeed_collectDuplicateValues_(entries, columnName, output) {
+  const seen = {};
+
+  (entries || []).forEach(function (entry) {
+    const value = String(entry.object && entry.object[columnName] || "");
+
+    if (!value) {
+      return;
+    }
+
+    if (seen[value]) {
+      output.push(DemoSeed_issue_(entry, columnName, value));
+      return;
+    }
+
+    seen[value] = true;
+  });
+}
+
+function DemoSeed_collectRowShapeErrors_(readResult, entries, output) {
+  (entries || []).forEach(function (entry) {
+    if ((entry.values || []).length !== (readResult.headers || []).length) {
+      output.push({
+        sheetName: readResult.sheet ? readResult.sheet.getName() : "",
+        rowNumber: entry.rowNumber,
+        expectedColumns: (readResult.headers || []).length,
+        actualColumns: (entry.values || []).length
+      });
+    }
+  });
+}
+
+function DemoSeed_issue_(entry, columnName, value) {
+  return {
+    sheetName: entry && entry.sheetName ? entry.sheetName : "",
+    rowNumber: entry && entry.rowNumber ? entry.rowNumber : "",
+    reportId: entry && entry.object ? String(entry.object.report_id || entry.object.entity_id || "") : "",
+    column: columnName,
+    value: value === undefined || value === null ? "" : String(value)
+  };
+}
+
+function DemoSeed_isDateValueValidForDiagnostic_(value) {
+  if (value === "" || value === null || value === undefined) {
+    return true;
+  }
+
+  const date = value instanceof Date ? value : new Date(value);
+
+  return !isNaN(date.getTime());
+}
+
+function DemoSeed_updateDiagnosticOk_(result) {
+  const issueKeys = [
+    "unknownStatuses",
+    "missingCategoryIds",
+    "missingAdminIds",
+    "invalidDates",
+    "chronologyErrors",
+    "resolvedWithoutResolvedAt",
+    "inProgressWithResolvedAt",
+    "orphanUpdates",
+    "orphanAssignments",
+    "orphanActivityLogs",
+    "rowShapeErrors"
+  ];
+  const duplicateCount = Object.keys(result.duplicates || {}).reduce(function (total, key) {
+    return total + ((result.duplicates[key] || []).length);
+  }, 0);
+
+  result.ok = !result.dashboardSummaryError &&
+    duplicateCount === 0 &&
+    issueKeys.every(function (key) {
+      return (result[key] || []).length === 0;
+    });
 }
 
 function DemoSeed_filterOfficers_(users) {
