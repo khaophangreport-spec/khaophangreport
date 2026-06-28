@@ -307,6 +307,45 @@ function AuditService_logAdminAnnouncementSaved_(oldAnnouncement, updatedAnnounc
   });
 }
 
+function AuditService_logAdminSettingsUpdated_(changes, actor, requestId) {
+  const safeChanges = Array.isArray(changes) ? changes : [];
+  const changedKeys = safeChanges.map(function (change) {
+    return change && change.key ? String(change.key) : "";
+  }).filter(function (key) {
+    return key;
+  });
+
+  return AuditService_log_({
+    userId: actor && actor.user_id ? actor.user_id : "system",
+    userNameSnapshot: actor && (actor.display_name || actor.username) ? actor.display_name || actor.username : "",
+    roleSnapshot: actor && actor.role ? actor.role : "",
+    action: "admin.settings.update",
+    entityType: "settings",
+    entityId: "settings",
+    requestId: requestId || "",
+    success: true,
+    detail: {
+      changedKeys: changedKeys,
+      changedCount: changedKeys.length,
+      publicKeys: safeChanges.filter(function (change) {
+        return change && change.isPublic;
+      }).map(function (change) {
+        return change.key;
+      }),
+      privateKeys: safeChanges.filter(function (change) {
+        return change && !change.isPublic;
+      }).map(function (change) {
+        return change.key;
+      }),
+      riskyKeys: safeChanges.filter(function (change) {
+        return change && change.isRisky;
+      }).map(function (change) {
+        return change.key;
+      })
+    }
+  });
+}
+
 function AuditService_logReportAssigned_(oldReport, updatedReport, assignment, officer, actor, requestId, oldAssigneeId) {
   return AuditService_log_({
     userId: actor && actor.user_id ? actor.user_id : "system",

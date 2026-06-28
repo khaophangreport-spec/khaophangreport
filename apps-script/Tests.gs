@@ -2652,6 +2652,262 @@ function testAdminAnnouncementAuditNoContentLeak() {
   };
 }
 
+function testAdminSettingsRouterWhitelist() {
+  const expected = {
+    "admin.settings.get": {
+      handler: SettingsService_getAdmin,
+      name: "SettingsService_getAdmin"
+    },
+    "admin.settings.update": {
+      handler: SettingsService_updateAdmin,
+      name: "SettingsService_updateAdmin"
+    }
+  };
+  const registrations = Object.keys(expected).map(function (action) {
+    return Tests_assertRouterHandler_(
+      action,
+      expected[action].handler,
+      expected[action].name
+    );
+  });
+
+  return {
+    ok: true,
+    testType: "unit",
+    actions: Object.keys(expected),
+    registrations: registrations
+  };
+}
+
+function testAdminSettingsProjectionNoSecret() {
+  const projection = SettingsService_projectAdmin_({
+    key: "contact_email",
+    value: "office@example.test",
+    type: "string",
+    description: "Contact email",
+    is_public: true,
+    group_name: "contact",
+    updated_by: "USER-SECRET",
+    password_hash: "HASH-SECRET",
+    version: 4
+  }, "contact_email");
+  const serialized = JSON.stringify(projection);
+
+  ["USER-SECRET", "HASH-SECRET", "password_hash", "updated_by"].forEach(function (forbidden) {
+    if (serialized.indexOf(forbidden) !== -1) {
+      throw new Error("admin.settings projection leaked internal data: " + forbidden);
+    }
+  });
+
+  if (projection.key !== "contact_email" || projection.value !== "office@example.test" ||
+      projection.isPublic !== true || projection.version !== 4) {
+    throw new Error("admin.settings projection missed expected fields");
+  }
+
+  return {
+    ok: true,
+    testType: "unit",
+    projection: projection
+  };
+}
+
+function testAdminSettingsWhitelistRejectsUnknownKey() {
+  try {
+    SettingsService_normalizeAdminUpdatePayload_({
+      items: [{
+        key: "SESSION_SECRET",
+        value: "secret",
+        version: 1
+      }]
+    });
+  } catch (error) {
+    if (error && error.code === "VALIDATION_ERROR" && error.fields && error.fields["items.0.key"]) {
+      return {
+        ok: true,
+        testType: "unit",
+        fields: error.fields
+      };
+    }
+
+    throw error;
+  }
+
+  throw new Error("admin.settings.update did not reject non-whitelisted key");
+}
+
+function testAdminSettingsVersionRequired() {
+  try {
+    SettingsService_normalizeAdminUpdatePayload_({
+      items: [{
+        key: "contact_phone",
+        value: "077000000"
+      }]
+    });
+  } catch (error) {
+    if (error && error.code === "VALIDATION_ERROR" && error.fields && error.fields["items.0.version"]) {
+      return {
+        ok: true,
+        testType: "unit",
+        fields: error.fields
+      };
+    }
+
+    throw error;
+  }
+
+  throw new Error("admin.settings.update did not require version");
+}
+
+function testAdminSettingsTypeValidation() {
+  try {
+    const payload = SettingsService_normalizeAdminUpdatePayload_({
+      items: [{
+        key: "max_images",
+        value: "not-number",
+        version: 1
+      }]
+    });
+
+    SettingsService_buildAdminSettingChanges_(payload, {
+      max_images: {
+        key: "max_images",
+        value: "3",
+        type: "number",
+        version: 1
+      }
+    });
+  } catch (error) {
+    if (error && error.code === "VALIDATION_ERROR" && error.fields && error.fields["items.0.value"]) {
+      return {
+        ok: true,
+        testType: "unit",
+        fields: error.fields
+      };
+    }
+
+    throw error;
+  }
+
+  throw new Error("admin.settings.update did not reject invalid number");
+}
+
+function testAdminSettingsRiskyRequiresConfirmation() {
+  const payload = SettingsService_normalizeAdminUpdatePayload_({
+    items: [{
+      key: "maintenance_mode",
+      value: true,
+      version: 1
+    }]
+  });
+  const changes = SettingsService_buildAdminSettingChanges_(payload, {
+    maintenance_mode: {
+      key: "maintenance_mode",
+      value: "false",
+      type: "boolean",
+      version: 1
+    }
+  });
+
+  try {
+    SettingsService_assertRiskyChangesConfirmed_(changes, false);
+  } catch (error) {
+    if (error && error.code === "VALIDATION_ERROR" && error.fields && error.fields.confirmation) {
+      return {
+        ok: true,
+        testType: "unit",
+        fields: error.fields
+      };
+    }
+
+    throw error;
+  }
+
+  throw new Error("admin.settings.update did not require confirmation for risky setting");
+}
+
+function testAdminSettingsPublicPrivateSeparation() {
+  const publicProjection = SettingsService_projectAdmin_({
+    key: "privacy_version",
+    value: "1.0",
+    type: "string",
+    is_public: true,
+    version: 1
+  }, "privacy_version");
+  const privateProjection = SettingsService_projectAdmin_({
+    key: "schema_version",
+    value: "1",
+    type: "string",
+    is_public: false,
+    version: 1
+  }, "schema_version");
+
+  if (!publicProjection.isPublic || publicProjection.isPrivate ||
+      privateProjection.isPublic || !privateProjection.isPrivate ||
+      !privateProjection.isReadOnly) {
+    throw new Error("admin.settings public/private flags are incorrect");
+  }
+
+  return {
+    ok: true,
+    testType: "unit",
+    publicKey: publicProjection.key,
+    privateKey: privateProjection.key
+  };
+}
+
+function testAdminSettingsAuditNoValueLeak() {
+  const originalLog = AuditService_log_;
+  let captured = null;
+
+  AuditService_log_ = function (entry) {
+    captured = entry;
+    return entry;
+  };
+
+  try {
+    AuditService_logAdminSettingsUpdated_([{
+      key: "contact_phone",
+      value: "077000000",
+      serializedValue: "077000000",
+      isPublic: true,
+      isRisky: false
+    }, {
+      key: "maintenance_mode",
+      value: true,
+      serializedValue: "true",
+      isPublic: true,
+      isRisky: true
+    }], {
+      user_id: "USER-SUPER",
+      username: "super",
+      display_name: "Super Admin",
+      role: "super_admin"
+    }, "REQ-TEST-SETTINGS");
+  } finally {
+    AuditService_log_ = originalLog;
+  }
+
+  const serialized = JSON.stringify(captured);
+
+  ["077000000", "serializedValue"].forEach(function (forbidden) {
+    if (serialized.indexOf(forbidden) !== -1) {
+      throw new Error("admin.settings audit leaked setting value: " + forbidden);
+    }
+  });
+
+  if (!captured || captured.action !== "admin.settings.update" ||
+      captured.detail.changedCount !== 2 ||
+      captured.detail.riskyKeys.indexOf("maintenance_mode") === -1) {
+    throw new Error("admin.settings audit detail is invalid");
+  }
+
+  return {
+    ok: true,
+    testType: "unit",
+    detail: captured.detail
+  };
+}
+
 function testAdminReportUpdateStatusTransitionMatrix() {
   try {
     const officerPermissions = UserService_getPermissions_("officer");

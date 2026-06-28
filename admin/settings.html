@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="ตั้งค่าระบบ Khaophang Report" />
+    <meta name="description" content="ตั้งค่าระบบ Khaophang Report สำหรับผู้ดูแลระบบ" />
     <title>ตั้งค่า | Khaophang Report Admin</title>
     <link rel="stylesheet" href="../assets/css/variables.css" />
     <link rel="stylesheet" href="../assets/css/reset.css" />
@@ -19,32 +19,125 @@
   </head>
   <body class="admin-app-page admin-auth-pending" data-admin-guard="required" data-admin-page="settings">
     <header class="admin-mobile-topbar">
-      <a class="admin-brand" href="dashboard.html" aria-label="ไปหน้า Dashboard"><span class="admin-logo" aria-hidden="true">KR</span><span>Khaophang Admin</span></a>
-      <button class="admin-icon-button" type="button" data-admin-drawer-open aria-controls="admin-drawer" aria-expanded="false"><span aria-hidden="true">☰</span><span class="sr-only">เปิดเมนูผู้ดูแลระบบ</span></button>
+      <a class="admin-brand" href="dashboard.html" aria-label="ไปหน้าแดชบอร์ด">
+        <span class="admin-logo" aria-hidden="true">KR</span>
+        <span>Khaophang Admin</span>
+      </a>
+      <button class="admin-icon-button" type="button" data-admin-drawer-open aria-controls="admin-drawer" aria-expanded="false">
+        <span aria-hidden="true">☰</span>
+        <span class="sr-only">เปิดเมนูผู้ดูแลระบบ</span>
+      </button>
     </header>
+
     <button class="admin-drawer-overlay" type="button" data-admin-drawer-close aria-label="ปิดเมนู" hidden></button>
     <aside class="admin-drawer" id="admin-drawer" aria-labelledby="admin-drawer-title" hidden>
-      <div class="admin-drawer__header"><p id="admin-drawer-title" class="admin-drawer__title">เมนูผู้ดูแลระบบ</p><button class="admin-icon-button" type="button" data-admin-drawer-close><span aria-hidden="true">×</span><span class="sr-only">ปิดเมนูผู้ดูแลระบบ</span></button></div>
-      <p class="admin-user-summary">ผู้ใช้งาน: ยังไม่เชื่อม Session จริง</p>
+      <div class="admin-drawer__header">
+        <p id="admin-drawer-title" class="admin-drawer__title">เมนูผู้ดูแลระบบ</p>
+        <button class="admin-icon-button" type="button" data-admin-drawer-close>
+          <span aria-hidden="true">×</span>
+          <span class="sr-only">ปิดเมนูผู้ดูแลระบบ</span>
+        </button>
+      </div>
+      <p class="admin-user-summary">ผู้ใช้งาน: กำลังตรวจสอบ Session</p>
       <nav class="admin-menu" aria-label="เมนูผู้ดูแลระบบบนมือถือ">
-        <a href="dashboard.html" data-menu-key="dashboard">Dashboard</a><a href="reports.html" data-menu-key="reports">เรื่องแจ้ง</a><a href="reports.html?scope=assigned" data-menu-key="assigned">งานของฉัน</a><a href="export.html" data-menu-key="export">รายงาน</a><a href="users.html" data-menu-key="users">ผู้ใช้งาน</a><a href="categories.html" data-menu-key="categories">หมวดหมู่</a><a href="announcements.html" data-menu-key="announcements">ประกาศ</a><a href="activity-logs.html" data-menu-key="activity">Activity Logs</a><a href="settings.html" data-menu-key="settings" aria-current="page">ตั้งค่า</a><button type="button" class="admin-menu__button" data-admin-logout>ออกจากระบบ</button>
+        <a href="dashboard.html" data-menu-key="dashboard">แดชบอร์ด</a>
+        <a href="reports.html" data-menu-key="reports">เรื่องแจ้ง</a>
+        <a href="reports.html?scope=mine" data-menu-key="assigned">งานของฉัน</a>
+        <a href="export.html" data-menu-key="export">รายงาน</a>
+        <a href="users.html" data-menu-key="users">ผู้ใช้งาน</a>
+        <a href="categories.html" data-menu-key="categories">หมวดหมู่</a>
+        <a href="announcements.html" data-menu-key="announcements">ประกาศ</a>
+        <a href="activity-logs.html" data-menu-key="activity">Activity Logs</a>
+        <a href="settings.html" data-menu-key="settings" aria-current="page">ตั้งค่า</a>
+        <button type="button" class="admin-menu__button" data-admin-logout>ออกจากระบบ</button>
       </nav>
     </aside>
+
     <div class="admin-app">
       <aside class="admin-sidebar" aria-label="เมนูผู้ดูแลระบบ">
-        <a class="admin-brand" href="dashboard.html" aria-label="ไปหน้า Dashboard"><span class="admin-logo" aria-hidden="true">KR</span><span>Khaophang Admin</span></a>
-        <p class="admin-user-summary">ผู้ใช้งาน: ยังไม่เชื่อม Session จริง</p>
+        <a class="admin-brand" href="dashboard.html" aria-label="ไปหน้าแดชบอร์ด">
+          <span class="admin-logo" aria-hidden="true">KR</span>
+          <span>Khaophang Admin</span>
+        </a>
+        <p class="admin-user-summary">ผู้ใช้งาน: กำลังตรวจสอบ Session</p>
         <nav class="admin-menu">
-          <a href="dashboard.html" data-menu-key="dashboard">Dashboard</a><a href="reports.html" data-menu-key="reports">เรื่องแจ้ง</a><a href="reports.html?scope=assigned" data-menu-key="assigned">งานของฉัน</a><a href="export.html" data-menu-key="export">รายงาน</a><a href="users.html" data-menu-key="users">ผู้ใช้งาน</a><a href="categories.html" data-menu-key="categories">หมวดหมู่</a><a href="announcements.html" data-menu-key="announcements">ประกาศ</a><a href="activity-logs.html" data-menu-key="activity">Activity Logs</a><a href="settings.html" data-menu-key="settings" aria-current="page">ตั้งค่า</a><button type="button" class="admin-menu__button" data-admin-logout>ออกจากระบบ</button>
+          <a href="dashboard.html" data-menu-key="dashboard">แดชบอร์ด</a>
+          <a href="reports.html" data-menu-key="reports">เรื่องแจ้ง</a>
+          <a href="reports.html?scope=mine" data-menu-key="assigned">งานของฉัน</a>
+          <a href="export.html" data-menu-key="export">รายงาน</a>
+          <a href="users.html" data-menu-key="users">ผู้ใช้งาน</a>
+          <a href="categories.html" data-menu-key="categories">หมวดหมู่</a>
+          <a href="announcements.html" data-menu-key="announcements">ประกาศ</a>
+          <a href="activity-logs.html" data-menu-key="activity">Activity Logs</a>
+          <a href="settings.html" data-menu-key="settings" aria-current="page">ตั้งค่า</a>
+          <button type="button" class="admin-menu__button" data-admin-logout>ออกจากระบบ</button>
         </nav>
       </aside>
+
       <main class="admin-shell">
-        <section class="admin-panel" aria-labelledby="page-title">
-          <p class="eyebrow">ระบบ</p>
-          <h1 id="page-title">ตั้งค่า</h1>
-          <p class="placeholder-text">พื้นที่ตั้งต้นสำหรับตั้งค่าระบบแบบไม่เก็บ Secret</p>
+        <section class="settings-page" aria-labelledby="page-title">
+          <div class="settings-hero">
+            <div>
+              <p class="eyebrow">ระบบ</p>
+              <h1 id="page-title">ตั้งค่าระบบ</h1>
+              <p>ดูแลค่าที่เผยแพร่ต่อประชาชนและค่าการทำงานสำคัญ โดยไม่แสดงหรือแก้ไขข้อมูลลับของระบบ</p>
+            </div>
+            <div class="settings-hero__actions">
+              <span>อัปเดตล่าสุด</span>
+              <strong data-settings-updated-at>-</strong>
+              <button class="button button-primary" type="button" data-settings-save-top>บันทึก</button>
+            </div>
+          </div>
+
+          <section class="settings-permission" data-settings-forbidden hidden role="alert">
+            <h2>ไม่มีสิทธิ์จัดการตั้งค่า</h2>
+            <p>บัญชีนี้ไม่มีสิทธิ์จัดการค่าระบบ กรุณาติดต่อผู้ดูแลระบบสูงสุด</p>
+          </section>
+
+          <div class="settings-state settings-state--loading" data-settings-loading role="status" aria-live="polite">
+            <span class="settings-skeleton settings-skeleton--toolbar"></span>
+            <span class="settings-skeleton"></span>
+            <span class="settings-skeleton"></span>
+            <span class="settings-skeleton"></span>
+          </div>
+
+          <div class="settings-state settings-state--error" data-settings-error hidden role="alert">
+            <h2>โหลดค่าระบบไม่สำเร็จ</h2>
+            <p data-settings-error-message>กรุณาลองใหม่อีกครั้ง</p>
+            <button class="button button-primary" type="button" data-settings-retry>ลองใหม่</button>
+          </div>
+
+          <div class="settings-state settings-state--empty" data-settings-empty hidden>
+            <h2>ยังไม่มีค่าที่จัดการได้</h2>
+            <p>ไม่พบรายการตั้งค่าที่อยู่ใน whitelist ของระบบ</p>
+          </div>
+
+          <form class="settings-form" data-settings-form hidden novalidate>
+            <div class="settings-alert" data-settings-form-error hidden role="alert"></div>
+            <div class="settings-success" data-settings-form-success hidden role="status" aria-live="polite"></div>
+            <div class="settings-groups" data-settings-groups></div>
+            <div class="settings-form__actions">
+              <button class="button button-secondary" type="button" data-settings-reset>ยกเลิกการแก้ไข</button>
+              <button class="button button-primary" type="submit" data-settings-save>บันทึกการตั้งค่า</button>
+            </div>
+          </form>
         </section>
       </main>
+    </div>
+
+    <div class="settings-modal-backdrop" data-settings-confirm hidden>
+      <section class="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-confirm-title">
+        <div class="settings-modal__header">
+          <h2 id="settings-confirm-title">ยืนยันค่าที่มีผลกระทบสูง</h2>
+          <button class="admin-icon-button" type="button" data-settings-confirm-cancel aria-label="ปิดหน้าต่าง">×</button>
+        </div>
+        <p data-settings-confirm-message>ค่าบางรายการมีผลต่อประชาชนหรือการรับเรื่อง กรุณาตรวจสอบก่อนบันทึก</p>
+        <div class="settings-confirm-list" data-settings-confirm-list></div>
+        <div class="settings-modal__actions">
+          <button class="button button-secondary" type="button" data-settings-confirm-back>กลับไปตรวจสอบ</button>
+          <button class="button button-danger" type="button" data-settings-confirm-ok>ยืนยันและบันทึก</button>
+        </div>
+      </section>
     </div>
   </body>
 </html>
