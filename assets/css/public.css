@@ -15,16 +15,12 @@
 }
 
 .site-logo {
-  align-items: center;
-  background: var(--color-primary-700);
+  aspect-ratio: 1;
   border-radius: var(--radius-sm);
-  color: var(--color-surface);
-  display: inline-flex;
+  display: block;
   flex: 0 0 auto;
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-bold);
   height: 2.25rem;
-  justify-content: center;
+  object-fit: contain;
   width: 2.25rem;
 }
 
@@ -152,6 +148,21 @@
 .mobile-bottom-nav__emergency:focus-visible .mobile-bottom-nav__emergency-button {
   outline: 3px solid var(--color-focus);
   outline-offset: 3px;
+}
+
+.page-hero {
+  aspect-ratio: 2.45 / 1;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  width: 100%;
+}
+
+.page-hero__image {
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  width: 100%;
 }
 
 .hero-section {
