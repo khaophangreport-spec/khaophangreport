@@ -146,8 +146,8 @@
 }
 
 .home-hero__visual {
-  aspect-ratio: 16 / 10;
-  background: linear-gradient(180deg, #dff1e4 0%, #f8fbf1 58%, #f2eadb 100%);
+  aspect-ratio: 16 / 9;
+  background: var(--color-surface-muted);
   border: 1px solid var(--color-primary-200);
   border-radius: var(--radius-md);
   min-height: 11rem;
@@ -155,60 +155,12 @@
   position: relative;
 }
 
-.home-hero__sun,
-.home-hero__hill,
-.home-hero__path,
-.home-hero__marker {
-  position: absolute;
-}
-
-.home-hero__sun {
-  background: #f3c867;
-  border-radius: var(--radius-pill);
-  box-shadow: 0 0 0 0.75rem rgba(243, 200, 103, 0.18);
-  height: 3.25rem;
-  right: 12%;
-  top: 14%;
-  width: 3.25rem;
-}
-
-.home-hero__hill {
-  border-radius: 50% 50% 0 0;
-  bottom: -20%;
-  height: 54%;
-  width: 78%;
-}
-
-.home-hero__hill--back {
-  background: #9fcf9c;
-  left: -18%;
-}
-
-.home-hero__hill--front {
-  background: #4f9b60;
-  bottom: -24%;
-  right: -18%;
-}
-
-.home-hero__path {
-  background: linear-gradient(180deg, #f5efe2, #cfae77);
-  bottom: -8%;
-  height: 54%;
-  left: 44%;
-  transform: skewX(-16deg);
-  width: 18%;
-}
-
-.home-hero__marker {
-  background: var(--color-primary-900);
-  border: 0.45rem solid var(--color-surface);
-  border-radius: var(--radius-pill) var(--radius-pill) var(--radius-pill) 0;
-  box-shadow: var(--shadow-md);
-  height: 2.65rem;
-  left: 50%;
-  top: 39%;
-  transform: rotate(-45deg);
-  width: 2.65rem;
+.home-hero__image {
+  display: block;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  width: 100%;
 }
 
 .section-heading {
