@@ -254,7 +254,7 @@ function ReportService_addInfo(request) {
 function ReportService_listPublicLatest(request) {
   const data = request && Utils_isPlainObject_(request.data) ? request.data : {};
   const requestedLimit = parseInt(data.limit, 10);
-  const limit = isFinite(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 10) : 10;
+  const limit = isFinite(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 5) : 5;
   const reports = SheetRepository_selectColumns_("reports", REPORT_PUBLIC_LATEST_COLUMNS_, {
     keyColumnName: "report_id"
   }).objects;

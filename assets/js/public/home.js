@@ -2,7 +2,7 @@
   "use strict";
 
   const ANNOUNCEMENT_LIMIT = 5;
-  const LATEST_REPORT_LIMIT = 10;
+  const LATEST_REPORT_LIMIT = 5;
   const STATUS_LABELS = {
     new: "รับเรื่องแล้ว",
     reviewing: "กำลังตรวจสอบ",
@@ -155,7 +155,9 @@
 
     try {
       const response = await window.KPR_API.read("public.report.latest", { limit: LATEST_REPORT_LIMIT });
-      const items = response && response.data && Array.isArray(response.data.items) ? response.data.items : [];
+      const items = response && response.data && Array.isArray(response.data.items)
+        ? response.data.items.slice(0, LATEST_REPORT_LIMIT)
+        : [];
 
       renderLatestReports(items);
       showLatestReportState(items.length > 0 ? "success" : "empty");
