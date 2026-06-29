@@ -40,11 +40,11 @@ function DashboardService_summary(request) {
   const diagnostics = DashboardService_createDiagnostics_(request);
 
   try {
-    diagnostics.log("DASHBOARD_STEP_01_AUTH_START", {});
+    diagnostics.log("AUTH_START", {});
 
     const context = DashboardService_requireContext_(request);
 
-    diagnostics.log("DASHBOARD_STEP_02_AUTH_OK", {
+    diagnostics.log("AUTH_OK", {
       role: context.user && context.user.role ? context.user.role : "",
       scope: context.scope
     });
@@ -64,7 +64,7 @@ function DashboardService_buildSummaryResponse_(context, diagnostics, options) {
   const safeDiagnostics = diagnostics || DashboardService_createDiagnostics_({});
   const cacheKey = DashboardService_buildCacheKey_(context);
 
-  safeDiagnostics.log("DASHBOARD_STEP_03_SCOPE_OK", {
+  safeDiagnostics.log("DASHBOARD_SERVICE_START", {
     scope: context.scope,
     cacheKeyLength: cacheKey.length
   });
@@ -73,7 +73,7 @@ function DashboardService_buildSummaryResponse_(context, diagnostics, options) {
     const cachedData = DashboardService_getCachedSummarySafe_(cacheKey, safeDiagnostics);
 
     if (cachedData) {
-      safeDiagnostics.log("DASHBOARD_STEP_08_RESPONSE_OK", {
+      safeDiagnostics.log("RESPONSE_BUILD_OK", {
         source: "cache",
         total: cachedData.cards && cachedData.cards.total ? cachedData.cards.total : 0
       });
@@ -87,17 +87,17 @@ function DashboardService_buildSummaryResponse_(context, diagnostics, options) {
 
   const reports = DashboardService_readReportSummaryRows_(context);
 
-  safeDiagnostics.log("DASHBOARD_STEP_04_REPORT_SUMMARY_OK", {
+  safeDiagnostics.log("REPORT_SUMMARY_OK", {
     reportCount: reports.length,
     scope: context.scope
   });
 
-  safeDiagnostics.log("DASHBOARD_STEP_05_MY_WORK_OK", {
+  safeDiagnostics.log("MY_WORK_SUMMARY_OK", {
     reportCount: reports.length,
     scope: context.scope
   });
 
-  safeDiagnostics.log("DASHBOARD_STEP_06_USERS_OK", {
+  safeDiagnostics.log("DASHBOARD_USERS_OK", {
     userCount: context && context.user ? 1 : 0
   });
 
@@ -120,7 +120,7 @@ function DashboardService_buildSummaryResponse_(context, diagnostics, options) {
     DashboardService_putCachedSummarySafe_(cacheKey, data, safeDiagnostics);
   }
 
-  safeDiagnostics.log("DASHBOARD_STEP_08_RESPONSE_OK", {
+  safeDiagnostics.log("RESPONSE_BUILD_OK", {
     source: "fresh",
     total: data.cards.total,
     open: data.cards.open,
@@ -151,7 +151,7 @@ function runDiagnoseActualAdminDashboardForDevOnly() {
     });
 
     try {
-      diagnostics.log("DASHBOARD_STEP_01_AUTH_START", {
+      diagnostics.log("AUTH_START", {
         diagnostic: true
       });
       DashboardService_assertPermission_(permissions, "report.read");
@@ -673,6 +673,10 @@ function DashboardService_createDiagnostics_(request) {
   };
 
   diagnostics.fail = function (error) {
+    if (error) {
+      error.dashboardLastStep = diagnostics.lastStep;
+    }
+
     DashboardService_logStep_("DASHBOARD_STEP_FAILED", diagnostics, {
       lastStep: diagnostics.lastStep,
       code: error && error.code ? error.code : "INTERNAL_ERROR",

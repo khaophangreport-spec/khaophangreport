@@ -1477,6 +1477,82 @@ function testDashboardKnownAuthErrorKeepsCode() {
   throw new Error("dashboard.summary auth error did not keep expected code");
 }
 
+function testResponseUnhandledBackendErrorLogSafe() {
+  const originalConsoleError = console.error;
+  const captured = [];
+  const error = new Error("Boom for person@example.com phone 0812345678");
+
+  error.name = "DiagnosticError";
+
+  console.error = function (message) {
+    captured.push(String(message || ""));
+  };
+
+  try {
+    Response_logUnhandledBackendError_(error, {
+      requestId: "REQ-TEST-UNHANDLED-LOG",
+      action: "dashboard.summary",
+      handler: "DashboardService_summary",
+      lastStep: "REPORT_SUMMARY_OK",
+      sessionToken: "SHOULD-NOT-LOG"
+    });
+  } finally {
+    console.error = originalConsoleError;
+  }
+
+  if (captured.length !== 1) {
+    throw new Error("UNHANDLED_BACKEND_ERROR log was not written exactly once");
+  }
+
+  const payload = JSON.parse(captured[0]);
+  const serialized = JSON.stringify(payload);
+
+  if (payload.type !== "UNHANDLED_BACKEND_ERROR" ||
+      payload.requestId !== "REQ-TEST-UNHANDLED-LOG" ||
+      payload.action !== "dashboard.summary" ||
+      payload.handler !== "DashboardService_summary" ||
+      payload.lastStep !== "REPORT_SUMMARY_OK" ||
+      payload.errorName !== "DiagnosticError" ||
+      !payload.stack) {
+    throw new Error("UNHANDLED_BACKEND_ERROR log missed expected diagnostic fields");
+  }
+
+  ["person@example.com", "0812345678", "SHOULD-NOT-LOG"].forEach(function (forbidden) {
+    if (serialized.indexOf(forbidden) !== -1) {
+      throw new Error("UNHANDLED_BACKEND_ERROR log leaked sensitive value: " + forbidden);
+    }
+  });
+
+  return {
+    ok: true,
+    testType: "unit",
+    checked: 1
+  };
+}
+
+function testDashboardDiagnosticsFailureCapturesLastStep() {
+  const diagnostics = DashboardService_createDiagnostics_({
+    action: "dashboard.summary",
+    requestId: "REQ-TEST-DASHBOARD-STEP"
+  });
+  const error = new Error("diagnostic failure");
+
+  diagnostics.log("AUTH_START", {});
+  diagnostics.log("AUTH_OK", {});
+  diagnostics.log("DASHBOARD_SERVICE_START", {});
+  diagnostics.fail(error);
+
+  if (error.dashboardLastStep !== "DASHBOARD_SERVICE_START") {
+    throw new Error("Dashboard diagnostics did not attach last step to error");
+  }
+
+  return {
+    ok: true,
+    testType: "unit",
+    checked: diagnostics.steps.length
+  };
+}
+
 function testDashboardSummaryCacheClearVersion() {
   const beforeVersion = DashboardService_getCacheVersion_();
   const result = DashboardService_clearCache_();
@@ -3896,6 +3972,8 @@ function runKhaophangCoreTestSuite() {
     { group: "dashboard", name: "actual response flow global/mine", fn: testDashboardSummaryResponseFlowDemoSeedGlobalAndMine },
     { group: "dashboard", name: "response serialization safe", fn: testDashboardSummaryResponseSerializationSafe },
     { group: "dashboard", name: "known auth error keeps code", fn: testDashboardKnownAuthErrorKeepsCode },
+    { group: "dashboard", name: "unhandled error log safe", fn: testResponseUnhandledBackendErrorLogSafe },
+    { group: "dashboard", name: "diagnostics failure last step", fn: testDashboardDiagnosticsFailureCapturesLastStep },
     { group: "permission", name: "viewer report list read only", fn: testAdminReportListViewerReadOnly },
     { group: "list", name: "admin report list filters", fn: testAdminReportListFiltersSortPagination },
     { group: "list", name: "admin user list pagination", fn: testAdminUserListPagination },

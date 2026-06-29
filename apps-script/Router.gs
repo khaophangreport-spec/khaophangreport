@@ -83,6 +83,7 @@ function Router_dispatch_(payload, context) {
   const meta = {
     requestId: payload && payload.requestId ? String(payload.requestId) : "",
     action: payload && payload.action ? String(payload.action) : "",
+    handler: "",
     method: safeContext.method || "",
     contentType: safeContext.contentType || ""
   };
@@ -101,6 +102,7 @@ function Router_dispatch_(payload, context) {
 
     meta.requestId = payload.requestId || Utils_createRequestId_();
     meta.action = action;
+    meta.handler = Router_getHandlerName_(handler);
 
     const result = handler({
       action: action,
@@ -119,6 +121,9 @@ function Router_dispatch_(payload, context) {
 
     return Response_success_(result.data, result.message, meta);
   } catch (error) {
+    meta.lastStep = error && error.dashboardLastStep ? error.dashboardLastStep : "";
+    Response_logUnhandledBackendError_(error, meta);
+
     Router_logRequest_("error", {
       action: meta.action,
       requestId: meta.requestId,
@@ -151,6 +156,51 @@ function Router_parseGetData_(parameters) {
   });
 
   return data;
+}
+
+function Router_getHandlerName_(handler) {
+  if (handler && handler.name) {
+    return handler.name;
+  }
+
+  const source = handler ? String(handler) : "";
+  const match = source.match(/function\s+([A-Za-z0-9_]+)/);
+
+  return match && match[1] ? match[1] : "";
+}
+
+function Router_extractMetaFromEvent_(e, method) {
+  const safeMethod = method || "";
+  const meta = {
+    requestId: "",
+    action: "",
+    handler: "",
+    method: safeMethod,
+    contentType: "",
+    lastStep: "GLOBAL_" + safeMethod + "_CATCH"
+  };
+
+  if (safeMethod === "GET") {
+    const parameters = e && e.parameter ? e.parameter : {};
+
+    meta.requestId = parameters.requestId ? String(parameters.requestId) : "";
+    meta.action = parameters.action ? String(parameters.action) : "";
+    return meta;
+  }
+
+  meta.contentType = e && e.postData && e.postData.type ? String(e.postData.type) : "";
+
+  try {
+    const rawBody = e && e.postData && e.postData.contents ? String(e.postData.contents) : "";
+    const parsed = rawBody ? JSON.parse(rawBody) : {};
+
+    meta.requestId = parsed && parsed.requestId ? String(parsed.requestId) : "";
+    meta.action = parsed && parsed.action ? String(parsed.action) : "";
+  } catch (parseError) {
+    meta.action = "";
+  }
+
+  return meta;
 }
 
 function Router_logRequest_(status, details) {
