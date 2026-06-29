@@ -30,6 +30,7 @@
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-medium);
   padding: var(--space-2) var(--space-3);
+  transition: background-color var(--transition-fast), color var(--transition-fast), transform var(--transition-fast);
 }
 
 .site-nav a:hover,
@@ -37,6 +38,10 @@
   background: var(--color-primary-100);
   color: var(--color-primary-900);
   text-decoration: none;
+}
+
+.site-nav a:hover {
+  transform: translateY(-1px);
 }
 
 .page-shell,
@@ -137,6 +142,13 @@
   display: grid;
   gap: var(--space-3);
   padding: var(--space-5);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), transform var(--transition-fast);
+}
+
+.card:hover {
+  border-color: var(--theme-border, var(--color-primary-200));
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }
 
 .form-grid {
@@ -259,19 +271,29 @@ textarea[aria-invalid="true"] {
 }
 
 .status-chip-success,
-.status-chip-resolved,
-.status-chip-completed {
+.status-chip-resolved {
   background: var(--color-success-bg);
   border-color: #b9dfc5;
   color: var(--color-success);
 }
 
+.status-chip-completed {
+  background: var(--color-surface-muted);
+  border-color: var(--color-border-strong);
+  color: var(--color-text-secondary);
+}
+
 .status-chip-warning,
-.status-chip-pending,
-.status-chip-in-progress {
+.status-chip-pending {
   background: var(--color-warning-bg);
   border-color: #f1d49a;
   color: var(--color-warning);
+}
+
+.status-chip-in-progress {
+  background: var(--color-orange-50);
+  border-color: var(--color-orange-100);
+  color: var(--color-orange-600);
 }
 
 .status-chip-danger,
@@ -283,9 +305,9 @@ textarea[aria-invalid="true"] {
 
 .status-chip-info,
 .status-chip-received {
-  background: var(--color-info-bg);
-  border-color: #b9ddeb;
-  color: var(--color-info);
+  background: var(--color-blue-50);
+  border-color: var(--color-blue-100);
+  color: var(--color-blue-600);
 }
 
 .alert {
