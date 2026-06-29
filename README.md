@@ -597,7 +597,7 @@ admin.export.csv
 ### Phase 2 — Public MVP
 
 - หน้าแรก
-- แบบฟอร์มแจ้งปัญหา 6 ขั้น
+- แบบฟอร์มแจ้งปัญหาแบบหน้าเดียว
 - Location
 - Image Compression
 - Create Report

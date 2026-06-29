@@ -36,35 +36,16 @@
 
     <main class="page-shell report-page">
       <section class="content-section report-intro" aria-labelledby="page-title">
-        <p class="eyebrow">แบบฟอร์ม 6 ขั้นตอน</p>
         <h1 id="page-title">แจ้งปัญหา</h1>
-        <p>กรอกข้อมูลทีละขั้น ระบบจะช่วยตรวจความครบถ้วนก่อนถึงหน้าตรวจสอบ</p>
-        <div class="alert alert-info" data-draft-restored hidden>
-          <p>พบข้อมูลร่างที่เคยกรอกไว้ ระบบกู้คืนข้อมูลที่ปลอดภัยให้แล้ว รูปภาพและข้อมูลติดต่อส่วนตัวต้องเลือกหรือกรอกใหม่</p>
-        </div>
-        <div class="alert alert-warning">
-          <p>กรณีเร่งด่วนที่เสี่ยงต่อชีวิตหรือความปลอดภัย โปรดติดต่อหน่วยงานฉุกเฉินโดยตรง ระบบนี้ไม่ใช่ช่องทางฉุกเฉิน</p>
-        </div>
       </section>
 
       <section class="content-section report-form-section" aria-labelledby="report-step-title">
-        <ol class="stepper report-stepper" aria-label="ขั้นตอนการแจ้งปัญหา">
-          <li class="stepper-item" data-stepper-item="1" aria-current="step">หมวด</li>
-          <li class="stepper-item" data-stepper-item="2">รายละเอียด</li>
-          <li class="stepper-item" data-stepper-item="3">สถานที่</li>
-          <li class="stepper-item" data-stepper-item="4">รูปภาพ</li>
-          <li class="stepper-item" data-stepper-item="5">ผู้แจ้ง</li>
-          <li class="stepper-item" data-stepper-item="6">ตรวจสอบ</li>
-        </ol>
-
         <form class="report-form" data-report-form novalidate>
-          <section class="report-step-panel" data-step-panel="1" aria-labelledby="report-step-title">
+          <section class="report-form-panel" data-report-section="category" aria-labelledby="report-step-title">
             <div class="section-heading">
-              <p class="eyebrow">Step 1</p>
               <h2 id="report-step-title">เลือกหมวดปัญหา</h2>
               <p>เลือกหมวดที่ใกล้เคียงที่สุด เพื่อให้เจ้าหน้าที่คัดกรองได้เร็วขึ้น</p>
             </div>
-            <input type="hidden" id="category-id" name="categoryId" data-field="categoryId" />
 
             <div class="home-state" data-category-loading aria-live="polite">
               <div class="skeleton home-skeleton"></div>
@@ -74,7 +55,6 @@
             <div class="empty-state" data-category-empty hidden>
               <h3>ยังไม่มีหมวดที่เปิดใช้งาน</h3>
               <p>กรุณาลองใหม่ภายหลัง หรือกลับไปหน้าแรกเพื่อดูช่องทางติดต่อ</p>
-              <a class="button button-secondary" href="index.html">กลับหน้าแรก</a>
             </div>
 
             <div class="alert alert-danger home-state" data-category-error hidden>
@@ -85,13 +65,17 @@
               <button class="button button-small button-outline" type="button" data-retry-categories>ลองใหม่</button>
             </div>
 
-            <div class="report-category-grid" data-category-list hidden></div>
+            <div class="form-field" data-category-select-wrap hidden>
+              <label class="form-label" for="category-id">หมวดหมู่ปัญหา <span aria-hidden="true">*</span></label>
+              <select class="form-select" id="category-id" name="categoryId" data-field="categoryId" data-category-select aria-describedby="category-id-error" required>
+                <option value="">เลือกหมวดหมู่ปัญหา</option>
+              </select>
+            </div>
             <p class="form-error" id="category-id-error" data-error-for="categoryId" aria-live="polite"></p>
           </section>
 
-          <section class="report-step-panel" data-step-panel="2" aria-labelledby="details-title" hidden>
+          <section class="report-form-panel" data-report-section="details" aria-labelledby="details-title">
             <div class="section-heading">
-              <p class="eyebrow">Step 2</p>
               <h2 id="details-title">รายละเอียดปัญหา</h2>
               <p>เล่าให้ชัดเจนพอที่เจ้าหน้าที่เข้าใจพื้นที่และลักษณะปัญหา</p>
             </div>
@@ -132,9 +116,8 @@
             </div>
           </section>
 
-          <section class="report-step-panel" data-step-panel="3" aria-labelledby="location-title" hidden>
+          <section class="report-form-panel" data-report-section="location" aria-labelledby="location-title">
             <div class="section-heading">
-              <p class="eyebrow">Step 3</p>
               <h2 id="location-title">สถานที่เกิดปัญหา</h2>
               <p>ระบุชื่อสถานที่หรือจุดสังเกตอย่างน้อยหนึ่งรายการ พิกัดเป็นข้อมูลเสริม ไม่บังคับ</p>
             </div>
@@ -182,9 +165,8 @@
             </div>
           </section>
 
-          <section class="report-step-panel" data-step-panel="4" aria-labelledby="images-title" hidden>
+          <section class="report-form-panel" data-report-section="images" aria-labelledby="images-title">
             <div class="section-heading">
-              <p class="eyebrow">Step 4</p>
               <h2 id="images-title">เพิ่มรูปภาพ</h2>
               <p>เพิ่มรูปได้สูงสุด 3 รูป รองรับ JPG, PNG และ WebP ระบบจะบีบอัดในเบราว์เซอร์ให้ด้านยาวไม่เกิน 1600px และไม่เกิน 1 MB ต่อรูปก่อนส่งจริง</p>
             </div>
@@ -204,9 +186,8 @@
             </div>
           </section>
 
-          <section class="report-step-panel" data-step-panel="5" aria-labelledby="reporter-title" hidden>
+          <section class="report-form-panel" data-report-section="reporter" aria-labelledby="reporter-title">
             <div class="section-heading">
-              <p class="eyebrow">Step 5</p>
               <h2 id="reporter-title">ข้อมูลผู้แจ้ง</h2>
               <p>เลือกแจ้งแบบระบุตัวตนหรือไม่ระบุตัวตน ข้อมูลส่วนตัวจะไม่ถูกเก็บใน draft</p>
             </div>
@@ -262,16 +243,13 @@
             </div>
           </section>
 
-          <section class="report-step-panel" data-step-panel="6" aria-labelledby="review-title" hidden>
+          <section class="report-form-panel" data-report-section="consent" aria-labelledby="consent-title">
             <div class="section-heading">
-              <p class="eyebrow">Step 6</p>
-              <h2 id="review-title">ตรวจสอบข้อมูล</h2>
-              <p>ตรวจความถูกต้องก่อนส่งเรื่องเข้าสู่ระบบ เจ้าหน้าที่จะใช้ข้อมูลนี้ในการคัดกรองและติดตาม</p>
+              <h2 id="consent-title">ความยินยอมและเงื่อนไข</h2>
             </div>
             <div class="alert alert-success" data-review-success hidden>
               <p>ข้อมูลพร้อมส่งแล้ว กรุณารอสักครู่ขณะระบบบันทึกเรื่อง</p>
             </div>
-            <div class="report-review-list" data-review-list></div>
             <div class="report-consent-panel">
               <label class="report-check">
                 <input id="truth-confirmed" type="checkbox" name="truthConfirmed" data-field="truthConfirmed" aria-describedby="truth-confirmed-error" />
@@ -287,9 +265,8 @@
           </section>
 
           <div class="report-form-actions">
-            <button class="button button-outline" type="button" data-back-step>ย้อนกลับ</button>
             <button class="button button-secondary" type="button" data-save-draft>บันทึกแบบร่าง</button>
-            <button class="button button-primary" type="button" data-next-step disabled>ถัดไป</button>
+            <button class="button button-primary" type="submit" data-submit-report>ส่ง</button>
           </div>
           <p class="form-help" data-form-status aria-live="polite"></p>
         </form>

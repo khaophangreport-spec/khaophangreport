@@ -9,8 +9,6 @@
   const CONTACT_METHOD_VALUES = ["phone", "email", "none"];
 
   const state = {
-    currentStep: 1,
-    maxStep: 6,
     categories: [],
     selectedCategoryId: "",
     images: [],
@@ -38,7 +36,6 @@
     updateCharacterCounts();
     updateReporterMode();
     syncMapFromCoordinates();
-    updateStep();
     loadPublicConfig();
     loadCategories();
     window.addEventListener("beforeunload", handleBeforeUnload);
@@ -47,20 +44,17 @@
 
   function cacheElements() {
     elements.form = document.querySelector("[data-report-form]");
-    elements.panels = Array.from(document.querySelectorAll("[data-step-panel]"));
-    elements.stepperItems = Array.from(document.querySelectorAll("[data-stepper-item]"));
-    elements.backButton = document.querySelector("[data-back-step]");
-    elements.nextButton = document.querySelector("[data-next-step]");
+    elements.submitButton = document.querySelector("[data-submit-report]");
     elements.saveDraftButton = document.querySelector("[data-save-draft]");
     elements.formStatus = document.querySelector("[data-form-status]");
-    elements.draftRestored = document.querySelector("[data-draft-restored]");
 
     elements.categoryId = document.querySelector("[data-field='categoryId']");
     elements.categoryLoading = document.querySelector("[data-category-loading]");
     elements.categoryEmpty = document.querySelector("[data-category-empty]");
     elements.categoryError = document.querySelector("[data-category-error]");
     elements.categoryErrorMessage = document.querySelector("[data-category-error-message]");
-    elements.categoryList = document.querySelector("[data-category-list]");
+    elements.categorySelectWrap = document.querySelector("[data-category-select-wrap]");
+    elements.categorySelect = document.querySelector("[data-category-select]");
     elements.retryCategories = document.querySelector("[data-retry-categories]");
 
     elements.priority = document.querySelector("[data-field='priorityReported']");
@@ -81,10 +75,15 @@
   }
 
   function bindEvents() {
-    elements.backButton.addEventListener("click", goBack);
-    elements.nextButton.addEventListener("click", goNext);
     elements.saveDraftButton.addEventListener("click", function () {
       saveDraft(true);
+    });
+    elements.form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      submitReport();
+    });
+    elements.categorySelect.addEventListener("change", function () {
+      selectCategory(elements.categorySelect.value);
     });
     elements.retryCategories.addEventListener("click", loadCategories);
     elements.priority.addEventListener("change", updateCriticalWarning);
@@ -94,7 +93,6 @@
     elements.form.addEventListener("input", function (event) {
       markDirty();
       updateCharacterCounts();
-      updateNextButtonState();
       handleLocationInput(event.target);
       clearFieldError(event.target);
       scheduleDraftSave();
@@ -104,20 +102,9 @@
       markDirty();
       updateReporterMode();
       updateCriticalWarning();
-      updateNextButtonState();
       handleLocationInput(event.target);
       clearFieldError(event.target);
       scheduleDraftSave();
-    });
-
-    elements.form.addEventListener("click", function (event) {
-      const editButton = event.target.closest("[data-edit-step]");
-
-      if (!editButton) {
-        return;
-      }
-
-      goToStep(Number(editButton.dataset.editStep));
     });
   }
 
@@ -166,45 +153,15 @@
   }
 
   function renderCategories() {
-    clearChildren(elements.categoryList);
+    clearChildren(elements.categorySelect);
+    elements.categorySelect.appendChild(new Option("เลือกหมวดหมู่ปัญหา", ""));
 
     state.categories.forEach(function (category) {
-      elements.categoryList.appendChild(createCategoryButton(category));
+      const categoryId = toText(category.categoryId || category.code);
+      const categoryName = toText(category.name || category.code || categoryId);
+
+      elements.categorySelect.appendChild(new Option(categoryName, categoryId));
     });
-  }
-
-  function createCategoryButton(category) {
-    const categoryId = toText(category.categoryId || category.code);
-    const button = document.createElement("button");
-    const top = document.createElement("span");
-    const icon = document.createElement("span");
-    const title = document.createElement("strong");
-    const description = document.createElement("p");
-    const meta = document.createElement("small");
-
-    button.type = "button";
-    button.className = "report-category-card";
-    button.setAttribute("aria-pressed", categoryId === state.selectedCategoryId ? "true" : "false");
-    button.dataset.categoryId = categoryId;
-
-    top.className = "report-category-card__top";
-    icon.className = "report-category-card__icon";
-    icon.setAttribute("aria-hidden", "true");
-    icon.textContent = getCategoryLabel(category);
-    title.textContent = toText(category.name) || "หมวดปัญหา";
-    description.textContent = toText(category.description) || "แจ้งรายละเอียดปัญหาในหมวดนี้";
-    meta.textContent = formatTargetDays(category.targetDays);
-
-    top.appendChild(icon);
-    top.appendChild(title);
-    button.appendChild(top);
-    button.appendChild(description);
-    button.appendChild(meta);
-    button.addEventListener("click", function () {
-      selectCategory(categoryId);
-    });
-
-    return button;
   }
 
   function applyInitialCategorySelection() {
@@ -229,118 +186,6 @@
     clearError("categoryId");
     markDirty();
     saveDraft(false);
-
-    document.querySelectorAll(".report-category-card").forEach(function (button) {
-      button.setAttribute("aria-pressed", button.dataset.categoryId === state.selectedCategoryId ? "true" : "false");
-    });
-
-    updateNextButtonState();
-  }
-
-  function goNext() {
-    if (elements.nextButton.disabled) {
-      return;
-    }
-
-    if (state.currentStep === state.maxStep) {
-      submitReport();
-      return;
-    }
-
-    if (!validateStep(state.currentStep)) {
-      focusFirstError();
-      return;
-    }
-
-    state.currentStep += 1;
-    saveDraft(false);
-    updateStep();
-    scrollToFormTop();
-  }
-
-  function goToStep(step) {
-    if (step < 1 || step > state.maxStep) {
-      return;
-    }
-
-    state.currentStep = step;
-    updateStep();
-    scrollToFormTop();
-  }
-
-  function goBack() {
-    if (state.currentStep === 1) {
-      window.location.href = "index.html";
-      return;
-    }
-
-    state.currentStep -= 1;
-    saveDraft(false);
-    updateStep();
-    scrollToFormTop();
-  }
-
-  function updateStep() {
-    elements.panels.forEach(function (panel) {
-      panel.hidden = Number(panel.dataset.stepPanel) !== state.currentStep;
-    });
-
-    elements.stepperItems.forEach(function (item) {
-      const isCurrent = Number(item.dataset.stepperItem) === state.currentStep;
-
-      if (isCurrent) {
-        item.setAttribute("aria-current", "step");
-      } else {
-        item.removeAttribute("aria-current");
-      }
-    });
-
-    elements.backButton.textContent = state.currentStep === 1 ? "กลับหน้าแรก" : "ย้อนกลับ";
-    elements.nextButton.textContent = state.isSubmitting ? "กำลังส่ง..." : state.currentStep === state.maxStep ? "ส่งเรื่อง" : "ถัดไป";
-    updateNextButtonState();
-
-    if (state.currentStep === state.maxStep) {
-      renderReview();
-    }
-  }
-
-  function updateNextButtonState() {
-    if (!elements.nextButton) {
-      return;
-    }
-
-    if (state.isSubmitting) {
-      elements.nextButton.disabled = true;
-      return;
-    }
-
-    elements.nextButton.disabled = state.currentStep === 1 && !getFieldValue("categoryId");
-  }
-
-  function validateStep(step) {
-    clearStepErrors(step);
-
-    if (step === 1) {
-      return validateCategoryStep();
-    }
-
-    if (step === 2) {
-      return validateDetailsStep();
-    }
-
-    if (step === 3) {
-      return validateLocationStep();
-    }
-
-    if (step === 4) {
-      return validateImagesStep();
-    }
-
-    if (step === 5) {
-      return validateReporterStep();
-    }
-
-    return true;
   }
 
   function validateCategoryStep() {
@@ -481,7 +326,7 @@
   function validateConsentStep() {
     let isValid = true;
 
-    clearStepErrors(state.maxStep);
+    clearSectionErrors("consent");
 
     if (!isChecked("truthConfirmed")) {
       setError("truthConfirmed", "กรุณายืนยันว่าข้อมูลเป็นความจริง");
@@ -497,23 +342,44 @@
   }
 
   function validateAllSteps() {
-    let firstInvalidStep = 0;
-
-    for (let step = 1; step <= state.maxStep - 1; step += 1) {
-      if (!validateStep(step) && firstInvalidStep === 0) {
-        firstInvalidStep = step;
+    const validators = [
+      {
+        section: "category",
+        validate: validateCategoryStep
+      },
+      {
+        section: "details",
+        validate: validateDetailsStep
+      },
+      {
+        section: "location",
+        validate: validateLocationStep
+      },
+      {
+        section: "images",
+        validate: validateImagesStep
+      },
+      {
+        section: "reporter",
+        validate: validateReporterStep
       }
-    }
+    ];
+    let isValid = true;
 
-    if (firstInvalidStep > 0) {
-      state.currentStep = firstInvalidStep;
-      updateStep();
+    validators.forEach(function (item) {
+      clearSectionErrors(item.section);
+
+      if (!item.validate()) {
+        isValid = false;
+      }
+    });
+
+    if (!isValid) {
       focusFirstError();
-      setStatus("กรุณาตรวจสอบข้อมูลในขั้นที่ " + firstInvalidStep);
+      setStatus("กรุณาตรวจสอบข้อมูลที่จำเป็นก่อนส่งเรื่อง");
       return false;
     }
 
-    renderReview();
     return true;
   }
 
@@ -555,6 +421,7 @@
       handleSubmitError(error);
     } finally {
       if (!state.hasSubmitted) {
+        setHidden(elements.reviewSuccess, true);
         setSubmittingState(false);
       }
     }
@@ -570,15 +437,15 @@
     return result.isValid;
   }
 
-  function clearStepErrors(step) {
-    const panel = document.querySelector("[data-step-panel='" + step + "']");
+  function clearSectionErrors(sectionName) {
+    const panel = document.querySelector("[data-report-section='" + sectionName + "']");
 
     if (!panel) {
       return;
     }
 
     panel.querySelectorAll("[data-error-for]").forEach(function (element) {
-      element.textContent = "";
+      clearError(element.getAttribute("data-error-for"));
     });
   }
 
@@ -630,20 +497,15 @@
   function setSubmittingState(isSubmitting) {
     state.isSubmitting = isSubmitting;
 
-    if (elements.backButton) {
-      elements.backButton.disabled = isSubmitting;
-    }
-
     if (elements.saveDraftButton) {
       elements.saveDraftButton.disabled = isSubmitting;
     }
 
-    if (elements.nextButton) {
-      elements.nextButton.setAttribute("aria-busy", isSubmitting ? "true" : "false");
-      elements.nextButton.textContent = isSubmitting ? "กำลังส่ง..." : state.currentStep === state.maxStep ? "ส่งเรื่อง" : "ถัดไป";
+    if (elements.submitButton) {
+      elements.submitButton.disabled = isSubmitting;
+      elements.submitButton.setAttribute("aria-busy", isSubmitting ? "true" : "false");
+      elements.submitButton.textContent = isSubmitting ? "กำลังส่ง..." : "ส่ง";
     }
-
-    updateNextButtonState();
   }
 
   function focusFirstError() {
@@ -1138,137 +1000,6 @@
     });
   }
 
-  function renderReview() {
-    clearChildren(elements.reviewList);
-    setHidden(elements.reviewSuccess, true);
-
-    const category = getSelectedCategory();
-    const sections = [
-      {
-        step: 1,
-        title: "หมวดปัญหา",
-        lines: [
-          ["หมวด", category ? category.name : "-"],
-          ["คำอธิบาย", category && category.description ? category.description : "-"]
-        ]
-      },
-      {
-        step: 2,
-        title: "รายละเอียดปัญหา",
-        lines: [
-          ["หัวข้อ", getFieldValue("title") || "-"],
-          ["รายละเอียด", getFieldValue("description") || "-"],
-          ["วันที่พบปัญหา", formatThaiDate(getFieldValue("incidentDate")) || "-"],
-          ["ความเร่งด่วน", getPriorityLabel(getFieldValue("priorityReported"))]
-        ]
-      },
-      {
-        step: 3,
-        title: "สถานที่",
-        lines: [
-          ["สรุปสถานที่", buildLocationSummary()],
-          ["ลิงก์แผนที่", getFieldValue("mapUrl") || "-"]
-        ]
-      },
-      {
-        step: 4,
-        title: "รูปภาพ",
-        lines: getImageSummaryLines()
-      },
-      {
-        step: 5,
-        title: "ข้อมูลผู้แจ้ง",
-        lines: getReporterSummaryLines()
-      },
-      {
-        step: 6,
-        title: "การยืนยัน",
-        lines: [
-          ["ยืนยันข้อมูลจริง", isChecked("truthConfirmed") ? "ยืนยันแล้ว" : "ยังไม่ได้ยืนยัน"],
-          ["ยอมรับนโยบาย", isChecked("privacyAccepted") ? "ยอมรับแล้ว" : "ยังไม่ได้ยอมรับ"]
-        ]
-      }
-    ];
-
-    sections.forEach(function (section) {
-      elements.reviewList.appendChild(createReviewSection(section));
-    });
-  }
-
-  function createReviewSection(section) {
-    const wrapper = document.createElement("article");
-    const header = document.createElement("div");
-    const title = document.createElement("h3");
-    const editButton = document.createElement("button");
-    const body = document.createElement("div");
-
-    wrapper.className = "report-review-item report-review-section";
-    header.className = "report-review-section-header";
-    body.className = "report-review-lines";
-    title.textContent = section.title;
-    editButton.className = "button button-outline button-small";
-    editButton.type = "button";
-    editButton.dataset.editStep = String(section.step);
-    editButton.textContent = "แก้ไข";
-
-    header.appendChild(title);
-    header.appendChild(editButton);
-    wrapper.appendChild(header);
-
-    section.lines.forEach(function (line) {
-      body.appendChild(createReviewLine(line[0], line[1]));
-    });
-
-    wrapper.appendChild(body);
-    return wrapper;
-  }
-
-  function createReviewLine(label, value) {
-    const line = document.createElement("div");
-    const labelElement = document.createElement("strong");
-    const valueElement = document.createElement("p");
-
-    line.className = "report-review-line";
-    labelElement.textContent = label;
-    valueElement.textContent = value || "-";
-    line.appendChild(labelElement);
-    line.appendChild(valueElement);
-    return line;
-  }
-
-  function getImageSummaryLines() {
-    const images = getImageMetadataList();
-
-    if (images.length === 0) {
-      return [["รูปภาพ", "ไม่ได้แนบรูปภาพ"]];
-    }
-
-    return images.map(function (image, index) {
-      return [
-        "รูปที่ " + (index + 1),
-        image.fileName + " (" + formatFileSize(image.fileSize) + ", " + image.width + "x" + image.height + ")"
-      ];
-    });
-  }
-
-  function getReporterSummaryLines() {
-    if (getReporterMode() === "anonymous") {
-      return [
-        ["รูปแบบการแจ้ง", "ไม่ระบุตัวตน"],
-        ["ข้อมูลส่วนตัว", "payload จะไม่ส่งชื่อ เบอร์โทร หรืออีเมล"],
-        ["ช่องทางติดต่อ", "ไม่ต้องการให้ติดต่อกลับ"]
-      ];
-    }
-
-    return [
-      ["รูปแบบการแจ้ง", "ระบุตัวตน"],
-      ["ชื่อ", getFieldValue("reporterName") || "-"],
-      ["เบอร์โทร", getFieldValue("reporterPhone") || "-"],
-      ["อีเมล", getFieldValue("reporterEmail") || "-"],
-      ["ช่องทางติดต่อ", getContactSummary()]
-    ];
-  }
-
   function buildReportPayload() {
     const payload = {
       categoryId: getFieldValue("categoryId"),
@@ -1348,7 +1079,6 @@
     applyApiFieldErrors(error && error.fields ? error.fields : {});
 
     if (hasFieldErrors(error)) {
-      goToFirstApiErrorStep(error.fields);
       setStatus("กรุณาตรวจสอบข้อมูลที่ระบบแจ้งไว้ แล้วลองส่งอีกครั้ง");
       focusFirstError();
       return;
@@ -1395,47 +1125,6 @@
     }
 
     return fieldMap[apiFieldName] || apiFieldName;
-  }
-
-  function goToFirstApiErrorStep(fields) {
-    const firstField = Object.keys(fields || {}).map(function (apiFieldName) {
-      return mapApiFieldToFormField(apiFieldName);
-    }).find(function (fieldName) {
-      return getStepForField(fieldName) > 0;
-    });
-
-    const step = getStepForField(firstField);
-
-    if (step > 0 && step !== state.currentStep) {
-      state.currentStep = step;
-      updateStep();
-    }
-  }
-
-  function getStepForField(fieldName) {
-    const stepMap = {
-      categoryId: 1,
-      title: 2,
-      description: 2,
-      incidentDate: 2,
-      priorityReported: 2,
-      locationName: 3,
-      villageNo: 3,
-      landmark: 3,
-      latitude: 3,
-      longitude: 3,
-      coordinates: 3,
-      mapUrl: 3,
-      images: 4,
-      reporterName: 5,
-      reporterPhone: 5,
-      reporterEmail: 5,
-      contactMethod: 5,
-      truthConfirmed: 6,
-      privacyAccepted: 6
-    };
-
-    return stepMap[fieldName] || 0;
   }
 
   function getRateLimitMessage(error) {
@@ -1514,13 +1203,11 @@
       return;
     }
 
-    state.currentStep = clampStep(draft.currentStep || 1);
     state.selectedCategoryId = toText(draft.categoryId);
     Object.keys(draft.fields || {}).forEach(function (fieldName) {
       setFieldValue(fieldName, draft.fields[fieldName]);
     });
     setFieldValue("categoryId", state.selectedCategoryId);
-    setHidden(elements.draftRestored, false);
     state.isDirty = true;
   }
 
@@ -1547,7 +1234,6 @@
   function collectSafeDraft() {
     return {
       savedAt: Date.now(),
-      currentStep: state.currentStep,
       categoryId: getFieldValue("categoryId"),
       fields: {
         title: getFieldValue("title"),
@@ -1588,8 +1274,7 @@
     setHidden(elements.categoryLoading, stateName !== "loading");
     setHidden(elements.categoryEmpty, stateName !== "empty");
     setHidden(elements.categoryError, stateName !== "error");
-    setHidden(elements.categoryList, stateName !== "success");
-    updateNextButtonState();
+    setHidden(elements.categorySelectWrap, stateName !== "success");
   }
 
   function getSelectedCategory() {
@@ -1602,37 +1287,6 @@
     const checked = document.querySelector("input[name='reporterMode']:checked");
 
     return checked ? checked.value : "identified";
-  }
-
-  function getContactSummary() {
-    const method = getFieldValue("contactMethod");
-
-    if (method === "email") {
-      return "อีเมล";
-    }
-
-    if (method === "none") {
-      return "ไม่ต้องการให้ติดต่อกลับ";
-    }
-
-    return "โทรศัพท์";
-  }
-
-  function buildLocationSummary() {
-    const parts = [
-      getFieldValue("locationName"),
-      getFieldValue("villageNo") ? "หมู่ " + getFieldValue("villageNo") : "",
-      getFieldValue("landmark")
-    ].filter(Boolean);
-    const coordinates = getFieldValue("latitude") && getFieldValue("longitude")
-      ? "พิกัด " + getFieldValue("latitude") + ", " + getFieldValue("longitude")
-      : "";
-
-    if (coordinates) {
-      parts.push(coordinates);
-    }
-
-    return parts.length ? parts.join(" / ") : "-";
   }
 
   function getField(fieldName) {
@@ -1722,10 +1376,6 @@
     return values.join(" ");
   }
 
-  function scrollToFormTop() {
-    document.querySelector(".report-form-section").scrollIntoView({ behavior: "smooth", block: "start" });
-  }
-
   function getQueryParam(name) {
     return new URLSearchParams(window.location.search).get(name) || "";
   }
@@ -1736,46 +1386,6 @@
     }
 
     return "ไม่สามารถเชื่อมต่อระบบได้";
-  }
-
-  function getCategoryLabel(category) {
-    const code = toText(category.code).trim();
-    const name = toText(category.name).trim();
-
-    if (code) {
-      return code.slice(0, 2).toUpperCase();
-    }
-
-    return name ? name.slice(0, 1) : "KR";
-  }
-
-  function formatTargetDays(value) {
-    const days = Number(value);
-
-    if (!Number.isFinite(days) || days <= 0) {
-      return "ระยะเวลาดำเนินการขึ้นอยู่กับประเภทปัญหา";
-    }
-
-    return "เป้าหมายดำเนินการ " + days + " วัน";
-  }
-
-  function getPriorityLabel(value) {
-    const labels = {
-      low: "ไม่เร่งด่วน",
-      normal: "ปกติ",
-      high: "ควรรีบดำเนินการ",
-      critical: "วิกฤตหรือเสี่ยงอันตราย"
-    };
-
-    return labels[value] || "-";
-  }
-
-  function formatThaiDate(value) {
-    if (window.KPR_UTILS && typeof window.KPR_UTILS.formatThaiDate === "function") {
-      return window.KPR_UTILS.formatThaiDate(value);
-    }
-
-    return value;
   }
 
   function isAllowedImageType(file) {
@@ -1857,16 +1467,6 @@
     };
 
     return labels[mimeType] || mimeType || "";
-  }
-
-  function clampStep(step) {
-    const parsedStep = Number(step);
-
-    if (!Number.isFinite(parsedStep)) {
-      return 1;
-    }
-
-    return Math.min(Math.max(Math.round(parsedStep), 1), state.maxStep);
   }
 
   function toText(value) {
