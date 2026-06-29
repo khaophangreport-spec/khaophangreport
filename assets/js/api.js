@@ -17,12 +17,14 @@
     "health.check",
     "public.config",
     "category.list",
-    "announcement.list"
+    "announcement.list",
+    "public.report.latest"
   ];
   const PUBLIC_READ_CACHE_TTL_MS = Object.freeze({
     "public.config": 5 * 60 * 1000,
     "category.list": 5 * 60 * 1000,
-    "announcement.list": 60 * 1000
+    "announcement.list": 60 * 1000,
+    "public.report.latest": 30 * 1000
   });
   const responseCache = Object.create(null);
   const inflightRequests = Object.create(null);

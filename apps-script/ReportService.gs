@@ -34,6 +34,15 @@ const REPORT_ADMIN_LIST_COLUMNS_ = Object.freeze([
   "search_text",
   "is_deleted"
 ]);
+const REPORT_PUBLIC_LATEST_COLUMNS_ = Object.freeze([
+  "title",
+  "location_name",
+  "village_no",
+  "landmark",
+  "status",
+  "created_at",
+  "is_deleted"
+]);
 const REPORT_ADMIN_LIST_SORT_COLUMNS_ = Object.freeze({
   created_at: "created_at",
   updated_at: "updated_at",
@@ -240,6 +249,28 @@ function ReportService_addInfo(request) {
   } finally {
     lock.releaseLock();
   }
+}
+
+function ReportService_listPublicLatest(request) {
+  const data = request && Utils_isPlainObject_(request.data) ? request.data : {};
+  const requestedLimit = parseInt(data.limit, 10);
+  const limit = isFinite(requestedLimit) ? Math.min(Math.max(requestedLimit, 1), 10) : 10;
+  const reports = SheetRepository_selectColumns_("reports", REPORT_PUBLIC_LATEST_COLUMNS_, {
+    keyColumnName: "report_id"
+  }).objects;
+  const items = (reports || []).filter(ReportService_isPublicLatestReportVisible_)
+    .sort(function (left, right) {
+      return Utils_normalizeString_(right.created_at).localeCompare(Utils_normalizeString_(left.created_at));
+    })
+    .slice(0, limit)
+    .map(ReportService_projectPublicLatestReport_);
+
+  return {
+    data: {
+      items: items
+    },
+    message: "โหลดรายการแจ้งเหตุล่าสุดสำเร็จ"
+  };
 }
 
 function ReportService_listAdmin(request) {
@@ -882,6 +913,46 @@ function ReportService_readAdminListRows_() {
   return SheetRepository_selectColumns_("reports", REPORT_ADMIN_LIST_COLUMNS_, {
     keyColumnName: "report_id"
   }).objects;
+}
+
+function ReportService_isPublicLatestReportVisible_(report) {
+  const status = Utils_normalizeString_(report && report.status).toLowerCase();
+
+  if (Utils_toBoolean_(report && report.is_deleted)) {
+    return false;
+  }
+
+  return status !== "rejected" && status !== "duplicate";
+}
+
+function ReportService_projectPublicLatestReport_(report) {
+  return {
+    title: Security_sanitizeText_(report.title || ""),
+    locationText: ReportService_buildPublicLocationText_(report),
+    status: Security_sanitizeText_(report.status || ""),
+    createdAt: String(report.created_at || "")
+  };
+}
+
+function ReportService_buildPublicLocationText_(report) {
+  const parts = [];
+  const villageNo = Security_sanitizeText_(report && report.village_no ? report.village_no : "");
+  const locationName = Security_sanitizeText_(report && report.location_name ? report.location_name : "");
+  const landmark = Security_sanitizeText_(report && report.landmark ? report.landmark : "");
+
+  if (villageNo) {
+    parts.push("หมู่ที่ " + villageNo);
+  }
+
+  if (locationName) {
+    parts.push(locationName);
+  }
+
+  if (landmark) {
+    parts.push(landmark);
+  }
+
+  return parts.join(" ");
 }
 
 function ReportService_readAdminListCategories_() {

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="ระบบรับแจ้งและติดตามปัญหาชุมชนตำบลเขาพัง" />
+    <meta name="description" content="ระบบรับแจ้งและติดตามปัญหาชุมชน" />
     <title>หน้าแรก | Khaophang Report</title>
     <link rel="stylesheet" href="assets/css/variables.css" />
     <link rel="stylesheet" href="assets/css/reset.css" />
@@ -33,12 +33,16 @@
 
     <main class="page-shell home-page">
       <section class="home-hero" aria-labelledby="page-title">
+        <div class="home-hero__visual" aria-hidden="true">
+          <div class="home-hero__sun"></div>
+          <div class="home-hero__hill home-hero__hill--back"></div>
+          <div class="home-hero__hill home-hero__hill--front"></div>
+          <div class="home-hero__path"></div>
+          <div class="home-hero__marker"></div>
+        </div>
         <div class="home-hero__content">
-          <p class="eyebrow">ตำบลเขาพัง</p>
-          <h1 id="page-title">ร่วมกันสร้างชุมชนเขาพังให้น่าอยู่ยิ่งขึ้น</h1>
-          <p class="home-hero__lead">
-            แจ้งปัญหาในพื้นที่ ติดตามความคืบหน้า และร่วมดูแลชุมชนด้วยข้อมูลที่ปลอดภัยและใช้งานง่าย
-          </p>
+          <h1 id="page-title">เขาพัง รีพอร์ท</h1>
+          <p class="home-hero__lead">แจ้งปัญหา ติดตามได้ ใช้ง่ายมาก</p>
           <div class="action-row home-hero__actions">
             <a class="button button-primary" href="report.html">แจ้งปัญหา</a>
             <a class="button button-secondary" href="track.html">ติดตามสถานะ</a>
@@ -48,111 +52,6 @@
             <button class="button button-small button-outline" type="button" data-retry="config">ลองใหม่</button>
           </div>
         </div>
-        <div class="home-hero__visual" aria-hidden="true">
-          <div class="home-hero__sun"></div>
-          <div class="home-hero__hill home-hero__hill--back"></div>
-          <div class="home-hero__hill home-hero__hill--front"></div>
-          <div class="home-hero__path"></div>
-          <div class="home-hero__marker"></div>
-        </div>
-      </section>
-
-      <section class="alert alert-warning home-emergency" aria-labelledby="emergency-title">
-        <div>
-          <h2 id="emergency-title">กรณีฉุกเฉิน</h2>
-          <p>
-            ระบบนี้ไม่ใช่ช่องทางรับแจ้งเหตุฉุกเฉิน หากมีเหตุเร่งด่วนที่กระทบชีวิตหรือความปลอดภัย
-            โปรดติดต่อหน่วยงานฉุกเฉินหรือเจ้าหน้าที่ในพื้นที่ทันที
-          </p>
-        </div>
-      </section>
-
-      <section class="content-section home-features" aria-labelledby="features-title">
-        <div class="section-heading">
-          <p class="eyebrow">จุดเด่น</p>
-          <h2 id="features-title">ทำให้การแจ้งปัญหาเป็นเรื่องง่าย</h2>
-        </div>
-        <div class="home-feature-grid">
-          <article class="home-feature-item">
-            <span class="home-feature-item__icon" aria-hidden="true">1</span>
-            <h3>แจ้งง่าย</h3>
-            <p>กรอกข้อมูลเท่าที่จำเป็น เลือกหมวด และส่งเรื่องได้จากมือถือ</p>
-          </article>
-          <article class="home-feature-item">
-            <span class="home-feature-item__icon" aria-hidden="true">2</span>
-            <h3>ติดตามได้</h3>
-            <p>ใช้รหัสติดตามเพื่อตรวจสอบสถานะและความคืบหน้าของเรื่อง</p>
-          </article>
-          <article class="home-feature-item">
-            <span class="home-feature-item__icon" aria-hidden="true">3</span>
-            <h3>ปลอดภัย</h3>
-            <p>ข้อมูลส่วนตัวใช้เพื่อประสานงานตามความจำเป็นของการแก้ไขปัญหา</p>
-          </article>
-          <article class="home-feature-item">
-            <span class="home-feature-item__icon" aria-hidden="true">4</span>
-            <h3>ร่วมพัฒนาชุมชน</h3>
-            <p>ช่วยให้ชุมชนเห็นปัญหาร่วมกันและจัดการได้เป็นระบบมากขึ้น</p>
-          </article>
-        </div>
-      </section>
-
-      <section class="content-section home-categories" aria-labelledby="categories-title">
-        <div class="section-heading">
-          <p class="eyebrow">หมวดปัญหา</p>
-          <h2 id="categories-title">เลือกหมวดที่ต้องการแจ้ง</h2>
-          <p>หมวดด้านล่างโหลดจากระบบกลาง เมื่อเลือกแล้วจะไปยังหน้าแจ้งปัญหาพร้อมหมวดที่เลือก</p>
-        </div>
-
-        <div class="home-state" data-category-loading aria-live="polite">
-          <div class="skeleton home-skeleton"></div>
-          <div class="skeleton home-skeleton home-skeleton--short"></div>
-        </div>
-
-        <div class="empty-state" data-category-empty hidden>
-          <h3>ยังไม่มีหมวดที่เปิดใช้งาน</h3>
-          <p>คุณยังสามารถแจ้งปัญหาทั่วไปได้จากปุ่มแจ้งปัญหา</p>
-          <a class="button button-secondary" href="report.html">แจ้งปัญหา</a>
-        </div>
-
-        <div class="alert alert-danger home-state" data-category-error hidden>
-          <div>
-            <h3>โหลดหมวดไม่สำเร็จ</h3>
-            <p data-category-error-message>ไม่สามารถเชื่อมต่อระบบได้</p>
-          </div>
-          <button class="button button-small button-outline" type="button" data-retry="categories">ลองใหม่</button>
-        </div>
-
-        <div class="home-category-grid" data-category-list hidden></div>
-      </section>
-
-      <section class="content-section home-steps" aria-labelledby="steps-title">
-        <div class="section-heading">
-          <p class="eyebrow">ขั้นตอน</p>
-          <h2 id="steps-title">แจ้งแล้วติดตามได้ในไม่กี่ขั้นตอน</h2>
-        </div>
-        <ol class="home-step-list">
-          <li>
-            <span aria-hidden="true">1</span>
-            <div>
-              <h3>เลือกหมวดและเล่าปัญหา</h3>
-              <p>ระบุรายละเอียด สถานที่ และรูปภาพประกอบตามความเหมาะสม</p>
-            </div>
-          </li>
-          <li>
-            <span aria-hidden="true">2</span>
-            <div>
-              <h3>รับรหัสติดตาม</h3>
-              <p>เก็บรหัสไว้สำหรับตรวจสอบสถานะหรือส่งข้อมูลเพิ่มเติม</p>
-            </div>
-          </li>
-          <li>
-            <span aria-hidden="true">3</span>
-            <div>
-              <h3>ติดตามความคืบหน้า</h3>
-              <p>ดูสถานะล่าสุดและผลการดำเนินงานจากหน้าติดตามสถานะ</p>
-            </div>
-          </li>
-        </ol>
       </section>
 
       <section class="content-section home-announcements" aria-labelledby="announcements-title">
@@ -180,6 +79,34 @@
         </div>
 
         <div class="home-announcement-list" data-announcement-list hidden></div>
+      </section>
+
+      <section class="content-section home-latest-reports" aria-labelledby="latest-reports-title">
+        <div class="section-heading">
+          <h2 id="latest-reports-title">การแจ้งเหตุล่าสุด</h2>
+          <p>ติดตามปัญหาที่ได้รับแจ้งและความคืบหน้าของการดำเนินงาน</p>
+        </div>
+
+        <div class="home-state" data-latest-report-loading aria-live="polite">
+          <div class="skeleton home-skeleton"></div>
+          <div class="skeleton home-skeleton"></div>
+          <div class="skeleton home-skeleton home-skeleton--short"></div>
+        </div>
+
+        <div class="empty-state" data-latest-report-empty hidden>
+          <h3>ยังไม่มีการแจ้งเหตุในขณะนี้</h3>
+          <p>เมื่อมีการแจ้งปัญหา รายการล่าสุดจะแสดงที่นี่</p>
+        </div>
+
+        <div class="alert alert-danger home-state" data-latest-report-error hidden>
+          <div>
+            <h3>โหลดรายการแจ้งเหตุไม่สำเร็จ</h3>
+            <p data-latest-report-error-message>ไม่สามารถเชื่อมต่อระบบได้</p>
+          </div>
+          <button class="button button-small button-outline" type="button" data-retry="latest-reports">ลองใหม่</button>
+        </div>
+
+        <div class="home-latest-report-list" data-latest-report-list hidden></div>
       </section>
     </main>
 

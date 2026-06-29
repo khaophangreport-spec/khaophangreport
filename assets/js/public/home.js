@@ -2,6 +2,29 @@
   "use strict";
 
   const ANNOUNCEMENT_LIMIT = 5;
+  const LATEST_REPORT_LIMIT = 10;
+  const STATUS_LABELS = {
+    new: "รับเรื่องแล้ว",
+    reviewing: "กำลังตรวจสอบ",
+    assigned: "มอบหมายแล้ว",
+    in_progress: "กำลังดำเนินการ",
+    waiting: "รอข้อมูลเพิ่มเติม",
+    resolved: "ดำเนินการแล้ว",
+    closed: "ปิดเรื่อง",
+    rejected: "ไม่รับดำเนินการ",
+    duplicate: "เรื่องซ้ำ"
+  };
+  const STATUS_CLASSES = {
+    new: "status-chip-info",
+    reviewing: "status-chip-info",
+    assigned: "status-chip-pending",
+    in_progress: "status-chip-in-progress",
+    waiting: "status-chip-warning",
+    resolved: "status-chip-success",
+    closed: "status-chip-completed",
+    rejected: "status-chip-danger",
+    duplicate: "status-chip-warning"
+  };
 
   const elements = {};
 
@@ -18,17 +41,17 @@
     elements.configError = document.querySelector("[data-config-error]");
     elements.contactEmail = document.querySelector("[data-contact-email]");
 
-    elements.categoryLoading = document.querySelector("[data-category-loading]");
-    elements.categoryEmpty = document.querySelector("[data-category-empty]");
-    elements.categoryError = document.querySelector("[data-category-error]");
-    elements.categoryErrorMessage = document.querySelector("[data-category-error-message]");
-    elements.categoryList = document.querySelector("[data-category-list]");
-
     elements.announcementLoading = document.querySelector("[data-announcement-loading]");
     elements.announcementEmpty = document.querySelector("[data-announcement-empty]");
     elements.announcementError = document.querySelector("[data-announcement-error]");
     elements.announcementErrorMessage = document.querySelector("[data-announcement-error-message]");
     elements.announcementList = document.querySelector("[data-announcement-list]");
+
+    elements.latestReportLoading = document.querySelector("[data-latest-report-loading]");
+    elements.latestReportEmpty = document.querySelector("[data-latest-report-empty]");
+    elements.latestReportError = document.querySelector("[data-latest-report-error]");
+    elements.latestReportErrorMessage = document.querySelector("[data-latest-report-error-message]");
+    elements.latestReportList = document.querySelector("[data-latest-report-list]");
   }
 
   function bindEvents() {
@@ -38,10 +61,10 @@
 
         if (target === "config") {
           loadPublicConfig();
-        } else if (target === "categories") {
-          loadCategories();
         } else if (target === "announcements") {
           loadAnnouncements();
+        } else if (target === "latest-reports") {
+          loadLatestReports();
         }
       });
     });
@@ -49,8 +72,8 @@
 
   function loadHome() {
     loadPublicConfig();
-    loadCategories();
     loadAnnouncements();
+    loadLatestReports();
   }
 
   async function loadPublicConfig() {
@@ -73,63 +96,12 @@
     }
   }
 
-  async function loadCategories() {
-    showCategoryState("loading");
-
-    try {
-      const response = await window.KPR_API.read("category.list", {});
-      const items = Array.isArray(response.data.items) ? response.data.items : [];
-
-      renderCategories(items);
-      showCategoryState(items.length > 0 ? "success" : "empty");
-    } catch (error) {
-      setText(elements.categoryErrorMessage, getErrorMessage(error));
-      showCategoryState("error");
-    }
-  }
-
-  function renderCategories(items) {
-    clearChildren(elements.categoryList);
-
-    items.forEach(function (category) {
-      elements.categoryList.appendChild(createCategoryCard(category));
-    });
-  }
-
-  function createCategoryCard(category) {
-    const categoryId = toText(category.categoryId || category.code);
-    const link = document.createElement("a");
-    const icon = document.createElement("span");
-    const title = document.createElement("h3");
-    const description = document.createElement("p");
-    const meta = document.createElement("span");
-
-    link.className = "home-category-card";
-    link.href = categoryId ? "report.html?category=" + encodeURIComponent(categoryId) : "report.html";
-
-    icon.className = "home-category-card__icon";
-    icon.setAttribute("aria-hidden", "true");
-    icon.textContent = getCategoryLabel(category);
-
-    title.textContent = toText(category.name) || "หมวดปัญหา";
-    description.textContent = toText(category.description) || "แจ้งรายละเอียดปัญหาในหมวดนี้";
-    meta.className = "home-category-card__meta";
-    meta.textContent = formatTargetDays(category.targetDays);
-
-    link.appendChild(icon);
-    link.appendChild(title);
-    link.appendChild(description);
-    link.appendChild(meta);
-
-    return link;
-  }
-
   async function loadAnnouncements() {
     showAnnouncementState("loading");
 
     try {
       const response = await window.KPR_API.read("announcement.list", { limit: ANNOUNCEMENT_LIMIT });
-      const items = Array.isArray(response.data.items) ? response.data.items : [];
+      const items = response && response.data && Array.isArray(response.data.items) ? response.data.items : [];
 
       renderAnnouncements(items);
       showAnnouncementState(items.length > 0 ? "success" : "empty");
@@ -143,7 +115,9 @@
     clearChildren(elements.announcementList);
 
     items.forEach(function (announcement) {
-      elements.announcementList.appendChild(createAnnouncementCard(announcement));
+      if (elements.announcementList) {
+        elements.announcementList.appendChild(createAnnouncementCard(announcement));
+      }
     });
   }
 
@@ -176,11 +150,64 @@
     return article;
   }
 
-  function showCategoryState(state) {
-    setHidden(elements.categoryLoading, state !== "loading");
-    setHidden(elements.categoryEmpty, state !== "empty");
-    setHidden(elements.categoryError, state !== "error");
-    setHidden(elements.categoryList, state !== "success");
+  async function loadLatestReports() {
+    showLatestReportState("loading");
+
+    try {
+      const response = await window.KPR_API.read("public.report.latest", { limit: LATEST_REPORT_LIMIT });
+      const items = response && response.data && Array.isArray(response.data.items) ? response.data.items : [];
+
+      renderLatestReports(items);
+      showLatestReportState(items.length > 0 ? "success" : "empty");
+    } catch (error) {
+      setText(elements.latestReportErrorMessage, getErrorMessage(error));
+      showLatestReportState("error");
+    }
+  }
+
+  function renderLatestReports(items) {
+    clearChildren(elements.latestReportList);
+
+    items.slice(0, LATEST_REPORT_LIMIT).forEach(function (report) {
+      if (elements.latestReportList) {
+        elements.latestReportList.appendChild(createLatestReportCard(report));
+      }
+    });
+  }
+
+  function createLatestReportCard(report) {
+    const article = document.createElement("article");
+    const title = document.createElement("h3");
+    const location = document.createElement("p");
+    const footer = document.createElement("div");
+    const status = document.createElement("span");
+    const date = document.createElement("time");
+
+    article.className = "home-latest-report-card";
+    title.textContent = toText(report.title) || "เรื่องแจ้งเหตุ";
+    location.className = "home-latest-report-card__location";
+    location.textContent = toText(report.locationText) || "ไม่ระบุสถานที่";
+    footer.className = "home-latest-report-card__footer";
+
+    status.className = "status-chip " + (STATUS_CLASSES[toText(report.status).toLowerCase()] || "status-chip-info");
+    status.textContent = getStatusLabel(report.status);
+
+    date.className = "home-latest-report-card__date";
+    date.textContent = formatDateTime(report.createdAt);
+    if (report.createdAt) {
+      date.dateTime = toText(report.createdAt);
+    }
+
+    footer.appendChild(status);
+    if (date.textContent) {
+      footer.appendChild(date);
+    }
+
+    article.appendChild(title);
+    article.appendChild(location);
+    article.appendChild(footer);
+
+    return article;
   }
 
   function showAnnouncementState(state) {
@@ -188,6 +215,13 @@
     setHidden(elements.announcementEmpty, state !== "empty");
     setHidden(elements.announcementError, state !== "error");
     setHidden(elements.announcementList, state !== "success");
+  }
+
+  function showLatestReportState(state) {
+    setHidden(elements.latestReportLoading, state !== "loading");
+    setHidden(elements.latestReportEmpty, state !== "empty");
+    setHidden(elements.latestReportError, state !== "error");
+    setHidden(elements.latestReportList, state !== "success");
   }
 
   function setHidden(element, hidden) {
@@ -229,27 +263,6 @@
     return "ไม่สามารถเชื่อมต่อระบบได้";
   }
 
-  function getCategoryLabel(category) {
-    const code = toText(category.code).trim();
-    const name = toText(category.name).trim();
-
-    if (code) {
-      return code.slice(0, 2).toUpperCase();
-    }
-
-    return name ? name.slice(0, 1) : "KR";
-  }
-
-  function formatTargetDays(value) {
-    const days = Number(value);
-
-    if (!Number.isFinite(days) || days <= 0) {
-      return "ระยะเวลาดำเนินการขึ้นอยู่กับประเภทปัญหา";
-    }
-
-    return "เป้าหมายดำเนินการ " + days + " วัน";
-  }
-
   function getAnnouncementChipClass(type) {
     const normalizedType = toText(type).toLowerCase();
 
@@ -282,6 +295,12 @@
     return "ข่าวสาร";
   }
 
+  function getStatusLabel(value) {
+    const status = toText(value).toLowerCase();
+
+    return STATUS_LABELS[status] || toText(value) || "รับเรื่องแล้ว";
+  }
+
   function formatAnnouncementDate(value) {
     if (!value) {
       return "";
@@ -292,5 +311,17 @@
     }
 
     return "เริ่มแสดง " + toText(value);
+  }
+
+  function formatDateTime(value) {
+    if (!value) {
+      return "";
+    }
+
+    if (window.KPR_UTILS && typeof window.KPR_UTILS.formatThaiDateTime === "function") {
+      return window.KPR_UTILS.formatThaiDateTime(value);
+    }
+
+    return toText(value);
   }
 })();

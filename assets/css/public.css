@@ -107,7 +107,7 @@
 }
 
 .home-page {
-  gap: var(--space-5);
+  gap: var(--space-4);
 }
 
 .home-hero {
@@ -118,14 +118,14 @@
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   display: grid;
-  gap: var(--space-6);
+  gap: var(--space-4);
   overflow: hidden;
-  padding: var(--space-6);
+  padding: var(--space-4);
 }
 
 .home-hero__content {
   display: grid;
-  gap: var(--space-4);
+  gap: var(--space-3);
 }
 
 .home-hero__lead {
@@ -150,7 +150,7 @@
   background: linear-gradient(180deg, #dff1e4 0%, #f8fbf1 58%, #f2eadb 100%);
   border: 1px solid var(--color-primary-200);
   border-radius: var(--radius-md);
-  min-height: 12rem;
+  min-height: 11rem;
   overflow: hidden;
   position: relative;
 }
@@ -211,15 +211,6 @@
   width: 2.65rem;
 }
 
-.home-emergency {
-  align-items: start;
-}
-
-.home-emergency h2 {
-  font-size: 1.05rem;
-  margin-bottom: var(--space-1);
-}
-
 .section-heading {
   display: grid;
   gap: var(--space-2);
@@ -230,16 +221,14 @@
   max-width: 44rem;
 }
 
-.home-feature-grid,
-.home-category-grid,
-.home-announcement-list {
+.home-announcement-list,
+.home-latest-report-list {
   display: grid;
   gap: var(--space-4);
 }
 
-.home-feature-item,
-.home-category-card,
-.home-announcement-card {
+.home-announcement-card,
+.home-latest-report-card {
   background: var(--color-surface-soft);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -248,41 +237,13 @@
   padding: var(--space-4);
 }
 
-.home-feature-item__icon,
-.home-category-card__icon {
-  align-items: center;
-  background: var(--color-primary-100);
-  border: 1px solid var(--color-primary-200);
-  border-radius: var(--radius-sm);
-  color: var(--color-primary-900);
-  display: inline-flex;
-  font-weight: 700;
-  height: 2.25rem;
-  justify-content: center;
-  width: 2.25rem;
-}
-
-.home-category-card {
-  color: inherit;
-  min-height: 11rem;
-  text-decoration: none;
-}
-
-.home-category-card:hover {
-  border-color: var(--color-primary-500);
-  box-shadow: var(--shadow-md);
-  text-decoration: none;
-  transform: translateY(-1px);
-}
-
-.home-category-card p,
 .home-announcement-card p,
-.home-step-list p {
+.home-latest-report-card p {
   color: var(--color-text-muted);
 }
 
-.home-category-card__meta,
-.home-announcement-card__meta {
+.home-announcement-card__meta,
+.home-latest-report-card__date {
   color: var(--color-text-soft);
   font-size: 0.88rem;
 }
@@ -300,31 +261,6 @@
   width: 72%;
 }
 
-.home-step-list {
-  display: grid;
-  gap: var(--space-4);
-  list-style: none;
-  padding: 0;
-}
-
-.home-step-list li {
-  display: grid;
-  gap: var(--space-3);
-  grid-template-columns: auto 1fr;
-}
-
-.home-step-list span {
-  align-items: center;
-  background: var(--color-primary-700);
-  border-radius: var(--radius-pill);
-  color: var(--color-surface);
-  display: inline-flex;
-  font-weight: 700;
-  height: 2rem;
-  justify-content: center;
-  width: 2rem;
-}
-
 .home-announcement-card__header {
   display: grid;
   gap: var(--space-2);
@@ -332,6 +268,19 @@
 
 .home-announcement-card .status-chip {
   justify-self: start;
+}
+
+.home-latest-report-card__location {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.home-latest-report-card__footer {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  justify-content: space-between;
 }
 
 .public-feature-grid,
@@ -1189,13 +1138,11 @@
   }
 
   .home-page {
-    gap: var(--space-8);
+    gap: var(--space-6);
   }
 
   .home-hero {
-    align-items: center;
-    grid-template-columns: minmax(0, 1.1fr) minmax(18rem, 0.9fr);
-    padding: var(--space-8);
+    padding: var(--space-6);
   }
 
   .home-hero__actions {
@@ -1206,24 +1153,12 @@
     width: auto;
   }
 
-  .home-feature-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-  }
-
-  .home-category-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
   .home-announcement-list {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .home-step-list {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .home-step-list li {
-    grid-template-columns: 1fr;
+  .home-latest-report-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .faq-search {
