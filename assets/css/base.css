@@ -17,6 +17,10 @@ main {
   display: block;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 a {
   color: var(--color-primary-700);
   text-decoration: none;
