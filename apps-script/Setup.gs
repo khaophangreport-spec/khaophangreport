@@ -56,7 +56,7 @@ const SETUP_SHEETS_ = Object.freeze({
   ],
   categories: [
     "category_id", "code", "name", "description", "icon", "color", "default_assignee", "target_days",
-    "sort_order", "is_active", "created_at", "updated_at", "created_by", "updated_by", "version"
+    "sort_order", "is_active", "created_at", "updated_at", "created_by", "updated_by", "is_deleted", "version"
   ],
   users: [
     "user_id", "username", "password_hash", "password_salt", "password_version", "display_name", "email",
@@ -109,7 +109,7 @@ const SETUP_CHECKBOX_COLUMNS_ = Object.freeze({
   reports: ["is_anonymous", "reporter_consent", "truth_confirmation", "is_deleted"],
   report_updates: ["is_public", "is_deleted"],
   attachments: ["is_public", "is_deleted"],
-  categories: ["is_active"],
+  categories: ["is_active", "is_deleted"],
   users: ["must_change_password", "is_deleted"],
   sessions: ["is_active"],
   announcements: ["is_active", "is_deleted"],
@@ -335,6 +335,171 @@ function seedCategories() {
   return Setup_seedCategories_(sheet);
 }
 
+function runMigrateCategoriesAddIsDeletedColumnForDevOnly() {
+  const lock = LockService.getScriptLock();
+
+  Setup_assertMigrationAllowed_();
+  lock.waitLock(30000);
+
+  try {
+    const spreadsheet = SheetRepository_getSpreadsheet_();
+    const sheet = spreadsheet.getSheetByName("categories");
+
+    if (!sheet) {
+      throw new Error("Missing required sheet: categories");
+    }
+
+    const result = Setup_migrateCategoriesAddIsDeletedColumn_(sheet);
+
+    console.log(JSON.stringify({
+      migration: "categories.add_is_deleted",
+      insertedColumn: result.insertedColumn,
+      updatedRows: result.updatedRows,
+      header: result.headerAfter
+    }));
+
+    return result;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function Setup_migrateCategoriesAddIsDeletedColumn_(sheet) {
+  const expectedHeaders = SETUP_SHEETS_.categories;
+  const migrationPlan = Setup_planAddMissingColumn_(SheetRepository_getHeaders_(sheet), {
+    sheetName: "categories",
+    columnName: "is_deleted",
+    beforeColumnName: "version",
+    expectedHeaders: expectedHeaders
+  });
+  let insertedColumn = false;
+
+  if (migrationPlan.insertColumn) {
+    if (sheet.getMaxColumns() < migrationPlan.insertAt) {
+      sheet.insertColumnsAfter(sheet.getMaxColumns(), migrationPlan.insertAt - sheet.getMaxColumns());
+    }
+
+    sheet.insertColumnBefore(migrationPlan.insertAt);
+    sheet.getRange(1, migrationPlan.insertAt, 1, 1).setValue("is_deleted");
+    insertedColumn = true;
+  }
+
+  const updatedRows = Setup_fillBooleanDefaultForExistingRows_(sheet, "code", "is_deleted", false);
+
+  SheetRepository_insertCheckboxes_(sheet, expectedHeaders, SETUP_CHECKBOX_COLUMNS_.categories, "code");
+  Setup_assertHeaderMatches_("categories", sheet, expectedHeaders);
+
+  return {
+    ok: true,
+    migration: "categories.add_is_deleted",
+    insertedColumn: insertedColumn,
+    updatedRows: updatedRows,
+    columnName: "is_deleted",
+    columnIndex: SheetRepository_getHeaderMap_(sheet).is_deleted,
+    defaultValue: false,
+    headerBefore: migrationPlan.headerBefore,
+    headerAfter: sheet.getRange(1, 1, 1, expectedHeaders.length).getValues()[0]
+  };
+}
+
+function Setup_planAddMissingColumn_(actualHeaders, options) {
+  const safeOptions = options || {};
+  const expectedHeaders = safeOptions.expectedHeaders || [];
+  const columnName = safeOptions.columnName || "";
+  const beforeColumnName = safeOptions.beforeColumnName || "";
+  const headerBefore = (actualHeaders || []).slice();
+  const expectedWithoutColumn = expectedHeaders.filter(function (header) {
+    return header !== columnName;
+  });
+  const expectedPosition = expectedHeaders.indexOf(columnName) + 1;
+  const existingPosition = headerBefore.indexOf(columnName) + 1;
+
+  if (!columnName || expectedPosition < 1) {
+    throw new Error("Invalid migration column: " + columnName);
+  }
+
+  if (existingPosition > 0) {
+    Setup_assertHeaderArrayMatches_(safeOptions.sheetName || "", headerBefore, expectedHeaders);
+    return {
+      headerBefore: headerBefore,
+      insertColumn: false,
+      insertAt: existingPosition,
+      headerAfter: headerBefore.slice()
+    };
+  }
+
+  Setup_assertHeaderArrayMatches_(safeOptions.sheetName || "", headerBefore, expectedWithoutColumn);
+
+  const beforePosition = headerBefore.indexOf(beforeColumnName) + 1;
+  const insertAt = beforePosition > 0 ? beforePosition : expectedPosition;
+  const headerAfter = headerBefore.slice();
+
+  headerAfter.splice(insertAt - 1, 0, columnName);
+  Setup_assertHeaderArrayMatches_(safeOptions.sheetName || "", headerAfter, expectedHeaders);
+
+  return {
+    headerBefore: headerBefore,
+    insertColumn: true,
+    insertAt: insertAt,
+    headerAfter: headerAfter
+  };
+}
+
+function Setup_fillBooleanDefaultForExistingRows_(sheet, keyColumnName, columnName, defaultValue) {
+  const headerMap = SheetRepository_getHeaderMap_(sheet);
+  const keyColumn = headerMap[keyColumnName];
+  const targetColumn = headerMap[columnName];
+  const lastRow = sheet.getLastRow();
+  let updatedRows = 0;
+
+  if (!keyColumn || !targetColumn || lastRow < 2) {
+    return updatedRows;
+  }
+
+  const rowCount = lastRow - 1;
+  const keyValues = sheet.getRange(2, keyColumn, rowCount, 1).getValues();
+  const targetRange = sheet.getRange(2, targetColumn, rowCount, 1);
+  const targetValues = targetRange.getValues();
+
+  keyValues.forEach(function (row, index) {
+    const key = String(row[0] || "");
+    const currentValue = targetValues[index][0];
+
+    if (!key || !(currentValue === "" || currentValue === null || currentValue === undefined)) {
+      return;
+    }
+
+    targetValues[index][0] = defaultValue;
+    updatedRows += 1;
+  });
+
+  if (updatedRows > 0) {
+    targetRange.setValues(targetValues);
+  }
+
+  return updatedRows;
+}
+
+function Setup_assertHeaderArrayMatches_(sheetName, actualHeaders, expectedHeaders) {
+  if ((actualHeaders || []).join("|") !== (expectedHeaders || []).join("|")) {
+    throw new Error(
+      "Header mismatch in sheet " + sheetName +
+      ". Expected: " + (expectedHeaders || []).join(", ") +
+      ". Actual: " + (actualHeaders || []).join(", ")
+    );
+  }
+}
+
+function Setup_assertMigrationAllowed_() {
+  const environment = typeof Config_getEnvironment_ === "function" ?
+    Utils_normalizeString_(Config_getEnvironment_()).toLowerCase() :
+    "development";
+
+  if (environment === "production") {
+    throw ApiError_("FORBIDDEN", "Schema migration is blocked when ENVIRONMENT=production.");
+  }
+}
+
 function seedSettings() {
   const spreadsheetId = Config_getSpreadsheetId_();
 
@@ -511,6 +676,7 @@ function Setup_seedCategories_(sheet) {
       updated_at: now,
       created_by: "setup",
       updated_by: "setup",
+      is_deleted: false,
       version: 1
     };
     const row = SETUP_SHEETS_.categories.map(function (header) {

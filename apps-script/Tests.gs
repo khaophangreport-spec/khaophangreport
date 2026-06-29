@@ -1553,6 +1553,184 @@ function testDashboardDiagnosticsFailureCapturesLastStep() {
   };
 }
 
+function testMigrateCategoriesAddIsDeletedColumnAddsMissing() {
+  const sheet = Tests_createFakeSheet_("categories", [
+    "category_id", "code", "name", "description", "icon", "color", "default_assignee", "target_days",
+    "sort_order", "is_active", "created_at", "updated_at", "created_by", "updated_by", "version"
+  ], [[
+    "CAT-001", "ROAD", "Road", "Road issue", "road", "#287444", "", 7,
+    1, true, "2026-06-01T00:00:00.000Z", "2026-06-01T00:00:00.000Z", "setup", "setup", 1
+  ]]);
+
+  const result = Setup_migrateCategoriesAddIsDeletedColumn_(sheet);
+  const headers = sheet.getRange(1, 1, 1, SETUP_SHEETS_.categories.length).getValues()[0];
+
+  if (!result.insertedColumn || headers.join("|") !== SETUP_SHEETS_.categories.join("|")) {
+    throw new Error("categories migration did not add missing is_deleted header");
+  }
+
+  return {
+    ok: true,
+    testType: "unit",
+    columnIndex: result.columnIndex
+  };
+}
+
+function testMigrateCategoriesAddIsDeletedColumnNoDuplicate() {
+  const sheet = Tests_createMigratedCategoriesFakeSheet_();
+  const beforeColumnCount = sheet.getLastColumn();
+  const result = Setup_migrateCategoriesAddIsDeletedColumn_(sheet);
+
+  if (result.insertedColumn || sheet.getLastColumn() !== beforeColumnCount) {
+    throw new Error("categories migration added duplicate is_deleted column");
+  }
+
+  return {
+    ok: true,
+    testType: "unit",
+    columnCount: sheet.getLastColumn()
+  };
+}
+
+function testMigrateCategoriesAddIsDeletedColumnDefaultsFalse() {
+  const sheet = Tests_createFakeSheet_("categories", [
+    "category_id", "code", "name", "description", "icon", "color", "default_assignee", "target_days",
+    "sort_order", "is_active", "created_at", "updated_at", "created_by", "updated_by", "version"
+  ], [
+    ["CAT-001", "ROAD", "Road", "", "road", "#287444", "", 7, 1, true, "", "", "", "", 1],
+    ["CAT-002", "LIGHT", "Light", "", "lightbulb", "#348A52", "", 7, 2, true, "", "", "", "", 1]
+  ]);
+  const result = Setup_migrateCategoriesAddIsDeletedColumn_(sheet);
+  const headerMap = SheetRepository_getHeaderMap_(sheet);
+  const values = sheet.getRange(2, headerMap.is_deleted, 2, 1).getValues();
+
+  if (result.updatedRows !== 2 || values[0][0] !== false || values[1][0] !== false) {
+    throw new Error("categories migration did not fill false for existing category rows");
+  }
+
+  return {
+    ok: true,
+    testType: "unit",
+    updatedRows: result.updatedRows
+  };
+}
+
+function testMigrateCategoriesAddIsDeletedColumnHeaderOrder() {
+  const plan = Setup_planAddMissingColumn_([
+    "category_id", "code", "name", "description", "icon", "color", "default_assignee", "target_days",
+    "sort_order", "is_active", "created_at", "updated_at", "created_by", "updated_by", "version"
+  ], {
+    sheetName: "categories",
+    columnName: "is_deleted",
+    beforeColumnName: "version",
+    expectedHeaders: SETUP_SHEETS_.categories
+  });
+
+  if (plan.insertAt !== SETUP_SHEETS_.categories.indexOf("is_deleted") + 1 ||
+      plan.headerAfter.join("|") !== SETUP_SHEETS_.categories.join("|")) {
+    throw new Error("categories migration header order is invalid");
+  }
+
+  return {
+    ok: true,
+    testType: "unit",
+    insertAt: plan.insertAt
+  };
+}
+
+function testCategoryServiceReadsAfterCategoryMigration() {
+  const sheet = Tests_createMigratedCategoriesFakeSheet_();
+  const originalGetSheet = SheetRepository_getSheet_;
+  const originalGetCachedJson = SettingsService_getCachedJson_;
+  const originalPutCachedJson = SettingsService_putCachedJson_;
+
+  SheetRepository_getSheet_ = function (sheetName) {
+    if (sheetName === "categories") {
+      return sheet;
+    }
+
+    return originalGetSheet(sheetName);
+  };
+  SettingsService_getCachedJson_ = function () {
+    return null;
+  };
+  SettingsService_putCachedJson_ = function () {};
+
+  try {
+    const result = CategoryService_listPublic({
+      action: "category.list",
+      requestId: "REQ-TEST-CATEGORY-MIGRATION",
+      data: {}
+    });
+
+    if (!result || !result.data || !Array.isArray(result.data.items) || result.data.items.length !== 1) {
+      throw new Error("CategoryService could not read categories after migration");
+    }
+
+    return {
+      ok: true,
+      testType: "unit",
+      count: result.data.items.length
+    };
+  } finally {
+    SheetRepository_getSheet_ = originalGetSheet;
+    SettingsService_getCachedJson_ = originalGetCachedJson;
+    SettingsService_putCachedJson_ = originalPutCachedJson;
+  }
+}
+
+function testDashboardApiNoInternalAfterCategoryMigration() {
+  const sheet = Tests_createMigratedCategoriesFakeSheet_();
+  const originalGetSheet = SheetRepository_getSheet_;
+
+  SheetRepository_getSheet_ = function (sheetName) {
+    if (sheetName === "categories") {
+      return sheet;
+    }
+
+    return originalGetSheet(sheetName);
+  };
+
+  try {
+    const categories = DashboardService_readCategorySummaryRows_();
+
+    if (!Array.isArray(categories) || categories.length !== 1 || categories[0].is_deleted !== false) {
+      throw new Error("Dashboard category summary read failed after migration");
+    }
+
+    return {
+      ok: true,
+      testType: "unit",
+      count: categories.length
+    };
+  } catch (error) {
+    if (error && error.code === "INTERNAL_ERROR") {
+      throw new Error("Dashboard API still returns INTERNAL_ERROR after category migration: " + error.message);
+    }
+
+    throw error;
+  } finally {
+    SheetRepository_getSheet_ = originalGetSheet;
+  }
+}
+
+function testMigrateCategoriesAddIsDeletedColumnIdempotent() {
+  const sheet = Tests_createMigratedCategoriesFakeSheet_();
+  const before = JSON.stringify(sheet.__rows);
+  const result = Setup_migrateCategoriesAddIsDeletedColumn_(sheet);
+  const after = JSON.stringify(sheet.__rows);
+
+  if (result.insertedColumn || result.updatedRows !== 0 || before !== after) {
+    throw new Error("categories migration is not idempotent");
+  }
+
+  return {
+    ok: true,
+    testType: "unit",
+    updatedRows: result.updatedRows
+  };
+}
+
 function testDashboardSummaryCacheClearVersion() {
   const beforeVersion = DashboardService_getCacheVersion_();
   const result = DashboardService_clearCache_();
@@ -3937,6 +4115,97 @@ function testDemoReportSeedCleanupMatcherOnlySeedRows() {
   };
 }
 
+function Tests_createMigratedCategoriesFakeSheet_() {
+  return Tests_createFakeSheet_("categories", SETUP_SHEETS_.categories, [[
+    "CAT-001", "ROAD", "Road", "Road issue", "road", "#287444", "", 7,
+    1, true, "2026-06-01T00:00:00.000Z", "2026-06-01T00:00:00.000Z",
+    "setup", "setup", false, 1
+  ]]);
+}
+
+function Tests_createFakeSheet_(sheetName, headers, rows) {
+  const sheet = {
+    __name: sheetName,
+    __rows: [headers.slice()].concat((rows || []).map(function (row) {
+      return row.slice();
+    })),
+    getName: function () {
+      return sheet.__name;
+    },
+    getLastColumn: function () {
+      return sheet.__rows[0].length;
+    },
+    getMaxColumns: function () {
+      return sheet.__rows[0].length;
+    },
+    getLastRow: function () {
+      return sheet.__rows.length;
+    },
+    insertColumnsAfter: function (afterPosition, howMany) {
+      for (let count = 0; count < howMany; count += 1) {
+        sheet.__rows.forEach(function (row) {
+          row.splice(afterPosition + count, 0, "");
+        });
+      }
+    },
+    insertColumnBefore: function (position) {
+      sheet.__rows.forEach(function (row) {
+        row.splice(position - 1, 0, "");
+      });
+    },
+    getRange: function (row, column, numRows, numColumns) {
+      return Tests_createFakeRange_(sheet, row, column, numRows || 1, numColumns || 1);
+    }
+  };
+
+  return sheet;
+}
+
+function Tests_createFakeRange_(sheet, startRow, startColumn, rowCount, columnCount) {
+  return {
+    getValues: function () {
+      const values = [];
+
+      for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
+        const sourceRow = sheet.__rows[startRow - 1 + rowIndex] || [];
+        const row = [];
+
+        for (let columnIndex = 0; columnIndex < columnCount; columnIndex += 1) {
+          row.push(sourceRow[startColumn - 1 + columnIndex] === undefined ? "" : sourceRow[startColumn - 1 + columnIndex]);
+        }
+
+        values.push(row);
+      }
+
+      return values;
+    },
+    setValues: function (values) {
+      for (let rowIndex = 0; rowIndex < rowCount; rowIndex += 1) {
+        while (!sheet.__rows[startRow - 1 + rowIndex]) {
+          sheet.__rows.push([]);
+        }
+
+        for (let columnIndex = 0; columnIndex < columnCount; columnIndex += 1) {
+          sheet.__rows[startRow - 1 + rowIndex][startColumn - 1 + columnIndex] = values[rowIndex][columnIndex];
+        }
+      }
+
+      return this;
+    },
+    setValue: function (value) {
+      while (!sheet.__rows[startRow - 1]) {
+        sheet.__rows.push([]);
+      }
+
+      sheet.__rows[startRow - 1][startColumn - 1] = value;
+      return this;
+    },
+    insertCheckboxes: function () {
+      return this;
+    }
+  };
+}
+
 const TEST_SUITE_DATA_PREFIX_ = "TEST-SUITE-";
 const TEST_SUITE_REQUEST_PREFIX_ = "REQ-TEST-SUITE-";
 
@@ -3974,6 +4243,13 @@ function runKhaophangCoreTestSuite() {
     { group: "dashboard", name: "known auth error keeps code", fn: testDashboardKnownAuthErrorKeepsCode },
     { group: "dashboard", name: "unhandled error log safe", fn: testResponseUnhandledBackendErrorLogSafe },
     { group: "dashboard", name: "diagnostics failure last step", fn: testDashboardDiagnosticsFailureCapturesLastStep },
+    { group: "migration", name: "categories add missing is_deleted", fn: testMigrateCategoriesAddIsDeletedColumnAddsMissing },
+    { group: "migration", name: "categories no duplicate is_deleted", fn: testMigrateCategoriesAddIsDeletedColumnNoDuplicate },
+    { group: "migration", name: "categories default false", fn: testMigrateCategoriesAddIsDeletedColumnDefaultsFalse },
+    { group: "migration", name: "categories header order", fn: testMigrateCategoriesAddIsDeletedColumnHeaderOrder },
+    { group: "migration", name: "category service reads after migration", fn: testCategoryServiceReadsAfterCategoryMigration },
+    { group: "migration", name: "dashboard no internal after migration", fn: testDashboardApiNoInternalAfterCategoryMigration },
+    { group: "migration", name: "categories idempotent", fn: testMigrateCategoriesAddIsDeletedColumnIdempotent },
     { group: "permission", name: "viewer report list read only", fn: testAdminReportListViewerReadOnly },
     { group: "list", name: "admin report list filters", fn: testAdminReportListFiltersSortPagination },
     { group: "list", name: "admin user list pagination", fn: testAdminUserListPagination },

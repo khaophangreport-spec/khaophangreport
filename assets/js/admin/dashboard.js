@@ -23,11 +23,22 @@
     { key: "withinTargetPercent", label: "เสร็จตามเป้า", suffix: "%", tone: "success" },
     { key: "averageResolutionHours", label: "เวลาเฉลี่ย", suffix: " ชม.", tone: "neutral" }
   ];
+  const DASHBOARD_VIEW_STATES = Object.freeze({
+    IDLE: "idle",
+    LOADING: "loading",
+    SUCCESS: "success",
+    EMPTY: "empty",
+    ERROR: "error"
+  });
 
   const state = {
     user: null,
     scope: "global",
-    isLoading: false
+    isLoading: false,
+    viewState: DASHBOARD_VIEW_STATES.IDLE,
+    loadSequence: 0,
+    hasRenderedContent: false,
+    latestError: null
   };
 
   function $(selector) {
@@ -52,6 +63,84 @@
     if (element) {
       element.hidden = !!hidden;
     }
+  }
+
+  function setElementHidden(element, hidden) {
+    if (element) {
+      element.hidden = !!hidden;
+    }
+  }
+
+  function setElementText(element, value) {
+    if (element) {
+      element.textContent = value === undefined || value === null ? "" : String(value);
+    }
+  }
+
+  function getDashboardStateElements() {
+    return {
+      root: $(".dashboard-page"),
+      loading: $("[data-dashboard-loading]"),
+      content: $("[data-dashboard-content]"),
+      error: $("[data-dashboard-error]"),
+      empty: $("[data-dashboard-empty]"),
+      errorMessage: $("[data-dashboard-error-message]")
+    };
+  }
+
+  function clearDashboardError(elements) {
+    const safeElements = elements || getDashboardStateElements();
+
+    state.latestError = null;
+    setElementText(safeElements.errorMessage, "");
+
+    if (safeElements.error) {
+      safeElements.error.classList.remove("is-active");
+    }
+  }
+
+  function applyDashboardView(viewState, options) {
+    const elements = getDashboardStateElements();
+    const safeOptions = options || {};
+    const isLoading = viewState === DASHBOARD_VIEW_STATES.LOADING;
+    const keepContent = viewState === DASHBOARD_VIEW_STATES.ERROR &&
+      state.hasRenderedContent &&
+      safeOptions.keepContent === true;
+
+    state.viewState = viewState;
+    state.isLoading = isLoading;
+
+    setElementHidden(elements.loading, !isLoading);
+    setElementHidden(elements.content, !(viewState === DASHBOARD_VIEW_STATES.SUCCESS || keepContent));
+    setElementHidden(elements.error, viewState !== DASHBOARD_VIEW_STATES.ERROR);
+    setElementHidden(elements.empty, viewState !== DASHBOARD_VIEW_STATES.EMPTY);
+
+    if (elements.root) {
+      elements.root.classList.toggle("is-loading", isLoading);
+      elements.root.classList.toggle("is-success", viewState === DASHBOARD_VIEW_STATES.SUCCESS);
+      elements.root.classList.toggle("is-empty", viewState === DASHBOARD_VIEW_STATES.EMPTY);
+      elements.root.classList.toggle("is-error", viewState === DASHBOARD_VIEW_STATES.ERROR);
+      elements.root.dataset.dashboardState = viewState;
+    }
+
+    if (elements.loading) {
+      if (isLoading) {
+        elements.loading.setAttribute("aria-busy", "true");
+      } else {
+        elements.loading.removeAttribute("aria-busy");
+      }
+    }
+
+    if (viewState === DASHBOARD_VIEW_STATES.ERROR) {
+      if (elements.error) {
+        elements.error.classList.add("is-active");
+      }
+    } else {
+      clearDashboardError(elements);
+    }
+
+    setControlsDisabled(isLoading);
+    updateScopeButtons();
   }
 
   function clearElement(element) {
@@ -137,17 +226,11 @@
   }
 
   function setLoading(isLoading) {
-    state.isLoading = !!isLoading;
-    setHidden("[data-dashboard-loading]", !isLoading);
-    setHidden("[data-dashboard-error]", true);
-    setHidden("[data-dashboard-empty]", true);
-    setHidden("[data-dashboard-content]", true);
-    setControlsDisabled(isLoading);
-    updateScopeButtons();
+    applyDashboardView(isLoading ? DASHBOARD_VIEW_STATES.LOADING : DASHBOARD_VIEW_STATES.IDLE);
   }
 
   function setControlsDisabled(isDisabled) {
-    $all("[data-dashboard-scope], [data-dashboard-retry]").forEach(function (button) {
+    $all("[data-dashboard-retry]").forEach(function (button) {
       button.disabled = !!isDisabled;
     });
   }
@@ -168,34 +251,20 @@
       detailParts.push("Request ID: " + requestId);
     }
 
-    state.isLoading = false;
-    setHidden("[data-dashboard-loading]", true);
-    setHidden("[data-dashboard-content]", true);
-    setHidden("[data-dashboard-empty]", true);
-    setHidden("[data-dashboard-error]", false);
+    state.latestError = error || {};
+    applyDashboardView(DASHBOARD_VIEW_STATES.ERROR, {
+      keepContent: state.hasRenderedContent
+    });
     setText("[data-dashboard-error-message]", detailParts.length > 0 ? message + " (" + detailParts.join(" | ") + ")" : message);
-    setControlsDisabled(false);
-    updateScopeButtons();
   }
 
   function showEmpty() {
-    state.isLoading = false;
-    setHidden("[data-dashboard-loading]", true);
-    setHidden("[data-dashboard-content]", true);
-    setHidden("[data-dashboard-error]", true);
-    setHidden("[data-dashboard-empty]", false);
-    setControlsDisabled(false);
-    updateScopeButtons();
+    applyDashboardView(DASHBOARD_VIEW_STATES.EMPTY);
   }
 
   function showContent() {
-    state.isLoading = false;
-    setHidden("[data-dashboard-loading]", true);
-    setHidden("[data-dashboard-error]", true);
-    setHidden("[data-dashboard-empty]", true);
-    setHidden("[data-dashboard-content]", false);
-    setControlsDisabled(false);
-    updateScopeButtons();
+    state.hasRenderedContent = true;
+    applyDashboardView(DASHBOARD_VIEW_STATES.SUCCESS);
   }
 
   function renderHero(data) {
@@ -340,6 +409,27 @@
     });
   }
 
+  function hasPositiveTotal(items) {
+    return (items || []).some(function (item) {
+      return Number(item && item.total || 0) > 0;
+    });
+  }
+
+  function hasDashboardData(data) {
+    const safeData = data || {};
+    const cards = safeData.cards || {};
+
+    if (Number(cards.total || 0) > 0) {
+      return true;
+    }
+
+    return hasPositiveTotal(safeData.byStatus) ||
+      hasPositiveTotal(safeData.byCategory) ||
+      hasPositiveTotal(safeData.byMonth) ||
+      hasPositiveTotal(safeData.byVillage) ||
+      (Array.isArray(safeData.recentReports) && safeData.recentReports.length > 0);
+  }
+
   function renderDashboard(data) {
     const safeData = data || {};
     const cards = safeData.cards || {};
@@ -348,7 +438,7 @@
       state.scope = safeData.scope;
     }
 
-    if (Number(cards.total || 0) === 0) {
+    if (!hasDashboardData(safeData)) {
       renderHero(safeData);
       showEmpty();
       return;
@@ -377,6 +467,9 @@
       return;
     }
 
+    const sequence = state.loadSequence + 1;
+
+    state.loadSequence = sequence;
     setLoading(true);
 
     try {
@@ -386,12 +479,20 @@
         withSession: true
       });
 
+      if (sequence !== state.loadSequence) {
+        return;
+      }
+
       renderDashboard(result.data || {});
     } catch (error) {
+      if (sequence !== state.loadSequence) {
+        return;
+      }
+
       logDashboardError("loadDashboard", error);
       showError(error);
     } finally {
-      if (state.isLoading) {
+      if (sequence === state.loadSequence && state.isLoading) {
         state.isLoading = false;
         setControlsDisabled(false);
         updateScopeButtons();
@@ -404,7 +505,7 @@
       button.addEventListener("click", function () {
         const nextScope = button.dataset.dashboardScope;
 
-        if (state.isLoading || nextScope === state.scope) {
+        if (nextScope === state.scope) {
           return;
         }
 
@@ -460,6 +561,35 @@
       message: error && error.message ? error.message : String(error || ""),
       requestId: error && error.meta && error.meta.requestId ? error.meta.requestId : ""
     });
+  }
+
+  function resetDashboardStateForTest(overrides) {
+    const safeOverrides = overrides || {};
+
+    state.user = safeOverrides.user || null;
+    state.scope = safeOverrides.scope || "global";
+    state.isLoading = false;
+    state.viewState = DASHBOARD_VIEW_STATES.IDLE;
+    state.loadSequence = 0;
+    state.hasRenderedContent = !!safeOverrides.hasRenderedContent;
+    state.latestError = null;
+  }
+
+  if (window.__KPR_ENABLE_DASHBOARD_TESTS__ === true) {
+    window.KPR_DASHBOARD_TESTS = {
+      viewStates: DASHBOARD_VIEW_STATES,
+      state: state,
+      hasDashboardData: hasDashboardData,
+      applyDashboardView: applyDashboardView,
+      clearDashboardError: clearDashboardError,
+      showError: showError,
+      showEmpty: showEmpty,
+      showContent: showContent,
+      setLoading: setLoading,
+      renderDashboard: renderDashboard,
+      loadDashboard: loadDashboard,
+      resetState: resetDashboardStateForTest
+    };
   }
 
   document.addEventListener("DOMContentLoaded", init);

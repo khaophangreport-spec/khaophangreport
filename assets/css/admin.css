@@ -349,6 +349,11 @@ body.admin-drawer-open {
   padding: var(--space-5);
 }
 
+.dashboard-state[hidden],
+.dashboard-content[hidden] {
+  display: none;
+}
+
 .dashboard-state strong {
   color: var(--color-primary-950);
 }
