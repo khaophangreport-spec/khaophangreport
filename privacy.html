@@ -7,12 +7,15 @@
     <title>นโยบายความเป็นส่วนตัว | Khaophang Report</title>
     <link rel="icon" type="image/png" href="assets/icons/icon-khophangreport.png" />
     <link rel="apple-touch-icon" href="assets/icons/icon-khophangreport.png" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <meta name="theme-color" content="#18743f" />
     <link rel="stylesheet" href="assets/css/variables.css" />
     <link rel="stylesheet" href="assets/css/reset.css" />
     <link rel="stylesheet" href="assets/css/base.css" />
     <link rel="stylesheet" href="assets/css/components.css" />
     <link rel="stylesheet" href="assets/css/utilities.css" />
     <link rel="stylesheet" href="assets/css/public.css" />
+    <script src="assets/js/install-app.js" defer></script>
   </head>
   <body>
     <header class="site-header">
@@ -27,6 +30,16 @@
         <a href="faq.html">คำถามที่พบบ่อย</a>
         <a href="contact.html">ติดต่อเรา</a>
       </nav>
+      <button class="app-install-button" type="button" data-install-app aria-label="เพิ่ม Khaophang Report ลงหน้าจอมือถือ" hidden>
+        <span class="app-install-button__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" focusable="false">
+            <path d="M12 3v12" />
+            <path d="m7 10 5 5 5-5" />
+            <path d="M5 19h14" />
+          </svg>
+        </span>
+        <span class="app-install-button__label">ติดตั้งแอป</span>
+      </button>
     </header>
 
     <main class="page-shell info-page">
