@@ -1321,6 +1321,70 @@ function testDashboardSummaryInvalidDateRowSafe() {
   };
 }
 
+function testDashboardSummaryVillageNormalization() {
+  const reports = [
+    { report_id: "REPORT-MOO-1-A", category_id: "CAT-ROAD", status: "new", created_at: "2026-06-01T00:00:00.000Z", year_month: "2026-06", village_no: "หมู่ 1", village_key: "หมู่ 1" },
+    { report_id: "REPORT-MOO-1-B", category_id: "CAT-ROAD", status: "new", created_at: "2026-06-01T00:00:00.000Z", year_month: "2026-06", village_no: "หมู่1", village_key: "หมู่1" },
+    { report_id: "REPORT-MOO-1-C", category_id: "CAT-ROAD", status: "new", created_at: "2026-06-01T00:00:00.000Z", year_month: "2026-06", village_no: "หมู่ที่ 1", village_key: "หมู่ที่ 1" },
+    { report_id: "REPORT-MOO-1-D", category_id: "CAT-ROAD", status: "new", created_at: "2026-06-01T00:00:00.000Z", year_month: "2026-06", village_no: "ม.1", village_key: "ม.1" },
+    { report_id: "REPORT-MOO-1-E", category_id: "CAT-ROAD", status: "new", created_at: "2026-06-01T00:00:00.000Z", year_month: "2026-06", village_no: "๑", village_key: "๑" },
+    { report_id: "REPORT-MOO-2", category_id: "CAT-ROAD", status: "new", created_at: "2026-06-01T00:00:00.000Z", year_month: "2026-06", village_no: "2", village_key: "2" },
+    { report_id: "REPORT-MOO-6", category_id: "CAT-ROAD", status: "new", created_at: "2026-06-01T00:00:00.000Z", year_month: "2026-06", village_no: "หมู่ 6", village_key: "หมู่ 6" },
+    { report_id: "REPORT-MOO-BLANK", category_id: "CAT-ROAD", status: "new", created_at: "2026-06-01T00:00:00.000Z", year_month: "2026-06", village_no: "", village_key: "" }
+  ];
+  const summary = DashboardService_buildSummary_(reports, [{
+    category_id: "CAT-ROAD",
+    code: "road",
+    name: "Road",
+    icon: "road",
+    color: "#287444",
+    sort_order: 1,
+    is_active: true
+  }], {
+    scope: "global"
+  }, new Date("2026-06-29T00:00:00.000Z"));
+  const labels = summary.byVillage.map(function (item) {
+    return item.label;
+  });
+  const villageNos = summary.byVillage.map(function (item) {
+    return item.villageNo;
+  });
+  const totals = summary.byVillage.map(function (item) {
+    return item.total;
+  });
+  const uniqueLabels = {};
+
+  labels.forEach(function (label) {
+    uniqueLabels[label] = true;
+  });
+
+  if (summary.byVillage.length !== 5) {
+    throw new Error("dashboard village summary should always return 5 items");
+  }
+
+  if (villageNos.join(",") !== "1,2,3,4,5") {
+    throw new Error("dashboard village summary should be sorted by village number 1-5: " + villageNos.join(","));
+  }
+
+  if (labels.join(",") !== "หมู่ 1,หมู่ 2,หมู่ 3,หมู่ 4,หมู่ 5") {
+    throw new Error("dashboard village labels are invalid: " + labels.join(","));
+  }
+
+  if (totals.join(",") !== "5,1,0,0,0") {
+    throw new Error("dashboard village totals are invalid: " + totals.join(","));
+  }
+
+  if (Object.keys(uniqueLabels).length !== 5) {
+    throw new Error("dashboard village summary contains duplicate labels");
+  }
+
+  return {
+    ok: true,
+    testType: "unit",
+    checked: reports.length
+  };
+}
+
 function testDashboardSummaryDemoSeedPlanBuilds() {
   const plan = DemoSeed_buildPlanForTest_();
   const categories = DemoSeed_getTestCategories_().map(function (category, index) {

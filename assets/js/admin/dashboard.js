@@ -23,6 +23,7 @@
     { key: "withinTargetPercent", label: "เสร็จตามเป้า", suffix: "%", tone: "success" },
     { key: "averageResolutionHours", label: "เวลาเฉลี่ย", suffix: " ชม.", tone: "neutral" }
   ];
+  const DASHBOARD_VILLAGE_NUMBERS = Object.freeze(["1", "2", "3", "4", "5"]);
   const DASHBOARD_VIEW_STATES = Object.freeze({
     IDLE: "idle",
     LOADING: "loading",
@@ -322,9 +323,10 @@
 
   function renderBars(selector, items, labelGetter, options) {
     const container = $(selector);
+    const safeOptions = options || {};
     const safeItems = (items || []).filter(function (item) {
-      return Number(item.total || 0) > 0;
-    }).slice(0, options && options.limit ? options.limit : 8);
+      return safeOptions.includeZero === true || Number(item.total || 0) > 0;
+    }).slice(0, safeOptions.limit ? safeOptions.limit : 8);
     const maxTotal = getMaxTotal(safeItems);
 
     clearElement(container);
@@ -348,12 +350,86 @@
 
       const fill = document.createElement("span");
       fill.className = "dashboard-bar__fill";
-      fill.style.width = Math.max((Number(item.total || 0) / maxTotal) * 100, 6) + "%";
+      fill.style.width = Number(item.total || 0) > 0 ? Math.max((Number(item.total || 0) / maxTotal) * 100, 6) + "%" : "0%";
       track.appendChild(fill);
 
       row.appendChild(header);
       row.appendChild(track);
       container.appendChild(row);
+    });
+  }
+
+  function normalizeVillageNumber(value) {
+    let text = normalizeThaiDigits(String(value || "").trim()).toLowerCase();
+    let match;
+
+    if (!text) {
+      return "";
+    }
+
+    text = text.replace(/\s+/g, " ");
+
+    if (/^[1-5]$/.test(text)) {
+      return text;
+    }
+
+    match = text.match(/^(?:หมู่(?:ที่)?|ม\.?|moo|village)\s*([1-5])$/);
+
+    if (match && match[1]) {
+      return match[1];
+    }
+
+    return "";
+  }
+
+  function normalizeThaiDigits(value) {
+    const digits = {
+      "๐": "0",
+      "๑": "1",
+      "๒": "2",
+      "๓": "3",
+      "๔": "4",
+      "๕": "5",
+      "๖": "6",
+      "๗": "7",
+      "๘": "8",
+      "๙": "9"
+    };
+
+    return String(value || "").replace(/[๐-๙]/g, function (digit) {
+      return digits[digit] || digit;
+    });
+  }
+
+  function normalizeVillageSummary(items) {
+    const totals = {};
+
+    DASHBOARD_VILLAGE_NUMBERS.forEach(function (villageNo) {
+      totals[villageNo] = {
+        villageKey: villageNo,
+        villageNo: villageNo,
+        label: "หมู่ " + villageNo,
+        total: 0,
+        overdue: 0
+      };
+    });
+
+    (items || []).forEach(function (item) {
+      const villageNo = normalizeVillageNumber(item && (item.villageNo || item.villageKey || item.label));
+
+      if (!villageNo) {
+        logDashboardWarning("DASHBOARD_INVALID_VILLAGE_IGNORED", {
+          value: item && (item.villageNo || item.villageKey || item.label || "")
+        });
+        return;
+      }
+
+      totals[villageNo].total += Number(item.total || 0);
+      totals[villageNo].overdue += Number(item.overdue || 0);
+    });
+
+    return DASHBOARD_VILLAGE_NUMBERS.map(function (villageNo) {
+      return totals[villageNo];
     });
   }
 
@@ -453,9 +529,9 @@
     renderBars("[data-dashboard-category-chart]", safeData.byCategory || [], function (item) {
       return item.name || item.code || "ไม่ระบุหมวด";
     }, { limit: 6 });
-    renderBars("[data-dashboard-village-chart]", safeData.byVillage || [], function (item) {
+    renderBars("[data-dashboard-village-chart]", normalizeVillageSummary(safeData.byVillage || []), function (item) {
       return item.villageNo && item.villageNo !== "unknown" ? "หมู่ " + item.villageNo : "ไม่ระบุพื้นที่";
-    }, { limit: 6 });
+    }, { includeZero: true, limit: 5 });
     renderMonthChart(safeData.byMonth || []);
     renderRecent(safeData);
     showContent();
@@ -563,6 +639,17 @@
     });
   }
 
+  function logDashboardWarning(code, detail) {
+    const host = window.location && window.location.hostname ? window.location.hostname : "";
+    const isDevelopment = host === "localhost" || host === "127.0.0.1" || window.__KPR_ENABLE_DASHBOARD_TESTS__ === true;
+
+    if (!isDevelopment || !window.console || typeof window.console.warn !== "function") {
+      return;
+    }
+
+    window.console.warn(code, detail || {});
+  }
+
   function resetDashboardStateForTest(overrides) {
     const safeOverrides = overrides || {};
 
@@ -587,6 +674,8 @@
       showContent: showContent,
       setLoading: setLoading,
       renderDashboard: renderDashboard,
+      normalizeVillageNumber: normalizeVillageNumber,
+      normalizeVillageSummary: normalizeVillageSummary,
       loadDashboard: loadDashboard,
       resetState: resetDashboardStateForTest
     };

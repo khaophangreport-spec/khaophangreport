@@ -152,7 +152,8 @@ function createDashboardHarness() {
       search: ""
     },
     console: {
-      error: function () {}
+      error: function () {},
+      warn: function () {}
     },
     Intl: Intl,
     KPR_API: {
@@ -364,6 +365,52 @@ async function run() {
     await harness.tests.loadDashboard();
     assert.strictEqual(harness.elements.error.hidden, true, "API ok=true result should not show error banner");
     assert.strictEqual(harness.elements.content.hidden, false, "API ok=true result should show content");
+  }
+
+  {
+    const harness = createDashboardHarness();
+    const normalized = harness.tests.normalizeVillageSummary([
+      { villageNo: "หมู่ 1", total: 5 },
+      { villageNo: "หมู่1", total: 2 },
+      { villageNo: "หมู่ที่ 1", total: 3 },
+      { villageNo: "ม.1", total: 4 },
+      { villageNo: "๑", total: 6 },
+      { villageNo: "หมู่ 2", total: 1 },
+      { villageNo: "หมู่ 6", total: 99 },
+      { villageNo: "", total: 99 }
+    ]);
+
+    assert.strictEqual(normalized.length, 5, "village summary should always have five items");
+    assert.strictEqual(normalized.map(function (item) { return item.label; }).join(","), "หมู่ 1,หมู่ 2,หมู่ 3,หมู่ 4,หมู่ 5");
+    assert.strictEqual(normalized.map(function (item) { return item.villageNo; }).join(","), "1,2,3,4,5");
+    assert.strictEqual(normalized[0].total, 20, "village aliases should aggregate into หมู่ 1");
+    assert.strictEqual(normalized[1].total, 1, "หมู่ 2 should keep its total");
+    assert.strictEqual(normalized[2].total, 0, "missing village should show zero");
+    assert.strictEqual(normalized[3].total, 0, "missing village should show zero");
+    assert.strictEqual(normalized[4].total, 0, "missing village should show zero");
+    assert.strictEqual(new Set(normalized.map(function (item) { return item.label; })).size, 5, "village labels must not duplicate");
+  }
+
+  {
+    const harness = createDashboardHarness();
+
+    harness.tests.resetState();
+    harness.tests.renderDashboard(sampleDashboardData({
+      byVillage: [
+        { villageNo: "หมู่ 1", total: 5 },
+        { villageNo: "หมู่1", total: 2 },
+        { villageNo: "หมู่ที่ 1", total: 3 },
+        { villageNo: "ม.1", total: 4 },
+        { villageNo: "๑", total: 6 },
+        { villageNo: "หมู่ 6", total: 99 }
+      ]
+    }));
+
+    assert.strictEqual(harness.elements.villageChart.children.length, 5, "village chart should render exactly five rows");
+    assert.strictEqual(harness.elements.villageChart.children[0].children[0].children[0].textContent, "หมู่ 1");
+    assert.strictEqual(harness.elements.villageChart.children[0].children[0].children[1].textContent, "20");
+    assert.strictEqual(harness.elements.villageChart.children[4].children[0].children[0].textContent, "หมู่ 5");
+    assert.strictEqual(harness.elements.villageChart.children[4].children[0].children[1].textContent, "0");
   }
 }
 

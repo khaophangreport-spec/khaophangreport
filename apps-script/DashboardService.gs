@@ -1,4 +1,5 @@
 const DASHBOARD_CACHE_TTL_SECONDS_ = 120;
+const DASHBOARD_SUMMARY_SCHEMA_VERSION_ = "village-v2";
 const DASHBOARD_CACHE_VERSION_KEY_ = "DASHBOARD_CACHE_VERSION";
 const DASHBOARD_REPORT_COLUMNS_ = Object.freeze([
   "report_id",
@@ -35,6 +36,7 @@ const DASHBOARD_STATUS_ORDER_ = Object.freeze([
   "rejected",
   "duplicate"
 ]);
+const DASHBOARD_VILLAGE_NUMBERS_ = Object.freeze(["1", "2", "3", "4", "5"]);
 
 function DashboardService_summary(request) {
   const diagnostics = DashboardService_createDiagnostics_(request);
@@ -317,8 +319,10 @@ function DashboardService_buildSummary_(reports, categories, context, now) {
     aggregate.byStatus[status] = (aggregate.byStatus[status] || 0) + 1;
     DashboardService_incrementGroup_(aggregate.byMonth, yearMonth, "yearMonth", yearMonth);
     DashboardService_incrementGroup_(aggregate.byCategory, categoryId || "uncategorized", "categoryId", categoryId);
-    DashboardService_incrementGroup_(aggregate.byVillage, villageKey, "villageKey", villageKey);
-    aggregate.byVillage[villageKey].villageNo = Utils_normalizeString_(report.village_no) || villageKey;
+    if (villageKey) {
+      DashboardService_incrementGroup_(aggregate.byVillage, villageKey, "villageKey", villageKey);
+      aggregate.byVillage[villageKey].villageNo = villageKey;
+    }
 
     if (DashboardService_isClosedStatus_(status)) {
       aggregate.closed += 1;
@@ -336,7 +340,9 @@ function DashboardService_buildSummary_(reports, categories, context, now) {
     if (!DashboardService_isTerminalStatus_(status) && targetDate && targetDate.getTime() < nowDate.getTime()) {
       aggregate.overdue += 1;
       aggregate.byCategory[categoryId || "uncategorized"].overdue += 1;
-      aggregate.byVillage[villageKey].overdue += 1;
+      if (villageKey) {
+        aggregate.byVillage[villageKey].overdue += 1;
+      }
       aggregate.byMonth[yearMonth].overdue = (aggregate.byMonth[yearMonth].overdue || 0) + 1;
     }
 
@@ -513,20 +519,33 @@ function DashboardService_getStatusOrder_() {
 }
 
 function DashboardService_projectByVillage_(groups) {
-  return Object.keys(groups || {}).map(function (key) {
-    return {
-      villageKey: groups[key].villageKey,
-      villageNo: groups[key].villageNo || groups[key].villageKey,
-      total: groups[key].total,
-      overdue: groups[key].overdue
+  const projected = {};
+
+  DASHBOARD_VILLAGE_NUMBERS_.forEach(function (villageNo) {
+    projected[villageNo] = {
+      villageKey: villageNo,
+      villageNo: villageNo,
+      label: "หมู่ " + villageNo,
+      total: 0,
+      overdue: 0
     };
-  }).sort(function (left, right) {
-    if (right.total !== left.total) {
-      return right.total - left.total;
+  });
+
+  Object.keys(groups || {}).forEach(function (key) {
+    const villageNo = DashboardService_normalizeVillageNumber_(groups[key].villageNo || groups[key].villageKey || key);
+
+    if (!villageNo) {
+      DashboardService_logInvalidVillageForDev_(groups[key].villageNo || groups[key].villageKey || key);
+      return;
     }
 
-    return String(left.villageKey || "").localeCompare(String(right.villageKey || ""));
-  }).slice(0, 20);
+    projected[villageNo].total += Number(groups[key].total || 0);
+    projected[villageNo].overdue += Number(groups[key].overdue || 0);
+  });
+
+  return DASHBOARD_VILLAGE_NUMBERS_.map(function (villageNo) {
+    return projected[villageNo];
+  });
 }
 
 function DashboardService_normalizeStatus_(status) {
@@ -576,13 +595,80 @@ function DashboardService_resolveYearMonth_(report) {
 }
 
 function DashboardService_normalizeVillageKey_(report) {
-  const villageKey = Utils_normalizeString_(report.village_key).toLowerCase();
+  const villageKey = DashboardService_normalizeVillageNumber_(report && report.village_key);
 
   if (villageKey) {
     return villageKey;
   }
 
-  return Utils_normalizeString_(report.village_no).toLowerCase() || "unknown";
+  const villageNo = DashboardService_normalizeVillageNumber_(report && report.village_no);
+
+  if (villageNo) {
+    return villageNo;
+  }
+
+  DashboardService_logInvalidVillageForDev_(report && (report.village_key || report.village_no));
+  return "";
+}
+
+function DashboardService_normalizeVillageNumber_(value) {
+  let text = DashboardService_normalizeThaiDigits_(Utils_normalizeString_(value)).toLowerCase();
+  let match;
+
+  if (!text) {
+    return "";
+  }
+
+  text = text.replace(/\s+/g, " ");
+
+  if (/^[1-5]$/.test(text)) {
+    return text;
+  }
+
+  match = text.match(/^(?:\u0e2b\u0e21\u0e39\u0e48(?:\u0e17\u0e35\u0e48)?|\u0e21\.?|moo|village)\s*([1-5])$/);
+
+  if (match && match[1]) {
+    return match[1];
+  }
+
+  return "";
+}
+
+function DashboardService_normalizeThaiDigits_(value) {
+  const thaiDigits = {
+    "\u0e50": "0",
+    "\u0e51": "1",
+    "\u0e52": "2",
+    "\u0e53": "3",
+    "\u0e54": "4",
+    "\u0e55": "5",
+    "\u0e56": "6",
+    "\u0e57": "7",
+    "\u0e58": "8",
+    "\u0e59": "9"
+  };
+
+  return String(value || "").replace(/[\u0e50-\u0e59]/g, function (digit) {
+    return thaiDigits[digit] || digit;
+  });
+}
+
+function DashboardService_logInvalidVillageForDev_(value) {
+  if (!value || typeof console === "undefined" || typeof console.warn !== "function") {
+    return;
+  }
+
+  try {
+    if (typeof Config_getEnvironment_ === "function" && Config_getEnvironment_() !== "production") {
+      console.warn("DASHBOARD_INVALID_VILLAGE_IGNORED", {
+        value: String(value)
+      });
+    }
+  } catch (error) {
+    console.warn("DASHBOARD_INVALID_VILLAGE_IGNORED", {
+      value: String(value)
+    });
+  }
 }
 
 function DashboardService_roundNumber_(value, digits) {
@@ -596,6 +682,7 @@ function DashboardService_buildCacheKey_(context) {
   const userPart = context.scope === "mine" && context.user ? String(context.user.user_id || "") : "global";
   const rawKey = [
     "dashboard.summary",
+    DASHBOARD_SUMMARY_SCHEMA_VERSION_,
     version,
     context.scope,
     userPart
