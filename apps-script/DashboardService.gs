@@ -1,5 +1,5 @@
 const DASHBOARD_CACHE_TTL_SECONDS_ = 120;
-const DASHBOARD_SUMMARY_SCHEMA_VERSION_ = "village-v2";
+const DASHBOARD_SUMMARY_SCHEMA_VERSION_ = "village-month-v1";
 const DASHBOARD_CACHE_VERSION_KEY_ = "DASHBOARD_CACHE_VERSION";
 const DASHBOARD_REPORT_COLUMNS_ = Object.freeze([
   "report_id",
@@ -303,7 +303,8 @@ function DashboardService_buildSummary_(reports, categories, context, now) {
     byMonth: {},
     byCategory: {},
     byStatus: {},
-    byVillage: {}
+    byVillage: {},
+    byVillageMonth: {}
   };
 
   safeReports.forEach(function (report) {
@@ -322,6 +323,7 @@ function DashboardService_buildSummary_(reports, categories, context, now) {
     if (villageKey) {
       DashboardService_incrementGroup_(aggregate.byVillage, villageKey, "villageKey", villageKey);
       aggregate.byVillage[villageKey].villageNo = villageKey;
+      DashboardService_incrementVillageMonth_(aggregate.byVillageMonth, villageKey, yearMonth);
     }
 
     if (DashboardService_isClosedStatus_(status)) {
@@ -385,7 +387,8 @@ function DashboardService_projectSummary_(aggregate, categoryMap, context, nowDa
     byMonth: DashboardService_projectByMonth_(aggregate.byMonth),
     byCategory: DashboardService_projectByCategory_(aggregate.byCategory, categoryMap),
     byStatus: DashboardService_projectByStatus_(aggregate.byStatus),
-    byVillage: DashboardService_projectByVillage_(aggregate.byVillage)
+    byVillage: DashboardService_projectByVillage_(aggregate.byVillage),
+    byVillageMonth: DashboardService_projectByVillageMonth_(aggregate.byVillageMonth, aggregate.byMonth)
   };
 }
 
@@ -421,6 +424,26 @@ function DashboardService_incrementGroup_(groups, key, keyName, keyValue) {
       overdue: 0
     };
     groups[groupKey][keyName] = keyValue || groupKey;
+  }
+
+  groups[groupKey].total += 1;
+}
+
+function DashboardService_incrementVillageMonth_(groups, villageNo, yearMonth) {
+  const safeVillageNo = DashboardService_normalizeVillageNumber_(villageNo);
+  const safeYearMonth = yearMonth || "unknown";
+  const groupKey = safeVillageNo + "|" + safeYearMonth;
+
+  if (!safeVillageNo) {
+    return;
+  }
+
+  if (!groups[groupKey]) {
+    groups[groupKey] = {
+      villageNo: safeVillageNo,
+      yearMonth: safeYearMonth,
+      total: 0
+    };
   }
 
   groups[groupKey].total += 1;
@@ -546,6 +569,46 @@ function DashboardService_projectByVillage_(groups) {
   return DASHBOARD_VILLAGE_NUMBERS_.map(function (villageNo) {
     return projected[villageNo];
   });
+}
+
+function DashboardService_projectByVillageMonth_(groups, monthGroups) {
+  const months = Object.keys(monthGroups || {}).sort().slice(-12);
+  const totals = {};
+
+  if (months.length === 0) {
+    return [];
+  }
+
+  DASHBOARD_VILLAGE_NUMBERS_.forEach(function (villageNo) {
+    months.forEach(function (yearMonth) {
+      totals[villageNo + "|" + yearMonth] = {
+        villageNo: villageNo,
+        label: "หมู่ " + villageNo,
+        yearMonth: yearMonth,
+        total: 0
+      };
+    });
+  });
+
+  Object.keys(groups || {}).forEach(function (key) {
+    const group = groups[key];
+    const villageNo = DashboardService_normalizeVillageNumber_(group && group.villageNo);
+    const yearMonth = group && group.yearMonth ? String(group.yearMonth) : "";
+    const totalKey = villageNo + "|" + yearMonth;
+
+    if (!villageNo || months.indexOf(yearMonth) === -1 || !totals[totalKey]) {
+      return;
+    }
+
+    totals[totalKey].total += Number(group.total || 0);
+  });
+
+  return DASHBOARD_VILLAGE_NUMBERS_.reduce(function (items, villageNo) {
+    months.forEach(function (yearMonth) {
+      items.push(totals[villageNo + "|" + yearMonth]);
+    });
+    return items;
+  }, []);
 }
 
 function DashboardService_normalizeStatus_(status) {

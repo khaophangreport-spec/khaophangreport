@@ -1378,6 +1378,20 @@ function testDashboardSummaryVillageNormalization() {
     throw new Error("dashboard village summary contains duplicate labels");
   }
 
+  if (!summary.byVillageMonth || summary.byVillageMonth.length !== 5) {
+    throw new Error("dashboard village-month summary should return 5 cells for one month");
+  }
+
+  if (summary.byVillageMonth[0].label !== "หมู่ 1" ||
+      summary.byVillageMonth[0].yearMonth !== "2026-06" ||
+      summary.byVillageMonth[0].total !== 5) {
+    throw new Error("dashboard village-month summary did not aggregate หมู่ 1 aliases");
+  }
+
+  if (summary.byVillageMonth[4].label !== "หมู่ 5" || summary.byVillageMonth[4].total !== 0) {
+    throw new Error("dashboard village-month summary should include zero-value villages");
+  }
+
   return {
     ok: true,
     testType: "unit",
@@ -4301,6 +4315,7 @@ function runKhaophangCoreTestSuite() {
     { group: "permission", name: "dashboard officer scope", fn: testDashboardSummaryOfficerCannotGlobal },
     { group: "dashboard", name: "current status mapping", fn: testDashboardSummaryStatusMappingCurrentValues },
     { group: "dashboard", name: "invalid date row safe", fn: testDashboardSummaryInvalidDateRowSafe },
+    { group: "dashboard", name: "village normalization", fn: testDashboardSummaryVillageNormalization },
     { group: "dashboard", name: "demo seed summary builds", fn: testDashboardSummaryDemoSeedPlanBuilds },
     { group: "dashboard", name: "actual response flow global/mine", fn: testDashboardSummaryResponseFlowDemoSeedGlobalAndMine },
     { group: "dashboard", name: "response serialization safe", fn: testDashboardSummaryResponseSerializationSafe },

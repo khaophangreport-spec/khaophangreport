@@ -24,6 +24,21 @@
     { key: "averageResolutionHours", label: "เวลาเฉลี่ย", suffix: " ชม.", tone: "neutral" }
   ];
   const DASHBOARD_VILLAGE_NUMBERS = Object.freeze(["1", "2", "3", "4", "5"]);
+  const DASHBOARD_CHART_EMPTY_TEXT = "ยังไม่มีข้อมูลเพียงพอสำหรับแสดงกราฟ";
+  const STATUS_COLORS = Object.freeze({
+    new: "#5bc6ba",
+    reviewing: "#79b8ff",
+    accepted: "#77d4a8",
+    assigned: "#9ed7ff",
+    in_progress: "#f0c66a",
+    waiting: "#f5d58a",
+    waiting_info: "#f5d58a",
+    resolved: "#2f9e63",
+    closed: "#7a9184",
+    rejected: "#d88a6a",
+    duplicate: "#a8b5ad"
+  });
+  const CATEGORY_COLORS = Object.freeze(["#2f9e63", "#5bc6ba", "#79b8ff", "#f0c66a", "#8fcf9d"]);
   const DASHBOARD_VIEW_STATES = Object.freeze({
     IDLE: "idle",
     LOADING: "loading",
@@ -321,10 +336,37 @@
     }).concat([1]));
   }
 
+  function formatPercent(value) {
+    const numberValue = Number(value || 0);
+
+    return new Intl.NumberFormat("th-TH", {
+      maximumFractionDigits: numberValue >= 10 ? 0 : 1
+    }).format(numberValue) + "%";
+  }
+
+  function renderChartFallback(container, message) {
+    clearElement(container);
+
+    if (container) {
+      container.appendChild(createTextElement("p", "dashboard-mini-empty", message || DASHBOARD_CHART_EMPTY_TEXT));
+    }
+  }
+
+  function safeRenderChart(name, selector, renderer) {
+    try {
+      renderer();
+    } catch (error) {
+      logDashboardError("render." + name, error);
+      renderChartFallback($(selector));
+    }
+  }
+
   function renderBars(selector, items, labelGetter, options) {
     const container = $(selector);
     const safeOptions = options || {};
-    const safeItems = (items || []).filter(function (item) {
+    const safeItems = (items || []).slice().sort(function (left, right) {
+      return Number(right.total || 0) - Number(left.total || 0);
+    }).filter(function (item) {
       return safeOptions.includeZero === true || Number(item.total || 0) > 0;
     }).slice(0, safeOptions.limit ? safeOptions.limit : 8);
     const maxTotal = getMaxTotal(safeItems);
@@ -332,11 +374,11 @@
     clearElement(container);
 
     if (safeItems.length === 0) {
-      container.appendChild(createTextElement("p", "dashboard-mini-empty", "ยังไม่มีข้อมูล"));
+      renderChartFallback(container);
       return;
     }
 
-    safeItems.forEach(function (item) {
+    safeItems.forEach(function (item, index) {
       const row = document.createElement("div");
       row.className = "dashboard-bar";
 
@@ -351,12 +393,78 @@
       const fill = document.createElement("span");
       fill.className = "dashboard-bar__fill";
       fill.style.width = Number(item.total || 0) > 0 ? Math.max((Number(item.total || 0) / maxTotal) * 100, 6) + "%" : "0%";
+      fill.style.background = CATEGORY_COLORS[index % CATEGORY_COLORS.length];
       track.appendChild(fill);
 
       row.appendChild(header);
       row.appendChild(track);
       container.appendChild(row);
     });
+  }
+
+  function renderDonutChart(items) {
+    const container = $("[data-dashboard-status-chart]");
+    const safeItems = (items || []).filter(function (item) {
+      return item && item.status;
+    });
+    const positiveItems = safeItems.filter(function (item) {
+      return Number(item.total || 0) > 0;
+    });
+    const legendItems = positiveItems.length > 0 ? positiveItems : safeItems.slice(0, 5);
+    const total = positiveItems.reduce(function (sum, item) {
+      return sum + Number(item.total || 0);
+    }, 0);
+    let current = 0;
+    const segments = [];
+
+    clearElement(container);
+
+    if (total <= 0 || legendItems.length === 0) {
+      renderChartFallback(container);
+      return;
+    }
+
+    positiveItems.forEach(function (item) {
+      const value = Number(item.total || 0);
+      const start = current;
+      const end = current + (value / total) * 100;
+      const color = STATUS_COLORS[item.status] || "#8fcf9d";
+
+      segments.push(color + " " + start + "% " + end + "%");
+      current = end;
+    });
+
+    const visual = document.createElement("div");
+    visual.className = "dashboard-donut-chart__visual";
+    visual.style.background = "conic-gradient(" + segments.join(", ") + ")";
+    visual.setAttribute("aria-hidden", "true");
+
+    const center = document.createElement("div");
+    center.className = "dashboard-donut-chart__center";
+    center.appendChild(createTextElement("strong", "", formatNumber(total)));
+    center.appendChild(createTextElement("span", "", "ทั้งหมด"));
+    visual.appendChild(center);
+
+    const legend = document.createElement("div");
+    legend.className = "dashboard-donut-chart__legend";
+
+    legendItems.forEach(function (item) {
+      const value = Number(item.total || 0);
+      const percent = total > 0 ? (value / total) * 100 : 0;
+      const row = document.createElement("div");
+      const marker = document.createElement("span");
+
+      row.className = "dashboard-donut-chart__legend-item";
+      marker.className = "dashboard-donut-chart__marker";
+      marker.style.background = STATUS_COLORS[item.status] || "#8fcf9d";
+      row.appendChild(marker);
+      row.appendChild(createTextElement("span", "", STATUS_LABELS[item.status] || item.status || "-"));
+      row.appendChild(createTextElement("strong", "", formatNumber(value) + " (" + formatPercent(percent) + ")"));
+      legend.appendChild(row);
+    });
+
+    container.appendChild(visual);
+    container.appendChild(legend);
   }
 
   function normalizeVillageNumber(value) {
@@ -437,19 +545,20 @@
     const container = $("[data-dashboard-month-chart]");
     const safeItems = (items || []).filter(function (item) {
       return Number(item.total || 0) > 0;
-    }).slice(-6);
+    }).slice(-12);
     const maxTotal = getMaxTotal(safeItems);
 
     clearElement(container);
 
     if (safeItems.length === 0) {
-      container.appendChild(createTextElement("p", "dashboard-mini-empty", "ยังไม่มีข้อมูลรายเดือน"));
+      renderChartFallback(container);
       return;
     }
 
     safeItems.forEach(function (item) {
       const bar = document.createElement("div");
       bar.className = "dashboard-month-bar";
+      bar.setAttribute("title", (item.yearMonth || "-") + ": " + formatNumber(item.total) + " เรื่อง");
 
       const fill = document.createElement("span");
       fill.style.height = Math.max((Number(item.total || 0) / maxTotal) * 100, 8) + "%";
@@ -458,6 +567,125 @@
       bar.appendChild(createTextElement("small", "", item.yearMonth || "-"));
       container.appendChild(bar);
     });
+  }
+
+  function getHeatmapMonths(monthItems, villageMonthItems) {
+    const monthKeys = {};
+
+    (monthItems || []).forEach(function (item) {
+      if (item && item.yearMonth) {
+        monthKeys[item.yearMonth] = true;
+      }
+    });
+    (villageMonthItems || []).forEach(function (item) {
+      if (item && item.yearMonth) {
+        monthKeys[item.yearMonth] = true;
+      }
+    });
+
+    return Object.keys(monthKeys).sort().slice(-12);
+  }
+
+  function normalizeVillageMonthSummary(items, monthItems) {
+    const months = getHeatmapMonths(monthItems || [], items || []);
+    const totals = {};
+
+    DASHBOARD_VILLAGE_NUMBERS.forEach(function (villageNo) {
+      totals[villageNo] = {};
+      months.forEach(function (yearMonth) {
+        totals[villageNo][yearMonth] = 0;
+      });
+    });
+
+    (items || []).forEach(function (item) {
+      const villageNo = normalizeVillageNumber(item && (item.villageNo || item.villageKey || item.label));
+      const yearMonth = item && item.yearMonth ? String(item.yearMonth) : "";
+
+      if (!villageNo || months.indexOf(yearMonth) === -1) {
+        return;
+      }
+
+      totals[villageNo][yearMonth] += Number(item.total || 0);
+    });
+
+    return {
+      months: months,
+      rows: DASHBOARD_VILLAGE_NUMBERS.map(function (villageNo) {
+        return {
+          villageNo: villageNo,
+          label: "หมู่ " + villageNo,
+          values: months.map(function (yearMonth) {
+            return {
+              yearMonth: yearMonth,
+              total: totals[villageNo][yearMonth] || 0
+            };
+          })
+        };
+      })
+    };
+  }
+
+  function renderVillageHeatmap(items, monthItems) {
+    const container = $("[data-dashboard-village-chart]");
+    if (!Array.isArray(items)) {
+      renderChartFallback(container);
+      return;
+    }
+
+    const summary = normalizeVillageMonthSummary(items || [], monthItems || []);
+    const months = summary.months;
+    const rows = summary.rows;
+    const maxTotal = Math.max.apply(null, rows.reduce(function (values, row) {
+      return values.concat(row.values.map(function (item) {
+        return Number(item.total || 0);
+      }));
+    }, [0]));
+
+    clearElement(container);
+
+    if (months.length === 0) {
+      renderChartFallback(container);
+      return;
+    }
+
+    const grid = document.createElement("div");
+    grid.className = "dashboard-heatmap__grid";
+    grid.style.gridTemplateColumns = "minmax(4.5rem, auto) repeat(" + months.length + ", minmax(3.75rem, 1fr))";
+
+    grid.appendChild(createTextElement("span", "dashboard-heatmap__corner", "พื้นที่"));
+    months.forEach(function (yearMonth) {
+      grid.appendChild(createTextElement("span", "dashboard-heatmap__month", yearMonth));
+    });
+
+    rows.forEach(function (row) {
+      grid.appendChild(createTextElement("strong", "dashboard-heatmap__label", row.label));
+
+      row.values.forEach(function (item) {
+        const value = Number(item.total || 0);
+        const cell = document.createElement("span");
+        const level = maxTotal > 0 ? Math.ceil((value / maxTotal) * 4) : 0;
+
+        cell.className = "dashboard-heatmap__cell dashboard-heatmap__cell--level-" + level;
+        cell.textContent = formatNumber(value);
+        cell.setAttribute("tabindex", "0");
+        cell.setAttribute("aria-label", row.label + " เดือน " + item.yearMonth + " มี " + formatNumber(value) + " เรื่อง");
+        cell.setAttribute("title", row.label + " / " + item.yearMonth + ": " + formatNumber(value) + " เรื่อง");
+        grid.appendChild(cell);
+      });
+    });
+
+    const legend = document.createElement("div");
+    legend.className = "dashboard-heatmap__legend";
+    legend.appendChild(createTextElement("span", "", "น้อย"));
+    [0, 1, 2, 3, 4].forEach(function (level) {
+      const swatch = document.createElement("span");
+      swatch.className = "dashboard-heatmap__legend-swatch dashboard-heatmap__cell--level-" + level;
+      legend.appendChild(swatch);
+    });
+    legend.appendChild(createTextElement("span", "", "มาก"));
+
+    container.appendChild(grid);
+    container.appendChild(legend);
   }
 
   function renderRecent(data) {
@@ -523,16 +751,20 @@
     renderHero(safeData);
     renderCards(cards);
     renderHighlights(cards);
-    renderBars("[data-dashboard-status-chart]", safeData.byStatus || [], function (item) {
-      return STATUS_LABELS[item.status] || item.status || "-";
+    safeRenderChart("month", "[data-dashboard-month-chart]", function () {
+      renderMonthChart(safeData.byMonth || []);
     });
-    renderBars("[data-dashboard-category-chart]", safeData.byCategory || [], function (item) {
-      return item.name || item.code || "ไม่ระบุหมวด";
-    }, { limit: 6 });
-    renderBars("[data-dashboard-village-chart]", normalizeVillageSummary(safeData.byVillage || []), function (item) {
-      return item.villageNo && item.villageNo !== "unknown" ? "หมู่ " + item.villageNo : "ไม่ระบุพื้นที่";
-    }, { includeZero: true, limit: 5 });
-    renderMonthChart(safeData.byMonth || []);
+    safeRenderChart("status", "[data-dashboard-status-chart]", function () {
+      renderDonutChart(safeData.byStatus || []);
+    });
+    safeRenderChart("category", "[data-dashboard-category-chart]", function () {
+      renderBars("[data-dashboard-category-chart]", safeData.byCategory || [], function (item) {
+        return item.name || item.code || "ไม่ระบุหมวด";
+      }, { limit: 5 });
+    });
+    safeRenderChart("villageHeatmap", "[data-dashboard-village-chart]", function () {
+      renderVillageHeatmap(safeData.byVillageMonth, safeData.byMonth || []);
+    });
     renderRecent(safeData);
     showContent();
   }
@@ -676,6 +908,11 @@
       renderDashboard: renderDashboard,
       normalizeVillageNumber: normalizeVillageNumber,
       normalizeVillageSummary: normalizeVillageSummary,
+      normalizeVillageMonthSummary: normalizeVillageMonthSummary,
+      renderDonutChart: renderDonutChart,
+      renderVillageHeatmap: renderVillageHeatmap,
+      renderChartFallback: renderChartFallback,
+      safeRenderChart: safeRenderChart,
       loadDashboard: loadDashboard,
       resetState: resetDashboardStateForTest
     };

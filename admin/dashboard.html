@@ -125,6 +125,67 @@
           </div>
 
           <div class="dashboard-content" data-dashboard-content hidden>
+            <section class="dashboard-section dashboard-overview-charts" aria-labelledby="overview-charts-title">
+              <div class="dashboard-section__header">
+                <div>
+                  <p class="eyebrow">ภาพรวม</p>
+                  <h2 id="overview-charts-title">กราฟข้อมูลชุมชน</h2>
+                </div>
+              </div>
+
+              <div class="dashboard-overview-grid dashboard-overview-grid--top">
+                <article class="dashboard-chart-card dashboard-chart-card--wide" aria-labelledby="month-chart-title">
+                  <div class="dashboard-section__header">
+                    <div>
+                      <p class="eyebrow">รายเดือน</p>
+                      <h2 id="month-chart-title">แนวโน้มเรื่องแจ้งรายเดือน</h2>
+                    </div>
+                    <p class="dashboard-chart-card__description">จำนวนเรื่องแจ้งที่รับเข้าระบบในแต่ละเดือน</p>
+                  </div>
+                  <div class="dashboard-chart-scroll" tabindex="0" aria-label="กราฟแนวโน้มเรื่องแจ้งรายเดือน">
+                    <div class="dashboard-month-chart" data-dashboard-month-chart role="img" aria-label="จำนวนเรื่องแจ้งรายเดือน"></div>
+                  </div>
+                </article>
+
+                <article class="dashboard-chart-card dashboard-chart-card--donut" aria-labelledby="status-chart-title">
+                  <div class="dashboard-section__header">
+                    <div>
+                      <p class="eyebrow">สถานะ</p>
+                      <h2 id="status-chart-title">สัดส่วนสถานะเรื่องแจ้ง</h2>
+                    </div>
+                    <p class="dashboard-chart-card__description">ภาพรวมความคืบหน้าของเรื่องแจ้งทั้งหมด</p>
+                  </div>
+                  <div class="dashboard-donut-chart" data-dashboard-status-chart role="img" aria-label="สัดส่วนสถานะเรื่องแจ้ง"></div>
+                </article>
+              </div>
+
+              <div class="dashboard-overview-grid dashboard-overview-grid--bottom">
+                <article class="dashboard-chart-card" aria-labelledby="category-chart-title">
+                  <div class="dashboard-section__header">
+                    <div>
+                      <p class="eyebrow">หมวดหมู่</p>
+                      <h2 id="category-chart-title">หมวดหมู่ที่พบมาก</h2>
+                    </div>
+                    <p class="dashboard-chart-card__description">5 หมวดปัญหาที่มีการแจ้งมากที่สุด</p>
+                  </div>
+                  <div class="dashboard-bars dashboard-bars--ranked" data-dashboard-category-chart role="img" aria-label="5 หมวดปัญหาที่มีการแจ้งมากที่สุด"></div>
+                </article>
+
+                <article class="dashboard-chart-card" aria-labelledby="village-chart-title">
+                  <div class="dashboard-section__header">
+                    <div>
+                      <p class="eyebrow">พื้นที่</p>
+                      <h2 id="village-chart-title">ความถี่เรื่องแจ้งตามพื้นที่</h2>
+                    </div>
+                    <p class="dashboard-chart-card__description">จำนวนเรื่องแจ้งของแต่ละหมู่บ้านในแต่ละเดือน</p>
+                  </div>
+                  <div class="dashboard-chart-scroll" tabindex="0" aria-label="ตารางความถี่เรื่องแจ้งตามหมู่บ้านและเดือน">
+                    <div class="dashboard-heatmap" data-dashboard-village-chart role="img" aria-label="ความถี่เรื่องแจ้งตามพื้นที่"></div>
+                  </div>
+                </article>
+              </div>
+            </section>
+
             <section class="dashboard-section" aria-labelledby="summary-title">
               <div class="dashboard-section__header">
                 <div>
@@ -151,50 +212,6 @@
                 </div>
                 <strong data-dashboard-overdue-count>0</strong>
                 <p data-dashboard-overdue-text>ไม่มีเรื่องเกินกำหนด</p>
-              </article>
-            </section>
-
-            <section class="dashboard-grid-two">
-              <article class="dashboard-chart-card" aria-labelledby="status-chart-title">
-                <div class="dashboard-section__header">
-                  <div>
-                    <p class="eyebrow">สถานะ</p>
-                    <h2 id="status-chart-title">สถานะเรื่องแจ้ง</h2>
-                  </div>
-                </div>
-                <div class="dashboard-bars" data-dashboard-status-chart></div>
-              </article>
-
-              <article class="dashboard-chart-card" aria-labelledby="category-chart-title">
-                <div class="dashboard-section__header">
-                  <div>
-                    <p class="eyebrow">หมวดหมู่</p>
-                    <h2 id="category-chart-title">หมวดที่พบมาก</h2>
-                  </div>
-                </div>
-                <div class="dashboard-bars" data-dashboard-category-chart></div>
-              </article>
-            </section>
-
-            <section class="dashboard-grid-two">
-              <article class="dashboard-chart-card" aria-labelledby="month-chart-title">
-                <div class="dashboard-section__header">
-                  <div>
-                    <p class="eyebrow">รายเดือน</p>
-                    <h2 id="month-chart-title">แนวโน้มรายเดือน</h2>
-                  </div>
-                </div>
-                <div class="dashboard-month-chart" data-dashboard-month-chart></div>
-              </article>
-
-              <article class="dashboard-chart-card" aria-labelledby="village-chart-title">
-                <div class="dashboard-section__header">
-                  <div>
-                    <p class="eyebrow">พื้นที่</p>
-                    <h2 id="village-chart-title">พื้นที่ที่มีเรื่องแจ้ง</h2>
-                  </div>
-                </div>
-                <div class="dashboard-bars" data-dashboard-village-chart></div>
               </article>
             </section>
 

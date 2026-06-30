@@ -200,9 +200,26 @@ function sampleDashboardData(overrides) {
       overdue: 2
     },
     byStatus: [{ status: "resolved", total: 29 }],
-    byCategory: [{ name: "Road", total: 10 }],
-    byMonth: [],
+    byCategory: [
+      { name: "Road", total: 10 },
+      { name: "Water", total: 8 },
+      { name: "Light", total: 7 },
+      { name: "Waste", total: 6 },
+      { name: "Tree", total: 5 },
+      { name: "Other", total: 4 }
+    ],
+    byMonth: [
+      { yearMonth: "2026-01", total: 3 },
+      { yearMonth: "2026-02", total: 4 },
+      { yearMonth: "2026-03", total: 5 }
+    ],
     byVillage: [{ villageNo: "1", total: 3 }],
+    byVillageMonth: [
+      { villageNo: "1", yearMonth: "2026-01", total: 1 },
+      { villageNo: "หมู่1", yearMonth: "2026-02", total: 2 },
+      { villageNo: "หมู่ที่ 2", yearMonth: "2026-03", total: 3 },
+      { villageNo: "๓", yearMonth: "2026-03", total: 0 }
+    ],
     recentReports: []
   }, overrides || {});
 }
@@ -406,11 +423,106 @@ async function run() {
       ]
     }));
 
-    assert.strictEqual(harness.elements.villageChart.children.length, 5, "village chart should render exactly five rows");
-    assert.strictEqual(harness.elements.villageChart.children[0].children[0].children[0].textContent, "หมู่ 1");
-    assert.strictEqual(harness.elements.villageChart.children[0].children[0].children[1].textContent, "20");
-    assert.strictEqual(harness.elements.villageChart.children[4].children[0].children[0].textContent, "หมู่ 5");
-    assert.strictEqual(harness.elements.villageChart.children[4].children[0].children[1].textContent, "0");
+    assert.strictEqual(harness.elements.villageChart.children[0].className, "dashboard-heatmap__grid", "village chart should render a heatmap grid");
+  }
+
+  {
+    const harness = createDashboardHarness();
+
+    harness.tests.resetState();
+    harness.tests.renderDashboard(sampleDashboardData());
+    assert.strictEqual(harness.elements.monthChart.children.length, 3, "column chart should accept monthly data");
+    assert.strictEqual(harness.elements.monthChart.children[0].children[2].textContent, "2026-01", "column chart should keep month labels");
+  }
+
+  {
+    const harness = createDashboardHarness();
+
+    harness.tests.resetState();
+    harness.tests.renderDashboard(sampleDashboardData({
+      byStatus: [
+        { status: "new", total: 3 },
+        { status: "in_progress", total: 2 },
+        { status: "resolved", total: 5 },
+        { status: "closed", total: 0 }
+      ]
+    }));
+    assert.strictEqual(harness.elements.statusChart.children[0].className, "dashboard-donut-chart__visual", "status chart should render donut visual");
+    assert.strictEqual(harness.elements.statusChart.children[0].children[0].children[0].textContent, "10", "donut chart should sum status totals");
+  }
+
+  {
+    const harness = createDashboardHarness();
+
+    harness.tests.resetState();
+    harness.tests.renderDashboard(sampleDashboardData());
+    assert.strictEqual(harness.elements.categoryChart.children.length, 5, "category chart should render top five only");
+    assert.strictEqual(harness.elements.categoryChart.children[0].children[0].children[0].textContent, "Road", "category chart should sort highest first");
+    assert.strictEqual(harness.elements.categoryChart.children[4].children[0].children[0].textContent, "Tree", "category chart should exclude the sixth item");
+  }
+
+  {
+    const harness = createDashboardHarness();
+    const summary = harness.tests.normalizeVillageMonthSummary([
+      { villageNo: "หมู่ 1", yearMonth: "2026-01", total: 2 },
+      { villageNo: "หมู่1", yearMonth: "2026-01", total: 3 },
+      { villageNo: "ม.1", yearMonth: "2026-02", total: 4 },
+      { villageNo: "๑", yearMonth: "2026-02", total: 5 },
+      { villageNo: "หมู่ 6", yearMonth: "2026-02", total: 99 }
+    ], [
+      { yearMonth: "2026-01", total: 5 },
+      { yearMonth: "2026-02", total: 9 }
+    ]);
+
+    assert.strictEqual(summary.rows.length, 5, "heat map should have exactly villages 1-5");
+    assert.strictEqual(summary.rows[0].label, "หมู่ 1", "heat map should normalize village labels");
+    assert.strictEqual(summary.rows[0].values[0].total, 5, "heat map should aggregate village aliases");
+    assert.strictEqual(summary.rows[0].values[1].total, 9, "heat map should aggregate Thai digit aliases");
+    assert.strictEqual(summary.rows[4].values[1].total, 0, "heat map should keep zero values");
+  }
+
+  {
+    const harness = createDashboardHarness();
+
+    harness.tests.resetState();
+    harness.tests.renderDashboard(sampleDashboardData({
+      byVillageMonth: []
+    }));
+    assert.strictEqual(harness.elements.villageChart.children[0].className, "dashboard-heatmap__grid", "heat map can render zero values when months exist");
+  }
+
+  {
+    const harness = createDashboardHarness();
+
+    harness.tests.renderChartFallback(harness.elements.monthChart);
+    assert.strictEqual(harness.elements.monthChart.children[0].textContent, "ยังไม่มีข้อมูลเพียงพอสำหรับแสดงกราฟ", "empty chart should show fallback text");
+  }
+
+  {
+    const harness = createDashboardHarness();
+
+    harness.tests.safeRenderChart("broken", "[data-dashboard-category-chart]", function () {
+      throw new Error("broken chart");
+    });
+    assert.strictEqual(harness.elements.categoryChart.children[0].textContent, "ยังไม่มีข้อมูลเพียงพอสำหรับแสดงกราฟ", "broken chart should render fallback without crashing");
+  }
+
+  {
+    const dashboardHtml = fs.readFileSync(path.join(__dirname, "..", "..", "..", "admin", "dashboard.html"), "utf8");
+    const chartIndex = dashboardHtml.indexOf("dashboard-overview-charts");
+    const summaryIndex = dashboardHtml.indexOf("summary-title");
+
+    assert.ok(chartIndex !== -1, "chart section should exist");
+    assert.ok(summaryIndex !== -1, "summary section should exist");
+    assert.ok(chartIndex < summaryIndex, "chart section should be before summary cards");
+  }
+
+  {
+    const adminCss = fs.readFileSync(path.join(__dirname, "..", "..", "css", "admin.css"), "utf8");
+
+    assert.ok(adminCss.indexOf("@media (prefers-reduced-motion: reduce)") !== -1, "reduced motion media query should exist");
+    assert.ok(adminCss.indexOf(".dashboard-chart-scroll") !== -1, "chart scroll container should exist for mobile overflow");
+    assert.ok(adminCss.indexOf("overflow-x: auto") !== -1, "mobile charts should scroll inside the card");
   }
 }
 

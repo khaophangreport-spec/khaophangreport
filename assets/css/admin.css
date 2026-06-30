@@ -4219,3 +4219,298 @@ body.admin-drawer-open {
     transform: none;
   }
 }
+
+/* Dashboard chart suite */
+.dashboard-overview-charts {
+  overflow: hidden;
+}
+
+.dashboard-overview-grid {
+  display: grid;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.dashboard-chart-card__description {
+  color: var(--color-text-secondary, var(--color-text-soft));
+  font-size: var(--font-size-sm);
+  max-width: 22rem;
+}
+
+.dashboard-chart-scroll {
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding-bottom: var(--space-1);
+}
+
+.dashboard-chart-scroll:focus-visible {
+  outline: 3px solid rgba(47, 158, 99, 0.28);
+  outline-offset: 4px;
+}
+
+.dashboard-overview-charts .dashboard-month-chart {
+  align-items: end;
+  display: flex;
+  gap: var(--space-3);
+  min-height: 16rem;
+  min-width: min(42rem, 100%);
+}
+
+.dashboard-overview-charts .dashboard-month-bar {
+  align-items: center;
+  display: grid;
+  flex: 1 0 3.7rem;
+  gap: var(--space-2);
+  grid-template-rows: minmax(9rem, 1fr) auto auto;
+  justify-items: center;
+  min-width: 3.7rem;
+}
+
+.dashboard-overview-charts .dashboard-month-bar span {
+  align-self: end;
+  animation: dashboard-chart-rise 0.48s ease both;
+  border-radius: 999px 999px 10px 10px;
+  min-height: 0.6rem;
+}
+
+.dashboard-overview-charts .dashboard-month-bar strong {
+  color: var(--color-text-primary, var(--color-primary-950));
+  font-size: var(--font-size-sm);
+}
+
+.dashboard-overview-charts .dashboard-month-bar small {
+  color: var(--color-text-secondary, var(--color-text-soft));
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+}
+
+.dashboard-donut-chart {
+  align-items: center;
+  display: grid;
+  gap: var(--space-4);
+  justify-items: center;
+}
+
+.dashboard-donut-chart__visual {
+  animation: dashboard-chart-fade 0.36s ease both;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  display: grid;
+  max-width: 15rem;
+  padding: 1.35rem;
+  place-items: center;
+  width: min(100%, 15rem);
+}
+
+.dashboard-donut-chart__center {
+  align-items: center;
+  aspect-ratio: 1;
+  background: rgba(255, 255, 255, 0.94);
+  border: 1px solid var(--color-green-100, var(--color-primary-100));
+  border-radius: 50%;
+  box-shadow: 0 10px 28px rgba(22, 51, 38, 0.08);
+  display: grid;
+  justify-items: center;
+  line-height: 1.1;
+  padding: var(--space-4);
+  width: 100%;
+}
+
+.dashboard-donut-chart__center strong {
+  color: var(--color-primary-950);
+  font-size: clamp(2rem, 5vw, 3rem);
+}
+
+.dashboard-donut-chart__center span {
+  color: var(--color-text-secondary, var(--color-text-soft));
+  font-size: var(--font-size-sm);
+}
+
+.dashboard-donut-chart__legend {
+  display: grid;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.dashboard-donut-chart__legend-item {
+  align-items: center;
+  color: var(--color-text-secondary, var(--color-text-soft));
+  display: grid;
+  font-size: var(--font-size-sm);
+  gap: var(--space-2);
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.dashboard-donut-chart__legend-item strong {
+  color: var(--color-text-primary, var(--color-primary-950));
+  white-space: nowrap;
+}
+
+.dashboard-donut-chart__marker {
+  border-radius: 999px;
+  display: inline-block;
+  height: 0.8rem;
+  width: 0.8rem;
+}
+
+.dashboard-bars--ranked .dashboard-bar {
+  animation: dashboard-chart-fade 0.32s ease both;
+}
+
+.dashboard-bars--ranked .dashboard-bar__track {
+  height: 0.9rem;
+}
+
+.dashboard-heatmap {
+  display: grid;
+  gap: var(--space-3);
+  min-width: max-content;
+}
+
+.dashboard-heatmap__grid {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.dashboard-heatmap__corner,
+.dashboard-heatmap__month,
+.dashboard-heatmap__label {
+  color: var(--color-text-secondary, var(--color-text-soft));
+  font-size: var(--font-size-xs);
+  min-height: 2.4rem;
+}
+
+.dashboard-heatmap__corner,
+.dashboard-heatmap__month {
+  align-items: end;
+  display: flex;
+  justify-content: center;
+}
+
+.dashboard-heatmap__label {
+  align-items: center;
+  display: flex;
+  font-weight: var(--font-weight-bold);
+  white-space: nowrap;
+}
+
+.dashboard-heatmap__cell {
+  align-items: center;
+  animation: dashboard-chart-fade 0.36s ease both;
+  border: 1px solid rgba(47, 158, 99, 0.14);
+  border-radius: 12px;
+  color: var(--color-primary-950);
+  display: inline-flex;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  justify-content: center;
+  min-height: 2.4rem;
+  min-width: 3.75rem;
+}
+
+.dashboard-heatmap__cell:focus-visible {
+  outline: 3px solid rgba(47, 158, 99, 0.28);
+  outline-offset: 2px;
+}
+
+.dashboard-heatmap__cell--level-0 {
+  background: #f2f8f0;
+  color: var(--color-text-secondary, var(--color-text-soft));
+}
+
+.dashboard-heatmap__cell--level-1 {
+  background: #dff3df;
+}
+
+.dashboard-heatmap__cell--level-2 {
+  background: #bce7c4;
+}
+
+.dashboard-heatmap__cell--level-3 {
+  background: #86d49d;
+}
+
+.dashboard-heatmap__cell--level-4 {
+  background: #2f9e63;
+  color: #ffffff;
+}
+
+.dashboard-heatmap__legend {
+  align-items: center;
+  color: var(--color-text-secondary, var(--color-text-soft));
+  display: flex;
+  font-size: var(--font-size-xs);
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+.dashboard-heatmap__legend-swatch {
+  border-radius: 999px;
+  display: inline-block;
+  height: 0.75rem;
+  width: 1.25rem;
+}
+
+@keyframes dashboard-chart-rise {
+  from {
+    transform: scaleY(0.2);
+    transform-origin: bottom;
+  }
+
+  to {
+    transform: scaleY(1);
+    transform-origin: bottom;
+  }
+}
+
+@keyframes dashboard-chart-fade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (min-width: 760px) {
+  .dashboard-overview-grid--top {
+    grid-template-columns: minmax(0, 2fr) minmax(18rem, 1fr);
+  }
+
+  .dashboard-overview-grid--bottom {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .dashboard-overview-charts .dashboard-month-chart {
+    min-width: 34rem;
+  }
+
+  .dashboard-donut-chart__visual {
+    max-width: 12rem;
+  }
+
+  .dashboard-donut-chart__legend-item {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .dashboard-donut-chart__legend-item strong {
+    grid-column: 2;
+    white-space: normal;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-overview-charts .dashboard-month-bar span,
+  .dashboard-bars--ranked .dashboard-bar,
+  .dashboard-donut-chart__visual,
+  .dashboard-heatmap__cell {
+    animation: none;
+  }
+}
