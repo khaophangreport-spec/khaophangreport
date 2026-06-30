@@ -132,6 +132,9 @@ function ReportService_create(request) {
     ReportService_createInitialTimeline_(report, updateId, attachmentResult.records.length, now);
     createdUpdateId = updateId;
     AuditService_logReportCreated_(report, attachmentResult.records.length, requestId);
+    AdminNotificationService_notifyNewReportSafe_(report, {
+      category: context.category
+    });
     ReportService_clearDashboardCacheSafe_("report.create", requestId);
 
     return {

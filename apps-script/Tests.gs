@@ -622,6 +622,355 @@ function testReportCreateRateLimitKeyNoRawPii() {
   };
 }
 
+function testAdminNotificationEmailParsingSkipsInvalidAndDuplicates() {
+  const recipients = AdminNotificationService_parseEmailList_(" admin@example.com,invalid,ADMIN@example.com,ops@example.com ");
+
+  if (recipients.join(",") !== "admin@example.com,ops@example.com") {
+    throw new Error("Admin notification recipient parsing failed: " + recipients.join(","));
+  }
+
+  return {
+    ok: true,
+    testType: "unit",
+    count: recipients.length
+  };
+}
+
+function testAdminNotificationEmailContentSafe() {
+  const originalConfigGetProperty = Config_getProperty_;
+
+  Config_getProperty_ = function (key, fallbackValue) {
+    if (key === ADMIN_APP_BASE_URL_PROPERTY_) {
+      return "https://khaophangreport.pages.dev";
+    }
+
+    return fallbackValue || "";
+  };
+
+  try {
+    const message = AdminNotificationService_buildNewReportEmail_({
+      report_id: "REPORT-001",
+      tracking_code: "KPR-260630-0001",
+      title: "ไฟดับหน้าบ้าน",
+      category_id: "CAT-LIGHT",
+      village_no: "หมู่ 1",
+      priority: "normal",
+      status: "new",
+      is_anonymous: true,
+      reporter_name: "Private Name",
+      reporter_phone: "0812345678",
+      reporter_email: "person@example.com",
+      created_at: "2026-06-30T10:00:00.000Z"
+    }, {
+      category: {
+        name: "ไฟฟ้า"
+      }
+    });
+    const serialized = JSON.stringify(message);
+
+    if (message.subject.indexOf("KPR-260630-0001") === -1) {
+      throw new Error("Admin notification subject does not include report id/tracking code");
+    }
+
+    ["ไฟฟ้า", "หมู่ 1", "https://khaophangreport.pages.dev/admin/reports.html"].forEach(function (expected) {
+      if (serialized.indexOf(expected) === -1) {
+        throw new Error("Admin notification email missed expected content: " + expected);
+      }
+    });
+
+    ["Private Name", "0812345678", "person@example.com"].forEach(function (forbidden) {
+      if (serialized.indexOf(forbidden) !== -1) {
+        throw new Error("Admin notification email leaked reporter PII: " + forbidden);
+      }
+    });
+
+    return {
+      ok: true,
+      testType: "unit",
+      checked: 3
+    };
+  } finally {
+    Config_getProperty_ = originalConfigGetProperty;
+  }
+}
+
+function testAdminNotificationNoRecipientsSkipsSafely() {
+  const originalConfigGetProperty = Config_getProperty_;
+  const originalMailApp = typeof MailApp === "undefined" ? undefined : MailApp;
+  let mailCalled = false;
+
+  Config_getProperty_ = function (key, fallbackValue) {
+    if (key === ADMIN_NOTIFICATION_EMAILS_PROPERTY_) {
+      return "";
+    }
+
+    return fallbackValue || "";
+  };
+  MailApp = {
+    getRemainingDailyQuota: function () {
+      return 10;
+    },
+    sendEmail: function () {
+      mailCalled = true;
+    }
+  };
+
+  try {
+    const result = AdminNotificationService_notifyNewReportSafe_({
+      report_id: "REPORT-NO-RECIPIENT",
+      tracking_code: "KPR-NO-RECIPIENT"
+    }, {});
+
+    if (!result || result.ok !== true || result.skipped !== true || mailCalled) {
+      throw new Error("Admin notification without recipients did not skip safely");
+    }
+
+    return {
+      ok: true,
+      testType: "unit"
+    };
+  } finally {
+    Config_getProperty_ = originalConfigGetProperty;
+    MailApp = originalMailApp;
+  }
+}
+
+function testAdminNotificationQuotaShortageDoesNotThrow() {
+  const originalConfigGetProperty = Config_getProperty_;
+  const originalMailApp = typeof MailApp === "undefined" ? undefined : MailApp;
+  const originalCacheService = typeof CacheService === "undefined" ? undefined : CacheService;
+
+  Config_getProperty_ = function (key, fallbackValue) {
+    if (key === ADMIN_NOTIFICATION_EMAILS_PROPERTY_) {
+      return "admin@example.com";
+    }
+
+    return fallbackValue || "";
+  };
+  MailApp = {
+    getRemainingDailyQuota: function () {
+      return 0;
+    },
+    sendEmail: function () {
+      throw new Error("MailApp should not be called when quota is exhausted");
+    }
+  };
+  CacheService = Tests_createFakeCacheService_();
+
+  try {
+    const result = AdminNotificationService_notifyNewReportSafe_({
+      report_id: "REPORT-QUOTA",
+      tracking_code: "KPR-QUOTA"
+    }, {});
+
+    if (!result || result.ok !== false || result.code !== "MAIL_QUOTA_EXCEEDED") {
+      throw new Error("Admin notification quota shortage did not return safe failure");
+    }
+
+    return {
+      ok: true,
+      testType: "unit",
+      code: result.code
+    };
+  } finally {
+    Config_getProperty_ = originalConfigGetProperty;
+    MailApp = originalMailApp;
+    CacheService = originalCacheService;
+  }
+}
+
+function testAdminNotificationDuplicateReportIdSendsOnce() {
+  const originalConfigGetProperty = Config_getProperty_;
+  const originalMailApp = typeof MailApp === "undefined" ? undefined : MailApp;
+  const originalCacheService = typeof CacheService === "undefined" ? undefined : CacheService;
+  let sendCount = 0;
+
+  Config_getProperty_ = function (key, fallbackValue) {
+    if (key === ADMIN_NOTIFICATION_EMAILS_PROPERTY_) {
+      return "admin@example.com";
+    }
+
+    return fallbackValue || "";
+  };
+  MailApp = {
+    getRemainingDailyQuota: function () {
+      return 10;
+    },
+    sendEmail: function () {
+      sendCount += 1;
+    }
+  };
+  CacheService = Tests_createFakeCacheService_();
+
+  try {
+    AdminNotificationService_notifyNewReportSafe_({
+      report_id: "REPORT-DUP-NOTIFY",
+      tracking_code: "KPR-DUP-NOTIFY"
+    }, {});
+    AdminNotificationService_notifyNewReportSafe_({
+      report_id: "REPORT-DUP-NOTIFY",
+      tracking_code: "KPR-DUP-NOTIFY"
+    }, {});
+
+    if (sendCount !== 1) {
+      throw new Error("Admin notification duplicate report id sent " + sendCount + " emails");
+    }
+
+    return {
+      ok: true,
+      testType: "unit",
+      count: sendCount
+    };
+  } finally {
+    Config_getProperty_ = originalConfigGetProperty;
+    MailApp = originalMailApp;
+    CacheService = originalCacheService;
+  }
+}
+
+function testReportCreateSucceedsWhenAdminNotificationFails() {
+  const originalLockService = LockService;
+  const originalCheckRateLimit = ReportService_checkRateLimit_;
+  const originalAssertNotDuplicate = ReportService_assertNotDuplicateRequest_;
+  const originalValidateCreate = ReportService_validateCreateRequest_;
+  const originalGenerateTrackingCode = ReportService_generateUniqueTrackingCode_;
+  const originalAppend = SheetRepository_append_;
+  const originalUploadAttachments = AttachmentService_uploadReportAttachments_;
+  const originalCreateTimeline = ReportService_createInitialTimeline_;
+  const originalAuditLog = AuditService_logReportCreated_;
+  const originalClearDashboardCache = ReportService_clearDashboardCacheSafe_;
+  const originalConfigGetProperty = Config_getProperty_;
+  const originalMailApp = typeof MailApp === "undefined" ? undefined : MailApp;
+  const originalCacheService = typeof CacheService === "undefined" ? undefined : CacheService;
+  const events = [];
+
+  LockService = {
+    getScriptLock: function () {
+      return {
+        waitLock: function () {},
+        releaseLock: function () {}
+      };
+    }
+  };
+  ReportService_checkRateLimit_ = function () {};
+  ReportService_assertNotDuplicateRequest_ = function () {};
+  ReportService_validateCreateRequest_ = function () {
+    return {
+      title: "ไฟดับหน้าบ้าน",
+      description: "ไฟดับหลายชั่วโมง",
+      incidentDate: "2026-06-30",
+      location: {
+        name: "หน้าศาลา",
+        villageNo: "หมู่ 1",
+        landmark: "",
+        latitude: "",
+        longitude: "",
+        mapUrl: ""
+      },
+      reporter: {
+        isAnonymous: true,
+        name: "",
+        phone: "",
+        email: "",
+        contactMethod: "none"
+      },
+      consent: {
+        privacyVersion: "1.0"
+      },
+      priorityReported: "normal",
+      category: {
+        category_id: "CAT-LIGHT",
+        name: "ไฟฟ้า",
+        target_days: 7
+      },
+      attachments: []
+    };
+  };
+  ReportService_generateUniqueTrackingCode_ = function () {
+    return "KPR-TEST-NOTIFY";
+  };
+  SheetRepository_append_ = function (sheetName) {
+    events.push("append:" + sheetName);
+    return {};
+  };
+  AttachmentService_uploadReportAttachments_ = function () {
+    events.push("attachments");
+    return {
+      uploadedFileIds: [],
+      records: []
+    };
+  };
+  ReportService_createInitialTimeline_ = function () {
+    events.push("timeline");
+    return {};
+  };
+  AuditService_logReportCreated_ = function () {
+    events.push("audit");
+    return {};
+  };
+  ReportService_clearDashboardCacheSafe_ = function () {
+    events.push("cache");
+  };
+  Config_getProperty_ = function (key, fallbackValue) {
+    if (key === ADMIN_NOTIFICATION_EMAILS_PROPERTY_) {
+      return "admin@example.com";
+    }
+
+    if (key === ADMIN_APP_BASE_URL_PROPERTY_) {
+      return "https://khaophangreport.pages.dev";
+    }
+
+    return fallbackValue || "";
+  };
+  MailApp = {
+    getRemainingDailyQuota: function () {
+      return 10;
+    },
+    sendEmail: function () {
+      events.push("mail");
+      throw new Error("mail failed");
+    }
+  };
+  CacheService = Tests_createFakeCacheService_();
+
+  try {
+    const result = ReportService_create({
+      action: "report.create",
+      requestId: "REQ-TEST-NOTIFICATION-FAIL",
+      data: {}
+    });
+
+    if (!result || !result.data || result.data.trackingCode !== "KPR-TEST-NOTIFY") {
+      throw new Error("report.create did not return success when notification failed");
+    }
+
+    if (events.indexOf("mail") === -1 || events.indexOf("mail") < events.indexOf("append:reports") ||
+        events.indexOf("mail") < events.indexOf("timeline") || events.indexOf("mail") < events.indexOf("audit")) {
+      throw new Error("MailApp was called before report/timeline/audit completed: " + events.join(","));
+    }
+
+    return {
+      ok: true,
+      testType: "unit",
+      checked: events.length
+    };
+  } finally {
+    LockService = originalLockService;
+    ReportService_checkRateLimit_ = originalCheckRateLimit;
+    ReportService_assertNotDuplicateRequest_ = originalAssertNotDuplicate;
+    ReportService_validateCreateRequest_ = originalValidateCreate;
+    ReportService_generateUniqueTrackingCode_ = originalGenerateTrackingCode;
+    SheetRepository_append_ = originalAppend;
+    AttachmentService_uploadReportAttachments_ = originalUploadAttachments;
+    ReportService_createInitialTimeline_ = originalCreateTimeline;
+    AuditService_logReportCreated_ = originalAuditLog;
+    ReportService_clearDashboardCacheSafe_ = originalClearDashboardCache;
+    Config_getProperty_ = originalConfigGetProperty;
+    MailApp = originalMailApp;
+    CacheService = originalCacheService;
+  }
+}
+
 function testReportTrackRouterWhitelist() {
   const registration = Tests_assertRouterHandler_(
     "report.track",
@@ -4284,6 +4633,23 @@ function Tests_createFakeRange_(sheet, startRow, startColumn, rowCount, columnCo
   };
 }
 
+function Tests_createFakeCacheService_() {
+  const store = {};
+
+  return {
+    getScriptCache: function () {
+      return {
+        get: function (key) {
+          return Object.prototype.hasOwnProperty.call(store, key) ? store[key] : null;
+        },
+        put: function (key, value) {
+          store[key] = value;
+        }
+      };
+    }
+  };
+}
+
 const TEST_SUITE_DATA_PREFIX_ = "TEST-SUITE-";
 const TEST_SUITE_REQUEST_PREFIX_ = "REQ-TEST-SUITE-";
 
@@ -4298,6 +4664,12 @@ function runKhaophangCoreTestSuite() {
     { group: "report.create", name: "consent validation", fn: testReportCreateValidationMissingConsent },
     { group: "anonymous report", name: "anonymous reporter removes pii", fn: testReportCreateAnonymousReporterSanitizesPii },
     { group: "invalid payload", name: "attachment limit validation", fn: testReportCreateAttachmentValidationLimit },
+    { group: "notification", name: "admin email parsing", fn: testAdminNotificationEmailParsingSkipsInvalidAndDuplicates },
+    { group: "notification", name: "admin email content safe", fn: testAdminNotificationEmailContentSafe },
+    { group: "notification", name: "no recipients skips safely", fn: testAdminNotificationNoRecipientsSkipsSafely },
+    { group: "notification", name: "quota shortage safe", fn: testAdminNotificationQuotaShortageDoesNotThrow },
+    { group: "notification", name: "duplicate report id sends once", fn: testAdminNotificationDuplicateReportIdSendsOnce },
+    { group: "notification", name: "report create succeeds when email fails", fn: testReportCreateSucceedsWhenAdminNotificationFails },
     { group: "duplicate request", name: "report.create duplicate request", fn: testReportCreateDuplicateRequestDetection },
     { group: "duplicate request", name: "report.addInfo duplicate request", fn: testReportAddInfoDuplicateRequestDetection },
     { group: "report.track", name: "tracking code normalization", fn: testReportTrackNormalizeTrackingCode },
