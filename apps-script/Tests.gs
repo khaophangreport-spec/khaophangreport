@@ -1905,26 +1905,31 @@ function testDashboardKnownAuthErrorKeepsCode() {
 }
 
 function testResponseUnhandledBackendErrorLogSafe() {
-  const originalConsoleError = console.error;
+  const originalLogWriter = Response_writeUnhandledBackendErrorLog_;
+  const originalSafeLog = Security_safeLog_;
   const captured = [];
   const error = new Error("Boom for person@example.com phone 0812345678");
+  const meta = {
+    requestId: "REQ-TEST-UNHANDLED-LOG",
+    action: "dashboard.summary",
+    handler: "DashboardService_summary",
+    lastStep: "REPORT_SUMMARY_OK",
+    sessionToken: "SHOULD-NOT-LOG"
+  };
+  let userResponse = null;
 
   error.name = "DiagnosticError";
 
-  console.error = function (message) {
-    captured.push(String(message || ""));
+  Response_writeUnhandledBackendErrorLog_ = function (payload) {
+    captured.push(Utils_isPlainObject_(payload) ? JSON.stringify(payload) : String(payload || ""));
   };
+  Security_safeLog_ = function () {};
 
   try {
-    Response_logUnhandledBackendError_(error, {
-      requestId: "REQ-TEST-UNHANDLED-LOG",
-      action: "dashboard.summary",
-      handler: "DashboardService_summary",
-      lastStep: "REPORT_SUMMARY_OK",
-      sessionToken: "SHOULD-NOT-LOG"
-    });
+    userResponse = Response_fromException_(error, meta);
   } finally {
-    console.error = originalConsoleError;
+    Response_writeUnhandledBackendErrorLog_ = originalLogWriter;
+    Security_safeLog_ = originalSafeLog;
   }
 
   if (captured.length !== 1) {
@@ -1937,9 +1942,11 @@ function testResponseUnhandledBackendErrorLogSafe() {
   if (payload.type !== "UNHANDLED_BACKEND_ERROR" ||
       payload.requestId !== "REQ-TEST-UNHANDLED-LOG" ||
       payload.action !== "dashboard.summary" ||
+      payload.route !== "dashboard.summary" ||
       payload.handler !== "DashboardService_summary" ||
       payload.lastStep !== "REPORT_SUMMARY_OK" ||
       payload.errorName !== "DiagnosticError" ||
+      !payload.errorMessage ||
       !payload.stack) {
     throw new Error("UNHANDLED_BACKEND_ERROR log missed expected diagnostic fields");
   }
@@ -1947,6 +1954,26 @@ function testResponseUnhandledBackendErrorLogSafe() {
   ["person@example.com", "0812345678", "SHOULD-NOT-LOG"].forEach(function (forbidden) {
     if (serialized.indexOf(forbidden) !== -1) {
       throw new Error("UNHANDLED_BACKEND_ERROR log leaked sensitive value: " + forbidden);
+    }
+  });
+
+  if (payload.errorMessage.indexOf(SECURITY_REDACTED_TEXT_) === -1) {
+    throw new Error("UNHANDLED_BACKEND_ERROR log did not redact sensitive message text");
+  }
+
+  const userPayload = JSON.parse(userResponse.getContent());
+  const userSerialized = JSON.stringify(userPayload);
+
+  if (userPayload.ok !== false ||
+      !userPayload.error ||
+      userPayload.error.code !== "INTERNAL_ERROR" ||
+      userPayload.error.message.indexOf("Boom") !== -1) {
+    throw new Error("UNHANDLED_BACKEND_ERROR response was not generic INTERNAL_ERROR");
+  }
+
+  ["person@example.com", "0812345678"].forEach(function (forbidden) {
+    if (userSerialized.indexOf(forbidden) !== -1) {
+      throw new Error("UNHANDLED_BACKEND_ERROR response leaked sensitive value: " + forbidden);
     }
   });
 

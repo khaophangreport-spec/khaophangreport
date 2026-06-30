@@ -75,7 +75,11 @@ function Response_logUnhandledBackendError_(error, meta) {
     stack: error && error.stack ? error.stack : ""
   };
 
-  console.error(JSON.stringify(Response_redactLogPayload_(payload)));
+  Response_writeUnhandledBackendErrorLog_(Response_redactLogPayload_(payload));
+}
+
+function Response_writeUnhandledBackendErrorLog_(payload) {
+  console.error(JSON.stringify(payload));
 }
 
 function Response_redactLogPayload_(value) {

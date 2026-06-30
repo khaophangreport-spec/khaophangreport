@@ -267,9 +267,16 @@ function runTestAdminNewReportEmailForDevOnly() {
     throw ApiError_("FORBIDDEN", "Manual notification test is available only outside production");
   }
 
+  const testRunId = new Date().getTime() + "-" + (
+    typeof Utilities !== "undefined" && Utilities.getUuid
+      ? Utilities.getUuid()
+      : Utils_createUuid_()
+  );
+  const trackingSuffix = String(testRunId).replace(/[^A-Za-z0-9]/g, "").slice(-12).toUpperCase();
+
   const result = AdminNotificationService_notifyNewReportSafe_({
-    report_id: "REPORT-TEST-NOTIFICATION",
-    tracking_code: "TEST-KPR-0001",
+    report_id: "REPORT-TEST-NOTIFICATION-" + testRunId,
+    tracking_code: "TEST-KPR-" + trackingSuffix,
     title: "ทดสอบระบบแจ้งเตือนผู้ดูแล",
     category_id: "TEST",
     village_no: "หมู่ 1",
