@@ -1,35 +1,39 @@
-const CACHE_VERSION = "v1";
+const CACHE_VERSION = "v2";
 const STATIC_CACHE_NAME = "khaophang-report-static-" + CACHE_VERSION;
 
 const STATIC_ASSETS = [
-  "./",
-  "./index.html",
-  "./report.html",
-  "./track.html",
-  "./faq.html",
-  "./contact.html",
-  "./report-success.html",
-  "./assets/css/variables.css",
-  "./assets/css/reset.css",
-  "./assets/css/base.css",
-  "./assets/css/components.css",
-  "./assets/css/utilities.css",
-  "./assets/css/public.css",
-  "./assets/js/config.js",
-  "./assets/js/api.js",
-  "./assets/js/utils.js",
-  "./assets/js/install-app.js",
-  "./assets/js/public/home.js",
-  "./assets/js/public/report.js",
-  "./assets/js/public/track.js",
-  "./assets/js/public/faq.js",
-  "./assets/icons/icon-khophangreport.png",
-  "./assets/images/home-hero.jpg",
-  "./assets/images/hero-images-report.jpg",
-  "./assets/images/hero-images-track.jpg",
-  "./assets/images/hero-images-faqt.jpg",
-  "./assets/images/hero-images-contact.jpg",
-  "./manifest.webmanifest"
+  "/",
+  "/index.html",
+  "/report.html",
+  "/track.html",
+  "/faq.html",
+  "/contact.html",
+  "/report-success.html",
+  "/assets/css/variables.css",
+  "/assets/css/reset.css",
+  "/assets/css/base.css",
+  "/assets/css/components.css",
+  "/assets/css/utilities.css",
+  "/assets/css/public.css",
+  "/assets/js/config.js",
+  "/assets/js/api.js",
+  "/assets/js/utils.js",
+  "/assets/js/install-app.js",
+  "/assets/js/public/home.js",
+  "/assets/js/public/report.js",
+  "/assets/js/public/track.js",
+  "/assets/js/public/faq.js",
+  "/assets/icons/icon-192.png",
+  "/assets/icons/icon-512.png",
+  "/assets/icons/icon-512-maskable.png",
+  "/assets/icons/apple-touch-icon.png",
+  "/assets/icons/icon-khophangreport.png",
+  "/assets/images/home-hero.jpg",
+  "/assets/images/hero-images-report.jpg",
+  "/assets/images/hero-images-track.jpg",
+  "/assets/images/hero-images-faqt.jpg",
+  "/assets/images/hero-images-contact.jpg",
+  "/manifest.webmanifest"
 ];
 
 self.addEventListener("install", function (event) {
@@ -74,7 +78,7 @@ self.addEventListener("fetch", function (event) {
   if (request.mode === "navigate") {
     event.respondWith(
       fetch(request).catch(function () {
-        return caches.match("./index.html");
+        return caches.match("/index.html");
       })
     );
     return;

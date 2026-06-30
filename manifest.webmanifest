@@ -1,18 +1,31 @@
 {
+  "id": "/",
   "name": "Khaophang Report",
   "short_name": "เขาพังรีพอร์ต",
   "description": "ระบบแจ้งและติดตามปัญหาชุมชนตำบลเขาพัง",
-  "start_url": "./index.html",
-  "scope": "./",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#f7f8f5",
   "theme_color": "#18743f",
   "icons": [
     {
-      "src": "assets/icons/icon-khophangreport.png",
-      "sizes": "2048x2048",
+      "src": "/assets/icons/icon-192.png",
+      "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
+    },
+    {
+      "src": "/assets/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/icons/icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
